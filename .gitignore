@@ -1,0 +1,41 @@
+# gstack local state
+.gstack/
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+*.local
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Node
+node_modules/
+dist/
+build/
+.cache/
+npm-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Azure
+.azure/
+local.settings.json
