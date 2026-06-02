@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://video-analyst-app/schema/dsl.schema.json",
+  "title": "VisualProgram",
+  "description": "The whitelisted JSON DSL the codegen LLM emits for a canned question. ONE schema serves three masters (decision: dsl-json-schema-unification): (1) the Azure OpenAI structured-output constraint so codegen is valid-by-construction, (2) the FastAPI interpreter's structural validator, (3) the base shape the run-doc augments. A program is an ordered list of named steps; each step's `id` is a binding that later steps reference by name. The schema enforces STRUCTURE (whitelisted ops + arg shapes + types). SEMANTICS (a ref names a real prior step of a compatible kind, value ranges) are enforced by the interpreter — see validate_program.py. OpenAI strict note: the API call supplies {name, strict:true}; strip `$schema`/`$id`/`title` before sending (keywords OpenAI rejects at root). Everything else here is strict-compatible: object roots, additionalProperties:false, all-required, enums, $defs/$ref, anyOf.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["program"],
+  "properties": {
+    "program": {
+      "type": "array",
+      "description": "Ordered execution steps. Step N may reference the `id` of any step < N.",
+      "items": {
+        "anyOf": [
+          { "$ref": "#/$defs/sample_frames" },
+          { "$ref": "#/$defs/detect" },
+          { "$ref": "#/$defs/crop" },
+          { "$ref": "#/$defs/read_text" },
+          { "$ref": "#/$defs/filter" },
+          { "$ref": "#/$defs/count" },
+          { "$ref": "#/$defs/temporal_order" },
+          { "$ref": "#/$defs/answer" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "binding": {
+      "type": "string",
+      "description": "The `id` of a prior step whose output this argument consumes (a named binding). The interpreter checks the referenced step exists, precedes this one, and produces a compatible kind."
+    },
+    "sample_frames": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "args"],
+      "description": "Sample frames from the clip over a time window. Output kind: frames.",
+      "properties": {
+        "id": { "type": "string" },
+        "op": { "type": "string", "enum": ["sample_frames"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start_ms", "end_ms", "fps"],
+          "properties": {
+            "start_ms": { "type": "integer", "description": "Window start in ms. Interpreter range: 0..clip_duration_ms." },
+            "end_ms": { "type": "integer", "description": "Window end in ms, > start_ms." },
+            "fps": { "type": "integer", "description": "Sampling rate. Interpreter range: 1..30." }
+          }
+        }
+      }
+    },
+    "detect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "args"],
+      "description": "Run Azure AI Vision object detection per frame. Output kind: detections (boxes with class + confidence, per frame).",
+      "properties": {
+        "id": { "type": "string" },
+        "op": { "type": "string", "enum": ["detect"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["frames", "classes"],
+          "properties": {
+            "frames": { "$ref": "#/$defs/binding" },
+            "classes": {
+              "type": "array",
+              "description": "Object classes to keep, e.g. [\"person\",\"ball\"]. Azure tags are matched case-insensitively.",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "crop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "args"],
+      "description": "Crop a sub-region from each detection box (the load-bearing detect->crop->read_text association chain). Output kind: crops.",
+      "properties": {
+        "id": { "type": "string" },
+        "op": { "type": "string", "enum": ["crop"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["detections", "region"],
+          "properties": {
+            "detections": { "$ref": "#/$defs/binding" },
+            "region": {
+              "type": "string",
+              "enum": ["jersey", "full", "ball"],
+              "description": "Which sub-region of each box to crop. `jersey` = upper-back number region (the OCR target for read_text)."
+            }
+          }
+        }
+      }
+    },
+    "read_text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "args"],
+      "description": "Run Azure AI Vision Read (OCR) on each crop. Output kind: texts (string + confidence + source box, per crop).",
+      "properties": {
+        "id": { "type": "string" },
+        "op": { "type": "string", "enum": ["read_text"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["crops"],
+          "properties": {
+            "crops": { "$ref": "#/$defs/binding" }
+          }
+        }
+      }
+    },
+    "filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "args"],
+      "description": "Keep only items whose `field` equals `equals`. Output kind: same kind as the input items.",
+      "properties": {
+        "id": { "type": "string" },
+        "op": { "type": "string", "enum": ["filter"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["items", "where"],
+          "properties": {
+            "items": { "$ref": "#/$defs/binding" },
+            "where": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["field", "equals"],
+              "properties": {
+                "field": { "type": "string", "description": "Field on each item, e.g. \"text\" or \"class\"." },
+                "equals": { "type": "string", "description": "Value to match (string compare)." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "args"],
+      "description": "Count the items in a collection. Output kind: number.",
+      "properties": {
+        "id": { "type": "string" },
+        "op": { "type": "string", "enum": ["count"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["items"],
+          "properties": {
+            "items": { "$ref": "#/$defs/binding" }
+          }
+        }
+      }
+    },
+    "temporal_order": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "args"],
+      "description": "Order events in time to reason about sequence (e.g. is this the FIRST goal). Output kind: ordered events.",
+      "properties": {
+        "id": { "type": "string" },
+        "op": { "type": "string", "enum": ["temporal_order"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["events", "by"],
+          "properties": {
+            "events": { "$ref": "#/$defs/binding" },
+            "by": { "type": "string", "enum": ["timestamp"], "description": "Ordering key. v1 supports timestamp only." }
+          }
+        }
+      }
+    },
+    "answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "args"],
+      "description": "Produce the final evidence-grounded answer to the canned question. Output kind: answer (verdict + supporting bindings). Must be the last step.",
+      "properties": {
+        "id": { "type": "string" },
+        "op": { "type": "string", "enum": ["answer"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "question"],
+          "properties": {
+            "from": { "$ref": "#/$defs/binding" },
+            "question": { "type": "string", "description": "The canned question being answered, verbatim." }
+          }
+        }
+      }
+    }
+  }
+}

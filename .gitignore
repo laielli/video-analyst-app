@@ -39,3 +39,12 @@ venv/
 # Azure
 .azure/
 local.settings.json
+
+# Video clips — source clips live in Azure Blob, not git (avoid repo bloat).
+# Force-add a small curated clip with `git add -f` if you really want it tracked.
+*.mov
+*.mp4
+*.mkv
+# Local frame-extraction scratch
+/frames/
+*.frames/

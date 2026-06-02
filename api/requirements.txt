@@ -1,0 +1,13 @@
+# DSL schema validation
+jsonschema>=4.21
+
+# Azure AI Vision Image Analysis 4.0 — detect (OBJECTS) + read_text (READ/OCR)
+azure-ai-vision-imageanalysis>=1.0.0
+azure-core>=1.30
+
+# Azure OpenAI gpt-4o vision — accurate read_text backend for stylized jersey numbers
+openai>=1.40
+
+# Web: FastAPI + SSE wrapper around the interpreter
+fastapi>=0.110
+uvicorn[standard]>=0.29
