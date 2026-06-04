@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://video-analyst-app/schema/run_doc.schema.json",
+  "title": "RunDoc",
+  "description": "The execution trace the interpreter emits and the UI consumes per step — the formal contract behind finalized.html's STAGES array. It embeds the visual program verbatim (validate it against dsl.schema.json) and adds one trace entry per step with the EVIDENCE-panel readout (producer / input / output / confidence, D-DR2), normalized overlay boxes (overlay-normalized-stills), per-step status incl. diagnostic-empty (D-DR5), and provenance (live | cached | pinned) for demo honesty. The interpreter replays this with zero live calls on the hero path (D1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "query", "clip", "program", "trace", "findings"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "query": { "type": "string", "description": "The canned question being answered, verbatim." },
+    "clip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "width", "height", "duration_ms"],
+      "properties": {
+        "id": { "type": "string" },
+        "width": { "type": "integer" },
+        "height": { "type": "integer" },
+        "duration_ms": { "type": "integer" },
+        "fps": { "type": "number" }
+      }
+    },
+    "program": {
+      "type": "array",
+      "description": "The DSL program, verbatim. Validate separately against dsl.schema.json.",
+      "items": { "type": "object" }
+    },
+    "trace": {
+      "type": "array",
+      "description": "One entry per program step, in execution order. trace[i].id MUST equal program[i].id.",
+      "items": { "$ref": "#/$defs/step_result" }
+    },
+    "findings": { "$ref": "#/$defs/findings" }
+  },
+  "$defs": {
+    "box": {
+      "type": "object",
+      "description": "Axis-aligned box in normalized 0-1 coords (x,y = top-left).",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "w": { "type": "number", "minimum": 0, "maximum": 1 },
+        "h": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "overlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["box", "tone"],
+      "properties": {
+        "box": { "$ref": "#/$defs/box" },
+        "label": { "type": "string", "description": "e.g. 'read_text -> 10' (D-DR2: evidence labeled by producing step)." },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "tone": {
+          "type": "string",
+          "enum": ["azure", "teal", "green", "amber", "dim"],
+          "description": "Maps to functional status colors (D-DR9). azure=detection, teal=active focus, green=found/answer, amber=running, dim=de-emphasized."
+        },
+        "kind": { "type": "string", "enum": ["box", "crop", "goal", "ball"] }
+      }
+    },
+    "step_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op", "status", "source"],
+      "properties": {
+        "id": { "type": "string", "description": "Must equal the program step id this result is for." },
+        "op": { "type": "string" },
+        "producer": { "type": "string", "description": "Human label of the primitive, for the EVIDENCE readout 'Producer step'." },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "done", "empty", "error"],
+          "description": "done=produced evidence; empty=ran, no match (D-DR5 diagnostic empty); error=failed step; pending/active for live streaming."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["live", "cached", "pinned"],
+          "description": "Provenance for demo honesty: live=real call this run; cached=precomputed real Azure output; pinned=hand-verified value (e.g. the hero #10 OCR)."
+        },
+        "inputs": { "type": "array", "items": { "type": "string" }, "description": "Binding ids consumed (for the readout 'Input (from prior step)')." },
+        "input_label": { "type": "string" },
+        "output_label": { "type": "string", "description": "Short human summary for the readout 'Output' (e.g. '10', '5 people')." },
+        "output": { "description": "Optional structured output value (shape depends on op)." },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frame_ts_ms": { "type": "integer" },
+            "overlays": { "type": "array", "items": { "$ref": "#/$defs/overlay" } }
+          }
+        },
+        "note": { "type": "string", "description": "Diagnostic text for empty/error states (D-DR5: what was searched + why empty)." }
+      }
+    },
+    "findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["answer", "verdict"],
+      "properties": {
+        "answer": { "type": "string", "description": "Short answer, e.g. 'Yes'." },
+        "verdict": { "type": "string", "description": "Full sentence, e.g. 'Yes — #10 scored the first goal'." },
+        "supporting_step": { "type": "string", "description": "Trace id of the step whose evidence proves the answer." },
+        "partial": { "type": "boolean", "description": "True if some steps were empty and the answer rests on partial evidence." },
+        "partial_note": { "type": "string" }
+      }
+    }
+  }
+}
