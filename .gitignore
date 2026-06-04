@@ -13,6 +13,7 @@
 # Editors
 .vscode/
 .idea/
+.obsidian/
 *.swp
 
 # Logs
