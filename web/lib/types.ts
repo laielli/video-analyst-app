@@ -50,6 +50,9 @@ export type Meta = {
   program: ProgramStep[];
   total_steps: number;
   pace_ms: number;
+  // Provenance of the program: "live" = compiled this run by Azure OpenAI codegen and
+  // validated; "pinned" = the known-good fallback (no creds, or live failed — D-DR6).
+  program_source?: "live" | "pinned";
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };

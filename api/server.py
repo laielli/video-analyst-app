@@ -35,8 +35,14 @@ sys.path.insert(0, str(API_DIR))            # interpreter package
 sys.path.insert(0, str(API_DIR / "scripts"))  # strip_comments
 
 from interpreter import Cache, Interpreter  # noqa: E402
-from validate_program import strip_comments  # noqa: E402
+from validate_program import strip_comments, validation_errors  # noqa: E402
+from ocr_probe import load_dotenv  # noqa: E402
 import canned  # noqa: E402
+import codegen  # noqa: E402
+
+# Load api/.env so `uvicorn server:app` picks up AZURE_OPENAI_* (codegen) without extra flags.
+# No-op if the file is absent — codegen then stays disabled and runs fall back to pinned.
+load_dotenv(API_DIR / ".env")
 
 app = FastAPI(title="Glass-Box Video Analyst API", version="0.1.0")
 
@@ -50,10 +56,57 @@ app.add_middleware(
 )
 
 
+def _pinned_program(entry: dict) -> list[dict]:
+    return strip_comments(json.loads(Path(entry["program"]).read_text()))["program"]
+
+
+def _live_run_doc(entry: dict, cache: Cache) -> dict | None:
+    """D-DR6 codegen path: ask Azure OpenAI to compile the question into a program, then accept
+    it ONLY if it (a) validates structurally + semantically and (b) executes over the cache to a
+    grounded (non-partial) answer. Any miss — no creds, API error, invalid program, cache gap —
+    returns None and the caller silently falls back to the pinned known-good program. Execution
+    stays replay-mode, so the live program runs deterministically; only codegen hits the network."""
+    if not codegen.enabled():
+        return None
+    qid = entry["id"]
+    try:
+        program = codegen.AzureCodegen.from_env().generate(entry["text"])
+    except Exception as e:  # noqa: BLE001 — any generation failure -> pinned fallback
+        print(f"[codegen] '{qid}': generation failed ({e}); using pinned program", file=sys.stderr)
+        return None
+
+    errors = validation_errors({"program": program})
+    if errors:
+        print(f"[codegen] '{qid}': {len(errors)} validation error(s); using pinned. first: {errors[0]}",
+              file=sys.stderr)
+        return None
+
+    try:
+        doc = Interpreter(cache).run(program)
+    except Exception as e:  # noqa: BLE001 — e.g. sampled window misses the cached frames
+        print(f"[codegen] '{qid}': live program failed to execute ({e}); using pinned", file=sys.stderr)
+        return None
+
+    findings = doc.get("findings", {})
+    if findings.get("partial") or findings.get("answer") in (None, "", "Unknown"):
+        print(f"[codegen] '{qid}': live program produced no grounded answer; using pinned", file=sys.stderr)
+        return None
+
+    doc["program_source"] = "live"
+    return doc
+
+
 def build_run_doc(entry: dict) -> dict:
-    """Replay the canned program over its cache -> run-doc. Instant; no Azure calls."""
-    program = strip_comments(json.loads(Path(entry["program"]).read_text()))["program"]
-    return Interpreter(Cache.load(entry["cache"])).run(program)
+    """Resolve the program for this query (live codegen with D-DR6 fallback) and replay it over
+    the cache -> run-doc. Replay is instant and free; with no Azure OpenAI creds this is exactly
+    the prior behavior (the pinned program, tagged program_source='pinned')."""
+    cache = Cache.load(entry["cache"])
+    doc = _live_run_doc(entry, cache)
+    if doc is not None:
+        return doc
+    doc = Interpreter(cache).run(_pinned_program(entry))
+    doc["program_source"] = "pinned"
+    return doc
 
 
 def _sse(event: str, data: dict) -> str:
@@ -93,6 +146,7 @@ async def run(query: str = Query(...), pace_ms: int = Query(1200, ge=0, le=10000
             yield _sse("meta", {
                 "query": doc["query"], "clip": doc["clip"],
                 "program": doc["program"], "total_steps": len(doc["trace"]), "pace_ms": pace_ms,
+                "program_source": doc.get("program_source", "pinned"),
             })
             for step in doc["trace"]:
                 await asyncio.sleep(pace_ms / 1000)
