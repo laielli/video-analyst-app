@@ -31,7 +31,12 @@
       "description": "One entry per program step, in execution order. trace[i].id MUST equal program[i].id.",
       "items": { "$ref": "#/$defs/step_result" }
     },
-    "findings": { "$ref": "#/$defs/findings" }
+    "findings": { "$ref": "#/$defs/findings" },
+    "program_source": {
+      "type": "string",
+      "enum": ["live", "pinned"],
+      "description": "Provenance of the PROGRAM itself (distinct from per-step result `source`): `live` = compiled this run by Azure OpenAI codegen and validated; `pinned` = the known-good fallback program (no codegen creds, or the live program failed validation/execution — D-DR6). Surfaced to the UI for demo honesty."
+    }
   },
   "$defs": {
     "box": {

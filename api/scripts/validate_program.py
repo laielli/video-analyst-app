@@ -57,6 +57,32 @@ def strip_comments(obj):
     return obj
 
 
+def structural_errors(program_doc: dict, schema: dict) -> list[str]:
+    """JSON Schema (structure) errors for a comment-stripped program doc. Empty = conforms."""
+    import jsonschema
+
+    validator = jsonschema.Draft202012Validator(schema)
+    out = []
+    for e in sorted(validator.iter_errors(program_doc), key=lambda e: list(e.path)):
+        loc = "/".join(str(p) for p in e.path) or "<root>"
+        out.append(f"at {loc}: {e.message}")
+    return out
+
+
+def validation_errors(program_doc: dict, schema: dict | None = None) -> list[str]:
+    """The full valid-by-construction gate (structural then semantic) as one flat list — empty
+    means valid. Shared by this CLI and the codegen fallback path (server._try_live). Comments
+    are stripped here so callers can pass raw codegen/authoring output. Semantic checks are
+    skipped when structure fails (malformed refs make them meaningless)."""
+    if schema is None:
+        schema = json.loads(SCHEMA_PATH.read_text())
+    doc = strip_comments(program_doc)
+    struct = structural_errors(doc, schema)
+    if struct:
+        return [f"structural: {m}" for m in struct]
+    return [f"semantic: {m}" for m in semantic_errors(doc["program"])]
+
+
 def semantic_errors(program: list[dict]) -> list[str]:
     """The checks the JSON Schema cannot express: ref existence/order, kind flow,
     unique ids, and answer-is-last."""
@@ -138,13 +164,11 @@ def main() -> int:
     program_doc = strip_comments(raw)
 
     # 1) Structural validation against the DSL JSON Schema.
-    validator = jsonschema.Draft202012Validator(schema)
-    struct = sorted(validator.iter_errors(program_doc), key=lambda e: list(e.path))
+    struct = structural_errors(program_doc, schema)
     if struct:
         print(f"STRUCTURAL: FAIL ({len(struct)} error(s)) for {prog_path.name}")
-        for e in struct:
-            loc = "/".join(str(p) for p in e.path) or "<root>"
-            print(f"  - at {loc}: {e.message}")
+        for m in struct:
+            print(f"  - {m}")
         return 1
     print(f"STRUCTURAL: PASS — conforms to {SCHEMA_PATH.name}")
 

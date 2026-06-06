@@ -51,6 +51,24 @@ uvicorn server:app --reload --port 8000      # from api/, venv active
 curl -sN "http://127.0.0.1:8000/api/run?query=hero-10-first-goal&pace_ms=0"
 ```
 
+## Generate the program live (Azure OpenAI codegen)
+
+ViperGPT Layer 1: `codegen.py` compiles the question into the DSL via Azure OpenAI, sending
+`dsl.schema.json` as a **strict structured-output** constraint (valid-by-construction) and
+re-checking it with `validation_errors` (the semantics JSON Schema can't express). Execution
+stays replay-mode over the pinned cache, so a live-generated program runs deterministically and
+free — only codegen hits the network.
+
+```bash
+python scripts/codegen_probe.py --run     # question -> program -> validate -> replay over cache
+```
+
+**D-DR6 fallback (always safe):** the server uses the live program only if it validates *and*
+executes to a grounded answer; on any miss — no `AZURE_OPENAI_*` creds, API error, invalid
+program, or cache gap — it silently falls back to the query's pinned program. The chosen
+provenance rides the SSE `meta` event as `program_source` (`live` | `pinned`). With no creds,
+behavior is identical to before (pinned). Set creds in `api/.env` (see `.env.example`).
+
 ## The DSL schema (dsl-json-schema-unification)
 
 `schema/dsl.schema.json` is deliberately one artifact serving three roles:
@@ -119,8 +137,8 @@ discloses what is pinned vs live (demo honesty).
 - [x] DSL schema + validator; run-doc contract + validator.
 - [x] Interpreter: program -> run-doc in replay mode (`run_program.py`), Yes and No paths.
 - [x] FastAPI + SSE wrapper (`server.py`): streams `meta -> step* -> findings -> done`, paced.
-- [ ] **Next.js UI** rendering the SSE stream (the `finalized.html` motion reference is the target).
-- [ ] **Azure OpenAI codegen**: question -> DSL with strict schema validation + the pinned-program fallback.
+- [x] **Next.js UI** (`../web`) rendering the SSE stream (the `finalized.html` motion reference is the target).
+- [x] **Azure OpenAI codegen** (`codegen.py`): question -> DSL with strict schema validation + the
+  pinned-program fallback (D-DR6). Env-gated; `program_source` (`live`/`pinned`) rides the `meta` event.
 - [ ] **Live `read_text` via gpt-4o vision** once TPM quota clears (`vlm_read.py` is ready; flip cache source from `pinned` to `live`).
 - [ ] **Precompute + cache** the hero clip's real detect/read outputs into Azure Blob.
-- [ ] **Next.js UI** rendering the run-doc (the `finalized.html` motion reference is the target).
