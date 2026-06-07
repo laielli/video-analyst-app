@@ -121,3 +121,77 @@ def fake_crop_provider():
 @pytest.fixture
 def hero_program_path():
     return API_DIR / "examples" / "hero_program.json"
+
+
+# ----------------------------------------------------------------------------------------------
+# Codegen mock seam (free-text path). conftest only faked vision before this; the free-text/
+# codegen tests need a seam over codegen.AzureCodegen + codegen.enabled() so no real Azure OpenAI
+# call is made and from_env() doesn't require creds. Scoped explicitly (not a free vision mirror).
+# ----------------------------------------------------------------------------------------------
+
+class FakeCodegen:
+    """Stands in for AzureCodegen. generate(question, clip=…) returns a configured program (or
+    raises). Records the last (question, clip) and a class-level instance/call counter so tests can
+    assert codegen was/was not invoked. from_env() yields a default instance (no creds needed)."""
+    instances: list["FakeCodegen"] = []
+    default_program: list | None = None
+    default_exc: Exception | None = None
+
+    def __init__(self, program=None, raise_exc=None):
+        self.program = program if program is not None else FakeCodegen.default_program
+        self.raise_exc = raise_exc if raise_exc is not None else FakeCodegen.default_exc
+        self.calls = 0
+        self.last_question = None
+        self.last_clip = None
+        FakeCodegen.instances.append(self)
+
+    @classmethod
+    def from_env(cls):
+        return cls()
+
+    def generate(self, question, clip=None):
+        self.calls += 1
+        self.last_question = question
+        self.last_clip = clip
+        if self.raise_exc is not None:
+            raise self.raise_exc
+        if self.program is None:
+            raise AssertionError("FakeCodegen has no program configured")
+        return list(self.program)
+
+
+@pytest.fixture
+def codegen_seam(monkeypatch):
+    """Install the FakeCodegen seam over the `codegen` module and reset the per-process budget.
+
+    Returns a small controller:
+        seam.enable(program=…)          -> codegen.enabled() True, FakeCodegen returns `program`
+        seam.enable(raise_exc=…)        -> codegen.enabled() True, FakeCodegen raises
+        seam.disable()                  -> codegen.enabled() False (no creds)
+        seam.instances                  -> the FakeCodegen instances constructed (call-count spy)
+    """
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(API_DIR))
+    _sys.path.insert(0, str(API_DIR / "scripts"))
+    import codegen
+    import server
+
+    FakeCodegen.instances = []
+    FakeCodegen.default_program = None
+    FakeCodegen.default_exc = None
+    monkeypatch.setattr(codegen, "AzureCodegen", FakeCodegen)
+    monkeypatch.setattr(server, "_codegen_calls", 0, raising=False)
+
+    class _Seam:
+        instances = FakeCodegen.instances
+
+        def enable(self, program=None, raise_exc=None):
+            FakeCodegen.default_program = program
+            FakeCodegen.default_exc = raise_exc
+            monkeypatch.setattr(codegen, "enabled", lambda: True)
+
+        def disable(self):
+            monkeypatch.setattr(codegen, "enabled", lambda: False)
+
+    return _Seam()

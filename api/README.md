@@ -89,9 +89,17 @@ uvicorn server:app --reload --port 8000      # from api/, venv active
   clip) → one paced `step` per trace entry (D-DR7 ~1.2s autoplay) → `findings` → `done`. The
   UI renders the PROGRAM panel from `meta`, then animates each step as it arrives (D-DR8). Same
   stream for replayed or (later) live-generated runs (D-DR4). Use `pace_ms=0` for tests.
+- `GET /api/run?query_text=<question>&clip=single-goal` — **free text (D-DR4):** type a novel
+  question; Azure OpenAI compiles it (against the clip's metadata + timing `hint`), it's validated
+  (the trust boundary, incl. numeric bounds), then replayed over the clip's cache. There is **no
+  pinned fallback** here — when codegen/execution can't ground an answer the stream carries an
+  honest **ungrounded** state (`program_source: "ungrounded"`, `findings.grounded: false` + a
+  fixed `reason`), never the hero program. Provide exactly one of `query` / `query_text`.
 
 ```bash
 curl -sN "http://127.0.0.1:8000/api/run?query=hero-10-first-goal&pace_ms=0"
+# free text (no creds -> a single honest ungrounded findings, never a 500):
+curl -sN "http://127.0.0.1:8000/api/run?query_text=How%20many%20players%3F&clip=single-goal&pace_ms=0"
 ```
 
 ## Generate the program live (Azure OpenAI codegen)
@@ -106,11 +114,17 @@ free — only codegen hits the network.
 python scripts/codegen_probe.py --run     # question -> program -> validate -> replay over cache
 ```
 
-**D-DR6 fallback (always safe):** the server uses the live program only if it validates *and*
-executes to a grounded answer; on any miss — no `AZURE_OPENAI_*` creds, API error, invalid
-program, or cache gap — it silently falls back to the query's pinned program. The chosen
-provenance rides the SSE `meta` event as `program_source` (`live` | `pinned`). With no creds,
-behavior is identical to before (pinned). Set creds in `api/.env` (see `.env.example`).
+**D-DR6 fallback (canned path, always safe):** for a *canned* query the server uses the live
+program only if it validates *and* executes to a grounded answer; on any miss — no
+`AZURE_OPENAI_*` creds, API error, invalid program, or cache gap — it silently falls back to the
+query's pinned program. The chosen provenance rides the SSE `meta` event as `program_source`
+(`live` | `pinned`). With no creds, behavior is identical to before (pinned).
+
+**Free-text path (no fallback, honest by design):** a typed `query_text` has no pinned program to
+substitute, so every miss resolves to an explicit `program_source: "ungrounded"` run-doc with
+`findings.grounded: false` and a fixed `reason` (`codegen-disabled`, `codegen-error`,
+`invalid-program`, `execution-error`, `no-grounded-answer`, …) — never the hero program, never a
+fabricated verdict. Set creds in `api/.env` (see `.env.example`).
 
 ## The DSL schema (dsl-json-schema-unification)
 
@@ -182,6 +196,8 @@ discloses what is pinned vs live (demo honesty).
 - [x] FastAPI + SSE wrapper (`server.py`): streams `meta -> step* -> findings -> done`, paced.
 - [x] **Next.js UI** (`../web`) rendering the SSE stream (the `finalized.html` motion reference is the target).
 - [x] **Azure OpenAI codegen** (`codegen.py`): question -> DSL with strict schema validation + the
-  pinned-program fallback (D-DR6). Env-gated; `program_source` (`live`/`pinned`) rides the `meta` event.
+  pinned-program fallback (D-DR6). Env-gated; `program_source` (`live`/`pinned`/`ungrounded`) rides the `meta` event.
+- [x] **Free-text query input** (D-DR4): typed `query_text` -> live codegen -> validate -> replay,
+  with an honest `ungrounded` state (no hero substitution) when an answer can't be grounded.
 - [ ] **Live `read_text` via gpt-4o vision** once TPM quota clears (`vlm_read.py` is ready; flip cache source from `pinned` to `live`).
 - [ ] **Precompute + cache** the hero clip's real detect/read outputs into Azure Blob.
