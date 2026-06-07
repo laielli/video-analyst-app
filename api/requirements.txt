@@ -11,3 +11,8 @@ openai>=1.40
 # Web: FastAPI + SSE wrapper around the interpreter
 fastapi>=0.110
 uvicorn[standard]>=0.29
+
+# Tests — the precompute pipeline suite (api/tests/). Azure + ffmpeg are mocked, so no SDK
+# or .mov is needed to run it. pytest-mock is used for call-counting spies.
+pytest>=8.0
+pytest-mock>=3.12
