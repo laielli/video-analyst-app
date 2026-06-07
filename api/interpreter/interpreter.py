@@ -53,10 +53,20 @@ class Interpreter:
     def _findings(program: list[dict], answer_binding: dict | None) -> dict:
         if answer_binding and answer_binding["kind"] == "answer":
             v = answer_binding["value"]
+            # Q1 -> A: an answer that couldn't ground carries grounded:false + reason, and emits
+            # null answer/verdict rather than a fabricated placeholder.
+            if v.get("grounded") is False:
+                return {
+                    "answer": None, "verdict": None, "partial": False,
+                    "grounded": False, "reason": v.get("reason") or "no-grounded-answer",
+                }
             supporting = (next((s["id"] for s in program if s["op"] == "temporal_order"), None)
                           or next((s["id"] for s in program if s["op"] == "answer"), None))
-            out = {"answer": v["answer"], "verdict": v["verdict"], "partial": False}
+            out = {"answer": v["answer"], "verdict": v["verdict"], "partial": False,
+                   "grounded": True, "reason": None}
             if supporting:
                 out["supporting_step"] = supporting
             return out
-        return {"answer": "Unknown", "verdict": "Could not determine an answer", "partial": True}
+        # No answer step ran (or non-answer binding) -> partial, weakly grounded.
+        return {"answer": "Unknown", "verdict": "Could not determine an answer", "partial": True,
+                "grounded": True, "reason": None}

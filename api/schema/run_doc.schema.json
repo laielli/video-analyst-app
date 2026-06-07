@@ -34,8 +34,8 @@
     "findings": { "$ref": "#/$defs/findings" },
     "program_source": {
       "type": "string",
-      "enum": ["live", "pinned"],
-      "description": "Provenance of the PROGRAM itself (distinct from per-step result `source`): `live` = compiled this run by Azure OpenAI codegen and validated; `pinned` = the known-good fallback program (no codegen creds, or the live program failed validation/execution — D-DR6). Surfaced to the UI for demo honesty."
+      "enum": ["live", "pinned", "ungrounded"],
+      "description": "Provenance of the PROGRAM itself (distinct from per-step result `source`): `live` = compiled this run by Azure OpenAI codegen and validated; `pinned` = the known-good fallback program (no codegen creds, or the live program failed validation/execution — D-DR6); `ungrounded` = a free-text query that could not be grounded (codegen disabled/failed, invalid program, or no grounded answer) — there is NO pinned fallback for free text, so the run is honestly reported as ungrounded. Surfaced to the UI for demo honesty."
     }
   },
   "$defs": {
@@ -105,12 +105,15 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["answer", "verdict"],
+      "description": "The grounded verdict, OR an honest 'couldn't ground' state (Q1 -> A). The `grounded` discriminator is distinct from `partial`: `partial` means the answer rests on weak/partial evidence; `grounded:false` means no answer could be grounded at all (free-text path), in which case `answer`/`verdict` are null and `reason` carries a fixed enum.",
       "properties": {
-        "answer": { "type": "string", "description": "Short answer, e.g. 'Yes'." },
-        "verdict": { "type": "string", "description": "Full sentence, e.g. 'Yes — #10 scored the first goal'." },
+        "answer": { "type": ["string", "null"], "description": "Short answer, e.g. 'Yes'. Null when grounded:false." },
+        "verdict": { "type": ["string", "null"], "description": "Full sentence, e.g. 'Yes — #10 scored the first goal'. Null when grounded:false." },
         "supporting_step": { "type": "string", "description": "Trace id of the step whose evidence proves the answer." },
         "partial": { "type": "boolean", "description": "True if some steps were empty and the answer rests on partial evidence." },
-        "partial_note": { "type": "string" }
+        "partial_note": { "type": "string" },
+        "grounded": { "type": "boolean", "description": "Q1 -> A discriminator: true = an evidence-grounded answer was produced; false = the question could not be grounded (free-text path; answer/verdict are null and reason is set)." },
+        "reason": { "type": ["string", "null"], "description": "When grounded:false, a fixed enum explaining why (e.g. codegen-disabled, codegen-error, invalid-program, execution-error, no-grounded-answer, unsupported-binding). Null when grounded." }
       }
     }
   }

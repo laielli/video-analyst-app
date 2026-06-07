@@ -35,7 +35,12 @@ PRODUCES = {
     "count": "number",
     "answer": "answer",
 }
-# (binding arg field -> required input kind, or None for "any collection").
+# (binding arg field -> required input kind, or None for "any collection", or ANY_KIND for
+# "any synthesizable kind"). `answer` is special: the generalized op_answer (Phase 0) synthesizes
+# a verdict from a count (number), a text readout (texts), a presence check (detections/crops/
+# frames), or a temporal order (ordered) — so its `from` must accept any of those, not only a
+# collection. Restricting it to collections would reject a valid `count -> answer` program.
+ANY_KIND = "__any__"
 EXPECTS = {
     "detect": {"frames": "frames"},
     "crop": {"detections": "detections"},
@@ -43,9 +48,11 @@ EXPECTS = {
     "filter": {"items": None},
     "count": {"items": None},
     "temporal_order": {"events": None},
-    "answer": {"from": None},
+    "answer": {"from": ANY_KIND},
 }
 COLLECTION_KINDS = {"frames", "detections", "crops", "texts"}
+# Kinds the generalized op_answer can synthesize an answer from (Phase 0).
+ANSWERABLE_KINDS = {"frames", "detections", "crops", "texts", "number", "ordered"}
 
 
 def strip_comments(obj):
@@ -69,23 +76,57 @@ def structural_errors(program_doc: dict, schema: dict) -> list[str]:
     return out
 
 
-def validation_errors(program_doc: dict, schema: dict | None = None) -> list[str]:
+def validation_errors(program_doc: dict, schema: dict | None = None, clip: dict | None = None) -> list[str]:
     """The full valid-by-construction gate (structural then semantic) as one flat list — empty
-    means valid. Shared by this CLI and the codegen fallback path (server._try_live). Comments
+    means valid. Shared by this CLI and the codegen fallback path (server._live_run_doc). Comments
     are stripped here so callers can pass raw codegen/authoring output. Semantic checks are
-    skipped when structure fails (malformed refs make them meaningless)."""
+    skipped when structure fails (malformed refs make them meaningless).
+
+    `clip` (optional) supplies `duration_ms` so numeric arg bounds can be enforced — the trust
+    boundary for free text: a structurally-valid program can still OOM via sample_frames'
+    range(start, end+1, stride), so values are bounded here before Interpreter.run (see §Risks)."""
     if schema is None:
         schema = json.loads(SCHEMA_PATH.read_text())
     doc = strip_comments(program_doc)
     struct = structural_errors(doc, schema)
     if struct:
         return [f"structural: {m}" for m in struct]
-    return [f"semantic: {m}" for m in semantic_errors(doc["program"])]
+    return [f"semantic: {m}" for m in semantic_errors(doc["program"], clip=clip)]
 
 
-def semantic_errors(program: list[dict]) -> list[str]:
+# Argument value bounds the JSON Schema documents only as prose. Enforced here so a *validated*
+# free-text program can't run the interpreter out of memory (sample_frames range expansion).
+MAX_FPS = 30
+MIN_FPS = 1
+
+
+def numeric_bound_errors(program: list[dict], clip: dict | None = None) -> list[str]:
+    """Bound sample_frames' start_ms/end_ms/fps so a validated program can't OOM at execution.
+    When `clip` is given, the window must lie within [0, clip.duration_ms]; fps in [1, 30]."""
+    errors: list[str] = []
+    duration = clip.get("duration_ms") if clip else None
+    for i, step in enumerate(program):
+        if step.get("op") != "sample_frames":
+            continue
+        a = step.get("args", {})
+        start, end, fps = a.get("start_ms"), a.get("end_ms"), a.get("fps")
+        if not all(isinstance(v, int) for v in (start, end, fps)):
+            continue  # structural validation covers type/required
+        sid = step.get("id")
+        if start < 0:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): start_ms {start} < 0")
+        if end <= start:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): end_ms {end} must be > start_ms {start}")
+        if duration is not None and end > duration:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): end_ms {end} exceeds clip duration {duration}ms")
+        if not (MIN_FPS <= fps <= MAX_FPS):
+            errors.append(f"step[{i}] '{sid}' (sample_frames): fps {fps} out of range [{MIN_FPS}, {MAX_FPS}]")
+    return errors
+
+
+def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
     """The checks the JSON Schema cannot express: ref existence/order, kind flow,
-    unique ids, and answer-is-last."""
+    unique ids, answer-is-last, and (when `clip` is given) numeric arg bounds."""
     errors: list[str] = []
     produced: dict[str, str] = {}  # id -> output kind, in declaration order
 
@@ -112,24 +153,31 @@ def semantic_errors(program: list[dict]) -> list[str]:
                 )
                 continue
             got = produced[ref]
-            if want is not None and got != want:
+            if want == ANY_KIND:
+                if got not in ANSWERABLE_KINDS:
+                    errors.append(
+                        f"step[{i}] '{sid}' ({op}): arg '{field}' expects an answerable kind "
+                        f"({', '.join(sorted(ANSWERABLE_KINDS))}) but '{ref}' produces '{got}'"
+                    )
+            elif want is not None and got != want:
                 errors.append(
                     f"step[{i}] '{sid}' ({op}): arg '{field}' expects kind "
                     f"'{want}' but '{ref}' produces '{got}'"
                 )
-            if want is None and got not in COLLECTION_KINDS:
+            elif want is None and got not in COLLECTION_KINDS:
                 errors.append(
                     f"step[{i}] '{sid}' ({op}): arg '{field}' expects a collection "
                     f"but '{ref}' produces '{got}'"
                 )
 
-        # Resolve this step's output kind (filter/temporal_order pass input through).
+        # Resolve this step's output kind. filter passes its input collection kind through;
+        # temporal_order produces the distinct `ordered` kind (what op_temporal_order binds).
         if op in PRODUCES:
             produced[sid] = PRODUCES[op]
         elif op == "filter":
             produced[sid] = produced.get(args.get("items"), "unknown")
         elif op == "temporal_order":
-            produced[sid] = produced.get(args.get("events"), "unknown")
+            produced[sid] = "ordered"
         else:
             produced[sid] = "unknown"
 
@@ -141,6 +189,7 @@ def semantic_errors(program: list[dict]) -> list[str]:
     if len(answers) > 1:
         errors.append(f"exactly one 'answer' step allowed, found {len(answers)}")
 
+    errors.extend(numeric_bound_errors(program, clip=clip))
     return errors
 
 
