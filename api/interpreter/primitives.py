@@ -12,8 +12,8 @@ Binding kinds and item shapes:
   crops       items=[{crop_id,det_id,box,person_box,person_conf,frame_ts_ms}]
   texts       items=[{det_id,text,confidence,source,note?,crop_box,person_box,frame_ts_ms}]
   number      value=int
-  ordered     value={events,first,subject_dets,subject_is_first_scorer}
-  answer      value={answer,verdict,question,yes}
+  ordered     value={events,first,subject_dets,subject_label,subject_is_first_scorer}
+  answer      value={answer,verdict,question,yes,grounded,reason?}  (answer/verdict null when ungrounded)
 """
 from __future__ import annotations
 
@@ -147,7 +147,11 @@ def op_filter(step, env, cache):
     }
     if not kept:
         result["note"] = f"no items with {field} == {val}"
-    return {"kind": src["kind"], "items": kept}, result
+    # Carry the filter predicate forward so a downstream temporal_order/answer can derive the
+    # subject label (#<val>) even when the filter matched nothing — the subject is what was ASKED
+    # FOR (the filter value), derived from data, never parsed from the question text.
+    return {"kind": src["kind"], "items": kept,
+            "filter_field": field, "filter_value": val}, result
 
 
 def op_count(step, env, cache):
@@ -162,10 +166,27 @@ def op_count(step, env, cache):
     return {"kind": "number", "value": n}, result
 
 
+def _subject_label(binding) -> str | None:
+    """Derive the subject label '#<n>' (Phase 0: data-derived, never the literal '#10'). Prefer the
+    filter predicate the binding carries (`filter_value`, on a text/number field) so the subject is
+    whatever the question filtered for — robust even when the filter matched nothing. Fall back to
+    the read text on a kept item."""
+    fv = binding.get("filter_value")
+    if fv is not None and binding.get("filter_field") in ("text", "number", "cls", "class"):
+        return f"#{fv}"
+    for it in binding.get("items") or []:
+        t = it.get("text")
+        if t:
+            return f"#{t}"
+    return None
+
+
 def op_temporal_order(step, env, cache):
     a = step["args"]
     subj = env[a["events"]]
-    subject_dets = {it.get("det_id") for it in subj.get("items", []) if it.get("det_id")}
+    items = subj.get("items", [])
+    subject_dets = {it.get("det_id") for it in items if it.get("det_id")}
+    subject_label = _subject_label(subj)         # '#7', '#10', … derived from the filter, not hardcoded
     goals = cache.goal_events()
     first = goals[0] if goals else None
     subject_is_first = bool(first and first.get("scorer_det") in subject_dets)
@@ -182,33 +203,113 @@ def op_temporal_order(step, env, cache):
         "confidence": None, "evidence": _evi(focus_ts, overlays),
     }
     value = {"events": goals, "first": first, "subject_dets": sorted(subject_dets),
-             "subject_is_first_scorer": subject_is_first}
+             "subject_label": subject_label, "subject_is_first_scorer": subject_is_first}
     return {"kind": "ordered", "value": value}, result
 
 
-def op_answer(step, env, cache):
-    a = step["args"]
-    src = env[a["from"]]
-    q = a["question"]
-    yes = bool(src["kind"] == "ordered" and src["value"].get("subject_is_first_scorer"))
-    verdict = "Yes — #10 scored the first goal" if yes else "No — the first goal was not scored by #10"
+def _answer_temporal(src, q):
+    """Boolean/temporal answer: did the subject score the first goal? Subject is DERIVED from the
+    filter's matched value (subject_label), never the literal '#10'."""
+    v = src["value"]
+    subj = v.get("subject_label") or "the subject"
+    yes = bool(v.get("subject_is_first_scorer"))
+    answer = "Yes" if yes else "No"
+    verdict = (f"Yes — {subj} scored the first goal" if yes
+               else f"No — the first goal was not scored by {subj}")
+    return answer, verdict, yes
+
+
+def _answer_count(src, q):
+    """Count answer: 'N matches'. The question carries the noun; the answer carries the number."""
+    n = src["value"]
+    if n == 0:
+        return None, None, None              # honest: nothing to count -> ungrounded
+    answer = str(n)
+    verdict = f"{n} match" if n == 1 else f"{n} matches"
+    return answer, verdict, True
+
+
+def _answer_text(src, q):
+    """Text-readout answer: report the legible values read off the crops."""
+    vals = sorted({it.get("text") for it in src["items"] if it.get("text")})
+    if not vals:
+        return None, None, None              # nothing legible -> ungrounded
+    answer = ", ".join(vals)
+    verdict = f"Read: {answer}"
+    return answer, verdict, True
+
+
+def _answer_presence(src, q):
+    """Existence answer: did any item survive to here? ('Yes — N found' / 'No — none found')."""
+    n = len(src["items"])
+    yes = n > 0
+    answer = "Yes" if yes else "No"
+    verdict = f"Yes — {n} found" if yes else "No — none found"
+    return answer, verdict, yes
+
+
+def _answer_overlays(src, cache):
+    """Best-effort evidence overlay for the answer step. For a temporal answer, highlight the
+    scorer det that grounds it; other kinds carry no extra overlay (the supporting step's
+    overlays already speak for the evidence)."""
     overlays, focus_ts = [], 0
     if src["kind"] == "ordered":
-        first = src["value"].get("first") or {}
+        v = src["value"]
+        first = v.get("first") or {}
         scorer = first.get("scorer_det")
+        label = (v.get("subject_label") or "subject") + " scored"
         if scorer:
             for ts in cache.analyzed_frames():
                 for d in cache.detections_at(ts):
                     if d["det_id"] == scorer:
-                        overlays.append({"box": d["box"], "label": "#10 scored", "tone": "green", "kind": "box"})
+                        overlays.append({"box": d["box"], "label": label, "tone": "green", "kind": "box"})
                         focus_ts = ts
+    return overlays, focus_ts
+
+
+def op_answer(step, env, cache):
+    """Generalized answer (Phase 0): dispatch on the KIND of the consumed binding and synthesize a
+    deterministic, honest answer that addresses the question actually asked — never the hardcoded
+    '#10' verdict. When the binding can't be synthesized (empty filter, count 0, unsupported kind)
+    emit the ungrounded state (answer/verdict null + reason) per the resolved Q1 decision, NOT a
+    fabricated verdict. Stays replay-mode (no live call)."""
+    a = step["args"]
+    src = env[a["from"]]
+    q = a["question"]
+    kind = src["kind"]
+
+    if kind == "ordered":
+        answer, verdict, yes = _answer_temporal(src, q)
+    elif kind == "number":
+        answer, verdict, yes = _answer_count(src, q)
+    elif kind == "texts":
+        answer, verdict, yes = _answer_text(src, q)
+    elif kind in ("detections", "crops", "frames"):
+        answer, verdict, yes = _answer_presence(src, q)
+    else:
+        answer, verdict, yes = None, None, None    # unsupported kind -> ungrounded
+
+    grounded = answer is not None
+    overlays, focus_ts = _answer_overlays(src, cache) if grounded else ([], 0)
+
+    if grounded:
+        binding = {"kind": "answer", "value": {
+            "answer": answer, "verdict": verdict, "question": q, "yes": bool(yes), "grounded": True}}
+        out_label = str(answer)[:24]
+    else:
+        binding = {"kind": "answer", "value": {
+            "answer": None, "verdict": None, "question": q, "yes": None,
+            "grounded": False, "reason": "answer-not-synthesizable"}}
+        out_label = "ungrounded"
+
     result = {
         "id": step["id"], "op": "answer", "producer": "answer_question",
-        "status": "done", "source": "live", "inputs": [a["from"]],
-        "input_label": "ordered events", "output_label": "Yes" if yes else "No",
+        "status": "done" if grounded else "empty", "source": "live", "inputs": [a["from"]],
+        "input_label": f"{kind} binding", "output_label": out_label,
         "confidence": None, "evidence": _evi(focus_ts, overlays),
     }
-    binding = {"kind": "answer", "value": {"answer": "Yes" if yes else "No", "verdict": verdict, "question": q, "yes": yes}}
+    if not grounded:
+        result["note"] = "could not synthesize an evidence-grounded answer from this binding"
     return binding, result
 
 

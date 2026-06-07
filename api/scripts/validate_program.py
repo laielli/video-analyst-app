@@ -36,6 +36,10 @@ PRODUCES = {
     "answer": "answer",
 }
 # (binding arg field -> required input kind, or None for "any collection").
+# answer.from uses the sentinel ANSWERABLE: the generalized op_answer (Phase 0) synthesizes a
+# verdict from any of {ordered, number, texts, detections, crops, frames}, so a `count -> answer`
+# program must validate — answer.from is NOT restricted to a collection or to `ordered`.
+ANSWERABLE = "__answerable__"
 EXPECTS = {
     "detect": {"frames": "frames"},
     "crop": {"detections": "detections"},
@@ -43,9 +47,17 @@ EXPECTS = {
     "filter": {"items": None},
     "count": {"items": None},
     "temporal_order": {"events": None},
-    "answer": {"from": None},
+    "answer": {"from": ANSWERABLE},
 }
 COLLECTION_KINDS = {"frames", "detections", "crops", "texts"}
+# Kinds op_answer can synthesize a verdict from (Phase 0). Excludes 'answer' (no answer-of-answer)
+# and 'unknown' (a ref the walk couldn't kind).
+ANSWERABLE_KINDS = {"ordered", "number", "texts", "detections", "crops", "frames"}
+
+# Numeric arg bounds the interpreter relies on but JSON Schema documents only as prose. Enforced
+# here (the trust boundary) so a *validated* program can't OOM op_sample_frames via a huge range
+# (range(start, end+1, stride)). fps caps the stride; start/end are bounded to the clip duration.
+FPS_MIN, FPS_MAX = 1, 30
 
 
 def strip_comments(obj):
@@ -69,23 +81,53 @@ def structural_errors(program_doc: dict, schema: dict) -> list[str]:
     return out
 
 
-def validation_errors(program_doc: dict, schema: dict | None = None) -> list[str]:
+def validation_errors(program_doc: dict, schema: dict | None = None, clip: dict | None = None) -> list[str]:
     """The full valid-by-construction gate (structural then semantic) as one flat list — empty
-    means valid. Shared by this CLI and the codegen fallback path (server._try_live). Comments
-    are stripped here so callers can pass raw codegen/authoring output. Semantic checks are
-    skipped when structure fails (malformed refs make them meaningless)."""
+    means valid. Shared by this CLI and the codegen path (server._live_run_doc /
+    build_free_text_run_doc). Comments are stripped here so callers can pass raw codegen/authoring
+    output. Semantic checks are skipped when structure fails (malformed refs make them meaningless).
+
+    When `clip` is supplied (the free-text trust boundary), numeric arg bounds are enforced too:
+    0 <= start_ms < end_ms <= clip['duration_ms'] and 1 <= fps <= 30, so a *validated* program
+    can't OOM op_sample_frames via an unbounded range."""
     if schema is None:
         schema = json.loads(SCHEMA_PATH.read_text())
     doc = strip_comments(program_doc)
     struct = structural_errors(doc, schema)
     if struct:
         return [f"structural: {m}" for m in struct]
-    return [f"semantic: {m}" for m in semantic_errors(doc["program"])]
+    return [f"semantic: {m}" for m in semantic_errors(doc["program"], clip=clip)]
 
 
-def semantic_errors(program: list[dict]) -> list[str]:
+def numeric_bounds_errors(program: list[dict], clip: dict | None) -> list[str]:
+    """Enforce sample_frames numeric bounds against the clip. No-op when clip is None (canned path
+    keeps its prior behavior); the free-text path always passes a clip so the bound holds there."""
+    if clip is None:
+        return []
+    errors: list[str] = []
+    duration = clip.get("duration_ms")
+    for i, step in enumerate(program):
+        if step.get("op") != "sample_frames":
+            continue
+        a = step.get("args", {})
+        start, end, fps = a.get("start_ms"), a.get("end_ms"), a.get("fps")
+        sid = step.get("id")
+        if not isinstance(start, int) or not isinstance(end, int) or not isinstance(fps, int):
+            continue  # structural validation already flags non-integers
+        if start < 0:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): start_ms {start} < 0")
+        if end <= start:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): end_ms {end} must be > start_ms {start}")
+        if duration is not None and end > duration:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): end_ms {end} > clip duration {duration}")
+        if not (FPS_MIN <= fps <= FPS_MAX):
+            errors.append(f"step[{i}] '{sid}' (sample_frames): fps {fps} out of [{FPS_MIN},{FPS_MAX}]")
+    return errors
+
+
+def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
     """The checks the JSON Schema cannot express: ref existence/order, kind flow,
-    unique ids, and answer-is-last."""
+    unique ids, answer-is-last, and (when `clip` is given) numeric arg bounds."""
     errors: list[str] = []
     produced: dict[str, str] = {}  # id -> output kind, in declaration order
 
@@ -112,12 +154,19 @@ def semantic_errors(program: list[dict]) -> list[str]:
                 )
                 continue
             got = produced[ref]
-            if want is not None and got != want:
+            if want == ANSWERABLE:
+                # answer.from accepts any kind op_answer can synthesize (Phase 0).
+                if got not in ANSWERABLE_KINDS:
+                    errors.append(
+                        f"step[{i}] '{sid}' ({op}): arg '{field}' expects an answerable kind "
+                        f"({', '.join(sorted(ANSWERABLE_KINDS))}) but '{ref}' produces '{got}'"
+                    )
+            elif want is not None and got != want:
                 errors.append(
                     f"step[{i}] '{sid}' ({op}): arg '{field}' expects kind "
                     f"'{want}' but '{ref}' produces '{got}'"
                 )
-            if want is None and got not in COLLECTION_KINDS:
+            elif want is None and got not in COLLECTION_KINDS:
                 errors.append(
                     f"step[{i}] '{sid}' ({op}): arg '{field}' expects a collection "
                     f"but '{ref}' produces '{got}'"
@@ -141,6 +190,7 @@ def semantic_errors(program: list[dict]) -> list[str]:
     if len(answers) > 1:
         errors.append(f"exactly one 'answer' step allowed, found {len(answers)}")
 
+    errors.extend(numeric_bounds_errors(program, clip))
     return errors
 
 

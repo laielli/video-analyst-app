@@ -53,10 +53,21 @@ class Interpreter:
     def _findings(program: list[dict], answer_binding: dict | None) -> dict:
         if answer_binding and answer_binding["kind"] == "answer":
             v = answer_binding["value"]
+            # Phase 0 / Q1→A: a generalized answer may ground out honestly. Carry the
+            # grounded discriminator + reason instead of fabricating a verdict.
+            if v.get("grounded") is False:
+                return {"answer": None, "verdict": None, "partial": False,
+                        "grounded": False, "reason": v.get("reason") or "no-grounded-answer"}
+            # The step whose evidence proves the answer: prefer temporal_order, else the
+            # binding the answer consumed (the answer step's `from`), else the answer step.
+            answer_step = next((s for s in program if s["op"] == "answer"), None)
             supporting = (next((s["id"] for s in program if s["op"] == "temporal_order"), None)
-                          or next((s["id"] for s in program if s["op"] == "answer"), None))
-            out = {"answer": v["answer"], "verdict": v["verdict"], "partial": False}
+                          or (answer_step and answer_step["args"].get("from"))
+                          or (answer_step and answer_step["id"]))
+            out = {"answer": v["answer"], "verdict": v["verdict"], "partial": False,
+                   "grounded": True, "reason": None}
             if supporting:
                 out["supporting_step"] = supporting
             return out
-        return {"answer": "Unknown", "verdict": "Could not determine an answer", "partial": True}
+        return {"answer": None, "verdict": None, "partial": True,
+                "grounded": False, "reason": "no-answer-step"}
