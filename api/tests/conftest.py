@@ -48,7 +48,12 @@ class FakeAzureVision:
     def from_env(cls):
         return cls()
 
-    def analyze(self, image_bytes, detect=True, read=True):
+    def analyze(self, image_bytes, detect=True, read=False):
+        # Azure Read is deliberately NOT a rung in the OCR ladder (Resolved #2): its known
+        # 22->77 jersey-font misread would poison the cache. Enforce that suite-wide — any
+        # read=True from the pipeline is a regression. (Guard ported from PR #6's
+        # azure_read_spy, hardened from a single test into a fixture-wide invariant.)
+        assert not read, "Azure Read must NOT be a rung in the OCR ladder (Resolved #2)"
         self.analyze_calls += 1
         return AnalysisResult(
             width=1872, height=1042,
