@@ -109,6 +109,25 @@ def build_run_doc(entry: dict) -> dict:
     return doc
 
 
+# Free-text run-doc construction + request resolution live in freetext.py, which has NO fastapi
+# dependency so the trust-boundary logic is unit-testable under the system python the suite runs
+# in (plan §Tests BLOCKER: fastapi + pytest don't co-resolve in one interpreter). freetext raises
+# its own RequestError; we translate it to HTTPException at the route boundary below.
+from freetext import RequestError, build_free_text_run_doc, resolve_run_request  # noqa: E402
+
+
+def _run_doc_for_request(query: str | None, query_text: str | None, clip: str) -> dict:
+    """Resolve a run request to a run-doc (canned pinned/live, or free-text live/ungrounded).
+    Translates freetext.RequestError -> fastapi.HTTPException at the route boundary."""
+    try:
+        kind, payload = resolve_run_request(query, query_text)
+        if kind == "canned":
+            return build_run_doc(payload)
+        return build_free_text_run_doc(payload, clip)
+    except RequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail) from None
+
+
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
@@ -127,19 +146,26 @@ def catalog():
 
 
 @app.get("/api/run_doc")
-def run_doc(query: str = Query(...)):
-    entry = canned.by_id(query)
-    if not entry:
-        raise HTTPException(status_code=404, detail=f"unknown query '{query}'")
-    return build_run_doc(entry)
+def run_doc(
+    query: str | None = Query(None),
+    query_text: str | None = Query(None),
+    clip: str = Query("single-goal"),
+):
+    # Exactly one of query / query_text (resolve_run_request raises 400/404). `clip` selects the
+    # replay cache + codegen hint for free text; ignored for the canned path.
+    return _run_doc_for_request(query, query_text, clip)
 
 
 @app.get("/api/run")
-async def run(query: str = Query(...), pace_ms: int = Query(1200, ge=0, le=10000)):
-    entry = canned.by_id(query)
-    if not entry:
-        raise HTTPException(status_code=404, detail=f"unknown query '{query}'")
-    doc = build_run_doc(entry)
+async def run(
+    query: str | None = Query(None),
+    query_text: str | None = Query(None),
+    clip: str = Query("single-goal"),
+    pace_ms: int = Query(1200, ge=0, le=10000),
+):
+    # `query` stays optional (Query(None)) so the canned auto-play URL (?query=<id>) still 200s
+    # and so EITHER param can drive the run. resolve_run_request enforces exactly-one + the cap.
+    doc = _run_doc_for_request(query, query_text, clip)
 
     async def gen():
         try:
@@ -155,8 +181,8 @@ async def run(query: str = Query(...), pace_ms: int = Query(1200, ge=0, le=10000
             yield _sse("done", {"ok": True})
         except asyncio.CancelledError:  # client navigated away mid-stream
             raise
-        except Exception as e:  # noqa: BLE001 — surface as an SSE error, don't 500 mid-stream
-            yield _sse("error", {"message": str(e)})
+        except Exception:  # noqa: BLE001 — surface as a fixed SSE error, never raw exception text
+            yield _sse("error", {"message": "stream failed"})
 
     return StreamingResponse(
         gen(),

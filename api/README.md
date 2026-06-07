@@ -106,11 +106,22 @@ free — only codegen hits the network.
 python scripts/codegen_probe.py --run     # question -> program -> validate -> replay over cache
 ```
 
-**D-DR6 fallback (always safe):** the server uses the live program only if it validates *and*
-executes to a grounded answer; on any miss — no `AZURE_OPENAI_*` creds, API error, invalid
-program, or cache gap — it silently falls back to the query's pinned program. The chosen
-provenance rides the SSE `meta` event as `program_source` (`live` | `pinned`). With no creds,
-behavior is identical to before (pinned). Set creds in `api/.env` (see `.env.example`).
+**D-DR6 fallback (canned path, always safe):** for a **canned** query the server uses the live
+program only if it validates *and* executes to a grounded answer; on any miss — no
+`AZURE_OPENAI_*` creds, API error, invalid program, or cache gap — it silently falls back to the
+query's pinned program. The chosen provenance rides the SSE `meta` event as `program_source`
+(`live` | `pinned`). With no creds, behavior is identical to before (pinned). Set creds in
+`api/.env` (see `.env.example`).
+
+**Free-text path (no pinned fallback — `program_source: ungrounded`):** a typed `query_text`
+(`GET /api/run?query_text=…&clip=…`) is compiled live against that clip's `hint` and replayed,
+but there is **no** pinned program for a novel question. So on any miss — codegen disabled,
+codegen error, an invalid program (validation is the trust boundary — numeric bounds enforced),
+or a validated program that runs without grounding an answer — the server streams an honest
+*ungrounded* run-doc (`program_source: ungrounded`, `findings.grounded: false` + a fixed `reason`
+enum) instead of substituting the hero program. The interpreter's `answer` step is generalized
+to summarize count / text-readout / temporal / existence results honestly, or ground out — it
+never emits a fabricated `#10` verdict for a non-hero question.
 
 ## The DSL schema (dsl-json-schema-unification)
 

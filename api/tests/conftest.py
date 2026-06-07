@@ -85,10 +85,70 @@ class CallSpyVLM:
         return VlmRead(raw=self.digits or "NONE", digits=self.digits)
 
 
+# ---- codegen mock seam (NEW for free-text tests; conftest previously only faked vision) ----
+# There is no AzureCodegen seam in production tests, so add one: a FakeCodegen that returns a
+# configured program (or raises), counts calls, and captures the system message it was handed
+# (so prompt-injection tests can assert clip metadata reached the prompt). Wire it via the
+# `fake_codegen` fixture, which monkeypatches codegen.enabled() + AzureCodegen.from_env().
+
+class FakeCodegen:
+    """Stands in for codegen.AzureCodegen. generate() returns a configured program (or raises),
+    records the captured system message for prompt-injection assertions, and counts calls."""
+    instances: list["FakeCodegen"] = []
+
+    def __init__(self, program=None, raise_exc=None):
+        self.program = program
+        self.raise_exc = raise_exc
+        self.calls = 0
+        self.last_system_message = None
+        self.last_question = None
+        self.last_clip = None
+        FakeCodegen.instances.append(self)
+
+    @classmethod
+    def from_env(cls):  # mirrors AzureCodegen.from_env(); tests pin a shared instance via fixture
+        return cls()
+
+    def generate(self, question, clip=None):
+        import codegen
+        self.calls += 1
+        self.last_question = question
+        self.last_clip = clip
+        # Capture exactly what the real client would have sent as the system message, so prompt
+        # tests can assert clip metadata injection through the SAME build_system_message path.
+        self.last_system_message = codegen.build_system_message(clip)
+        if self.raise_exc is not None:
+            raise self.raise_exc
+        return list(self.program) if self.program is not None else []
+
+
+@pytest.fixture
+def fake_codegen(monkeypatch):
+    """Factory: install a FakeCodegen with a given program/exception, codegen ENABLED. Returns the
+    shared instance so the test can inspect .calls / .last_system_message. Use `enabled=False` to
+    simulate missing creds. Monkeypatches the seams freetext/server resolve through."""
+    import codegen
+
+    def install(program=None, raise_exc=None, enabled=True):
+        monkeypatch.setattr(codegen, "enabled", lambda: enabled)
+        inst = FakeCodegen(program=program, raise_exc=raise_exc)
+        monkeypatch.setattr(codegen.AzureCodegen, "from_env", classmethod(lambda cls: inst))
+        return inst
+
+    return install
+
+
 @pytest.fixture(autouse=True)
 def _reset_spies():
     FakeAzureVision.instances = []
     CallSpyVLM.total_calls = 0
+    FakeCodegen.instances = []
+    # Reset the per-process codegen-call budget between tests so the cap doesn't leak across them.
+    try:
+        import freetext
+        freetext.reset_codegen_budget()
+    except Exception:
+        pass
     yield
 
 
