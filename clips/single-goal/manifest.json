@@ -1,0 +1,49 @@
+{
+  "_comment": "Per-clip ingest config for the precompute pipeline (api/scripts/precompute.py). Carries the HUMAN knowledge the cache needs but Azure cannot produce: which .mov to read, the sampling window/fps the hero program replays over (must match hero_program.json's sample_frames so detect keys align), the known goal event, the jersey pins (hand-verified #10 -> p_messi), and which evidence frames become committed stills. The pipeline runs Azure detect over the sampled frames, mints det_ids, resolves pins to the nearest detection box (renaming that det to the pin's det_id), writes read_text under the renamed id, derives events[].scorer_det from the SAME pin resolution, and emits the cache in api/interpreter/cache.py's exact shape. See docs/cache-schema.md.",
+  "clip": {
+    "id": "single-goal",
+    "source": "../single-goal.mov",
+    "width": 1872,
+    "height": 1042,
+    "duration_ms": 5067,
+    "fps": 60
+  },
+  "sampling": {
+    "start_ms": 3500,
+    "end_ms": 5000,
+    "fps": 8
+  },
+  "detect_classes": ["person"],
+  "pins": [
+    {
+      "_comment": "Hand-verified hero #10 (Messi). Matched AFTER detect to the nearest person box at frame 4625 (the conf-0.75 left box in the committed hero cache). The matched det is RENAMED to det_id 'p_messi'; read_text is written under that same id. Azure Read misreads the stylized WC numeral (22 -> 77) and gpt-4o vision is TPM-gated, so this stays pinned.",
+      "det_id": "p_messi",
+      "text": "10",
+      "match": {
+        "frame_ts_ms": 4625,
+        "nearest_box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 }
+      },
+      "note": "Hand-verified. Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision pending TPM quota. The 10 is human-legible and pinned for the hero query (disclosed in the demo)."
+    }
+  ],
+  "events": [
+    {
+      "_comment": "Known goal moment. scorer_det references the pin det_id above; the pipeline derives the actual scorer_det from the resolved pin (NOT this literal) so it is byte-identical to a minted det_id that carries the #10 read_text. ts_ms 4000 is on the 8fps sampling stride (3500 + 4*125).",
+      "ts_ms": 4000,
+      "type": "goal",
+      "scorer_det": "p_messi",
+      "box": { "x": 0.86, "y": 0.34, "w": 0.10, "h": 0.34 }
+    }
+  ],
+  "stills": [
+    {
+      "_comment": "Evidence frames the unchanged web EvidencePanel.frameSrc() expects: ts<=4200 -> goal-4000.jpg, else scorer-4625.jpg. Each declares its output filename so the pipeline reproduces exactly those two files in web/public/frames/.",
+      "frame_ts_ms": 4000,
+      "filename": "goal-4000.jpg"
+    },
+    {
+      "frame_ts_ms": 4625,
+      "filename": "scorer-4625.jpg"
+    }
+  ]
+}
