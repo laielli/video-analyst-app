@@ -49,3 +49,5 @@ local.settings.json
 # Local frame-extraction scratch
 /frames/
 *.frames/
+
+.claude/worktrees
