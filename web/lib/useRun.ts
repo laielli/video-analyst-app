@@ -8,6 +8,14 @@ export const API_BASE =
 
 export type RunStatus = "idle" | "running" | "done" | "error";
 
+/**
+ * What to run: a canned query by id, or a typed free-text question against a clip (D-DR4).
+ * Free text builds `?query_text=&clip=`; canned builds `?query=`.
+ */
+export type RunRequest =
+  | { kind: "canned"; queryId: string }
+  | { kind: "free"; text: string; clip: string };
+
 export type RunState = {
   status: RunStatus;
   meta: Meta | null;
@@ -18,9 +26,20 @@ export type RunState = {
   current: number;
 };
 
+function runUrl(req: RunRequest, paceMs: number): string {
+  const base = `${API_BASE}/api/run`;
+  if (req.kind === "free") {
+    return `${base}?query_text=${encodeURIComponent(req.text)}&clip=${encodeURIComponent(req.clip)}&pace_ms=${paceMs}`;
+  }
+  return `${base}?query=${encodeURIComponent(req.queryId)}&pace_ms=${paceMs}`;
+}
+
 /**
  * Connects to GET /api/run over SSE and accumulates the run-doc step by step.
  * meta -> step* -> findings -> done. After done, `select()` scrubs to any step.
+ *
+ * `run()` with no argument replays the canned `queryId` the hook was constructed with (keeps the
+ * D-DR7 auto-play URL working); `run(request)` runs an explicit canned/free-text request.
  */
 export function useRun(queryId: string | null, paceMs = 1200) {
   const [state, setState] = useState<RunState>({
@@ -34,13 +53,15 @@ export function useRun(queryId: string | null, paceMs = 1200) {
     esRef.current = null;
   }, []);
 
-  const run = useCallback(() => {
-    if (!queryId) return;
+  const run = useCallback((request?: RunRequest) => {
+    const req: RunRequest | null =
+      request ?? (queryId ? { kind: "canned", queryId } : null);
+    if (!req) return;
     stop();
     userPinnedRef.current = false;
     setState({ status: "running", meta: null, steps: [], findings: null, error: null, current: -1 });
 
-    const url = `${API_BASE}/api/run?query=${encodeURIComponent(queryId)}&pace_ms=${paceMs}`;
+    const url = runUrl(req, paceMs);
     const es = new EventSource(url);
     esRef.current = es;
 
