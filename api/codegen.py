@@ -23,9 +23,9 @@ SCHEMA_PATH = API_DIR / "schema" / "dsl.schema.json"
 
 SYSTEM_PROMPT = """\
 You are the program-generation layer of a ViperGPT-style video analyst. Compile the user's
-question about a short soccer clip into a "visual program": an ordered list of named steps in
-the provided JSON DSL. Each step has a unique `id`; later steps reference earlier step ids by
-name (named bindings). Emit ONLY the program object {"program": [...]} — no prose.
+question about a short clip into a "visual program": an ordered list of named steps in the
+provided JSON DSL. Each step has a unique `id`; later steps reference earlier step ids by name
+(named bindings). Emit ONLY the program object {"program": [...]} — no prose.
 
 The only ops allowed (with their output kind):
   sample_frames(start_ms, end_ms, fps)            -> frames
@@ -37,14 +37,24 @@ The only ops allowed (with their output kind):
   temporal_order(events, by="timestamp")          -> ordered events
   answer(from, question)                          -> verdict       (MUST be the last step)
 
+`answer` summarizes its input honestly, dispatching on the kind it consumes — pick the chain whose
+`answer` input matches the question's shape:
+  - ordered  -> a temporal/boolean verdict ("did #N score the first goal?"). Filter the jersey
+               text first; the subject number is read from that filter, so it must precede
+               temporal_order -> answer.
+  - number   -> a count readout ("how many people are visible?"). End count -> answer.
+  - texts    -> a text readout ("what number is the scorer wearing?"). End read_text -> answer.
+  - detections/crops/frames -> an existence/presence verdict ("is there a referee?").
+If the question can't be grounded by these ops, still emit your best-effort program — the runtime
+reports honestly when it can't ground an answer rather than inventing one.
+
 Rules:
 - The load-bearing association is detect -> crop -> read_text: a detection box flows into a
   crop, then into OCR. To reason about a jersey number you MUST crop region "jersey", then
   read_text, then filter on the read text.
-- The clip is ~5 seconds of a World Cup goal. To decide whether a given shirt number scores
-  the first goal: sample frames around the goal (roughly start_ms 3500, end_ms 5000, fps 8),
-  detect "person", crop "jersey", read_text, filter text == the number in the question,
-  temporal_order by "timestamp", then answer.
+- sample_frames must stay within the clip's [0, duration_ms] window (1 <= fps <= 30); pick a
+  window and fps that cover the moment the question is about. Use the clip context (below) for
+  timing guidance.
 - Use only the whitelisted ops and arg shapes. Every binding must reference the id of an
   EARLIER step of a compatible kind. The final step must be `answer`, with the user's
   question passed through verbatim.
@@ -90,10 +100,26 @@ class AzureCodegen:
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21"),
         )
 
-    def generate(self, question: str) -> list[dict]:
-        """Compile `question` into a program (list of DSL steps). Raises on API error or
-        unparseable output; the caller validates structure/semantics and falls back to the
-        pinned program on any failure (D-DR6)."""
+    @staticmethod
+    def _system_message(clip: dict | None) -> str:
+        """The stable rules prompt plus an injected, clip-specific context block (Q2 → Alt C). The
+        hero timing survives as the clip's `hint` data, not a prompt literal, so SYSTEM_PROMPT stays
+        clip-agnostic. clip=None falls back to the bare prompt (back-compat with the canned path)."""
+        sys_msg = SYSTEM_PROMPT
+        if clip:
+            sys_msg += (
+                f"\n\nClip context:\n- label: {clip['label']}\n"
+                f"- duration_ms: {clip['duration_ms']}, sample within [0, duration_ms]\n"
+            )
+            if clip.get("hint"):
+                sys_msg += f"- hint: {clip['hint']}\n"
+        return sys_msg
+
+    def generate(self, question: str, clip: dict | None = None) -> list[dict]:
+        """Compile `question` into a program (list of DSL steps), compiling against `clip`'s
+        metadata when given (label/duration + the per-clip timing hint). Raises on API error or
+        unparseable output; the caller validates structure/semantics and, for free text, reports an
+        honest ungrounded result on any failure (no hero-program substitution)."""
         resp = self._client.chat.completions.create(
             model=self._deployment,
             temperature=0,
@@ -103,12 +129,12 @@ class AzureCodegen:
                 # an `anyOf`, all sharing id/op/args keyed by the `op` enum); OpenAI's STRICT
                 # structured-output subset rejects that shape ("Invalid response_format provided").
                 # strict=False still feeds the full schema as strong guidance, and correctness is
-                # enforced locally anyway — validate_program re-checks every program and D-DR6 falls
-                # back to the pinned program on any miss. So the schema stays the single source of truth.
+                # enforced locally anyway — validate_program re-checks every program and the
+                # free-text path reports ungrounded on any miss. So the schema stays the single source of truth.
                 "json_schema": {"name": "visual_program", "strict": False, "schema": _schema_for_openai()},
             },
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_message(clip)},
                 {"role": "user", "content": question},
             ],
         )
