@@ -11,3 +11,8 @@ openai>=1.40
 # Web: FastAPI + SSE wrapper around the interpreter
 fastapi>=0.110
 uvicorn[standard]>=0.29
+
+# Tests (first pytest suite, api/tests/). The precompute pipeline mocks Azure + ffmpeg, so
+# no SDK/ffmpeg is needed to run the suite — only jsonschema (above) + pytest.
+pytest>=8.0
+pytest-mock>=3.12
