@@ -37,17 +37,29 @@ The only ops allowed (with their output kind):
   temporal_order(events, by="timestamp")          -> ordered events
   answer(from, question)                          -> verdict       (MUST be the last step)
 
+`answer` honestly summarizes whatever its `from` binding holds — pick the binding that holds
+the result that answers the question:
+- from a `temporal_order` (ordered) result -> a temporal/first-goal verdict
+  ("did <number> score the first goal?"). Reach it via detect -> crop "jersey" ->
+  read_text -> filter text == <number> -> temporal_order.
+- from a `count` (number) result -> a count answer ("how many <things>?"). Reach it via
+  detect (+ optional filter) -> count.
+- from a `read_text` / filtered `texts` result -> a text readout ("what number is the
+  scorer wearing?"). Reach it via detect -> crop "jersey" -> read_text (+ optional filter).
+- from a `detect` / `crop` / `filter` collection -> an existence answer ("is there a
+  referee/ball?"). Reach it via detect (+ optional filter).
+Choose the shape that matches the question; do NOT force every question through the
+first-goal recipe.
+
 Rules:
 - The load-bearing association is detect -> crop -> read_text: a detection box flows into a
   crop, then into OCR. To reason about a jersey number you MUST crop region "jersey", then
   read_text, then filter on the read text.
-- The clip is ~5 seconds of a World Cup goal. To decide whether a given shirt number scores
-  the first goal: sample frames around the goal (roughly start_ms 3500, end_ms 5000, fps 8),
-  detect "person", crop "jersey", read_text, filter text == the number in the question,
-  temporal_order by "timestamp", then answer.
 - Use only the whitelisted ops and arg shapes. Every binding must reference the id of an
   EARLIER step of a compatible kind. The final step must be `answer`, with the user's
   question passed through verbatim.
+- Sample frames within the clip's [0, duration_ms]. If a Clip context block is provided
+  below, follow its `hint` for the relevant time window, fps, and detection class.
 - Give each step a short, descriptive snake_case id that reads like a variable name for what
   it holds (e.g. frames, people, jerseys, numbers, tens, ordered, result) — NOT step1, step2.
   The program is shown to the user as the model's reasoning, so the ids should be legible."""
@@ -90,10 +102,28 @@ class AzureCodegen:
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21"),
         )
 
-    def generate(self, question: str) -> list[dict]:
-        """Compile `question` into a program (list of DSL steps). Raises on API error or
-        unparseable output; the caller validates structure/semantics and falls back to the
-        pinned program on any failure (D-DR6)."""
+    @staticmethod
+    def _system_message(clip: dict | None) -> str:
+        """The stable rules SYSTEM_PROMPT, plus an injected per-clip context block (Q2 -> Alt C).
+        The hero timing/event-window is NOT a prompt literal anymore — it arrives as the clip's
+        `hint` data, so the prompt stays clip-agnostic while grounding survives for each clip."""
+        sys_msg = SYSTEM_PROMPT
+        if clip:
+            sys_msg += (
+                f"\n\nClip context:\n- label: {clip['label']}\n"
+                f"- duration_ms: {clip['duration_ms']}, sample within [0, duration_ms]\n"
+            )
+            if clip.get("hint"):  # Q2 -> Alt C: per-clip timing/event window, as data
+                sys_msg += f"- hint: {clip['hint']}\n"
+        return sys_msg
+
+    def generate(self, question: str, clip: dict | None = None) -> list[dict]:
+        """Compile `question` into a program (list of DSL steps). `clip` (optional) injects a
+        per-clip context block (label, duration, timing/event `hint`) so a typed question is
+        compiled against the actual clip. Raises on API error or unparseable output; the caller
+        validates structure/semantics and (canned path) falls back to the pinned program on any
+        failure (D-DR6). The free-text path has no pinned fallback — a failure there is reported
+        as honestly ungrounded."""
         resp = self._client.chat.completions.create(
             model=self._deployment,
             temperature=0,
@@ -108,7 +138,7 @@ class AzureCodegen:
                 "json_schema": {"name": "visual_program", "strict": False, "schema": _schema_for_openai()},
             },
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_message(clip)},
                 {"role": "user", "content": question},
             ],
         )
