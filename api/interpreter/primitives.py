@@ -12,8 +12,8 @@ Binding kinds and item shapes:
   crops       items=[{crop_id,det_id,box,person_box,person_conf,frame_ts_ms}]
   texts       items=[{det_id,text,confidence,source,note?,crop_box,person_box,frame_ts_ms}]
   number      value=int
-  ordered     value={events,first,subject_dets,subject_is_first_scorer}
-  answer      value={answer,verdict,question,yes}
+  ordered     value={events,first,subject_dets,subject_label,subject_is_first_scorer}
+  answer      value={answer,verdict,question,yes,grounded}  (answer/verdict None when ungrounded)
 """
 from __future__ import annotations
 
@@ -162,10 +162,23 @@ def op_count(step, env, cache):
     return {"kind": "number", "value": n}, result
 
 
+def _subject_label(subject_items) -> str | None:
+    """Derive the subject's display label (#<n>) from the filtered items that flow into
+    temporal_order/answer — the jersey value the question filtered on — NOT a literal '#10'.
+    Reads the `text` the filter matched, or falls back to None when nothing was filtered."""
+    for it in subject_items:
+        t = it.get("text")
+        if t:
+            return f"#{t}"
+    return None
+
+
 def op_temporal_order(step, env, cache):
     a = step["args"]
     subj = env[a["events"]]
-    subject_dets = {it.get("det_id") for it in subj.get("items", []) if it.get("det_id")}
+    subject_items = subj.get("items", [])
+    subject_dets = {it.get("det_id") for it in subject_items if it.get("det_id")}
+    subject_label = _subject_label(subject_items)
     goals = cache.goal_events()
     first = goals[0] if goals else None
     subject_is_first = bool(first and first.get("scorer_det") in subject_dets)
@@ -182,33 +195,138 @@ def op_temporal_order(step, env, cache):
         "confidence": None, "evidence": _evi(focus_ts, overlays),
     }
     value = {"events": goals, "first": first, "subject_dets": sorted(subject_dets),
-             "subject_is_first_scorer": subject_is_first}
+             "subject_label": subject_label, "subject_is_first_scorer": subject_is_first}
     return {"kind": "ordered", "value": value}, result
+
+
+# ---- answer synthesis: deterministic structural templating per binding kind (replay-mode,
+# free, deterministic, honest). op_answer dispatches on the kind of its `from` binding and
+# synthesizes (answer, verdict, yes) from the structured value — never a hardcoded #10 string.
+# When the binding can't ground the question (empty filter, count==0, unsupported kind) it
+# returns None so op_answer emits the honest ungrounded state (Q1 -> A). ----
+
+def _answer_temporal(src, q):
+    """ordered events -> 'did <subject> score first?' verdict; subject derived from the filter.
+    Grounds out (None) when there's no goal to order OR no identifiable subject — answering
+    'No, the subject didn't score' about a subject we never matched would be dishonest (Q1->A)."""
+    v = src["value"]
+    first = v.get("first")
+    if not first:
+        return None  # no goal events to order -> couldn't ground
+    subject = v.get("subject_label")
+    if not subject and not v.get("subject_dets"):
+        return None  # the filter matched nobody -> no subject to reason about honestly
+    label = subject or "the subject"
+    yes = bool(v.get("subject_is_first_scorer"))
+    if yes:
+        verdict = f"Yes — {label} scored the first goal"
+    else:
+        verdict = f"No — the first goal was not scored by {label}"
+    return ("Yes" if yes else "No"), verdict, yes
+
+
+def _answer_count(src, q):
+    """number -> 'N <noun>'. A count of 0 can't ground a 'how many' answer honestly."""
+    n = src.get("value", 0)
+    if n <= 0:
+        return None
+    ql = q.lower()
+    if "player" in ql:
+        noun = "players"
+    elif "people" in ql or "person" in ql:
+        noun = "people"
+    else:
+        noun = "items"
+    return str(n), f"{n} {noun}", True
+
+
+def _answer_text(src, q):
+    """texts -> read-out of the legible values, e.g. '10'."""
+    values = [it.get("text") for it in src.get("items", []) if it.get("text")]
+    uniq = sorted(set(values))
+    if not uniq:
+        return None
+    readout = ", ".join(uniq)
+    return readout, f"Read: {readout}", True
+
+
+def _answer_presence(src, q):
+    """detections/crops/frames -> existence: 'yes, N found' / honest no when empty."""
+    items = src.get("items", [])
+    if not items:
+        return None
+    return "Yes", f"Yes — found {len(items)}", True
+
+
+def _answer_overlays(src, cache):
+    """Best-effort evidence overlays for the answer step, derived from the binding kind."""
+    overlays, focus_ts = [], 0
+    if src["kind"] == "ordered":
+        v = src["value"]
+        first = v.get("first") or {}
+        scorer = first.get("scorer_det")
+        label = (v.get("subject_label") or "subject") + " scored"
+        if scorer:
+            for ts in cache.analyzed_frames():
+                for d in cache.detections_at(ts):
+                    if d["det_id"] == scorer:
+                        overlays.append({"box": d["box"], "label": label, "tone": "green", "kind": "box"})
+                        focus_ts = ts
+    elif src["kind"] in ("detections", "crops", "texts"):
+        for it in src.get("items", []):
+            box = it.get("person_box") or it.get("box") or it.get("crop_box")
+            if box:
+                overlays.append({"box": box, "label": it.get("text") or "found", "tone": "green", "kind": "box"})
+                focus_ts = it.get("frame_ts_ms", focus_ts)
+    return overlays, focus_ts
 
 
 def op_answer(step, env, cache):
     a = step["args"]
     src = env[a["from"]]
     q = a["question"]
-    yes = bool(src["kind"] == "ordered" and src["value"].get("subject_is_first_scorer"))
-    verdict = "Yes — #10 scored the first goal" if yes else "No — the first goal was not scored by #10"
-    overlays, focus_ts = [], 0
-    if src["kind"] == "ordered":
-        first = src["value"].get("first") or {}
-        scorer = first.get("scorer_det")
-        if scorer:
-            for ts in cache.analyzed_frames():
-                for d in cache.detections_at(ts):
-                    if d["det_id"] == scorer:
-                        overlays.append({"box": d["box"], "label": "#10 scored", "tone": "green", "kind": "box"})
-                        focus_ts = ts
+    kind = src["kind"]
+
+    if kind == "ordered":
+        synth = _answer_temporal(src, q)
+    elif kind == "number":
+        synth = _answer_count(src, q)
+    elif kind == "texts":
+        synth = _answer_text(src, q)
+    elif kind in ("detections", "crops", "frames"):
+        synth = _answer_presence(src, q)
+    else:
+        synth = None  # unsupported kind -> honest ungrounded
+
+    if synth is None:
+        return _ungrounded_answer(step, q)
+
+    answer, verdict, yes = synth
+    overlays, focus_ts = _answer_overlays(src, cache)
     result = {
         "id": step["id"], "op": "answer", "producer": "answer_question",
         "status": "done", "source": "live", "inputs": [a["from"]],
-        "input_label": "ordered events", "output_label": "Yes" if yes else "No",
+        "input_label": f"{kind} binding", "output_label": answer,
         "confidence": None, "evidence": _evi(focus_ts, overlays),
     }
-    binding = {"kind": "answer", "value": {"answer": "Yes" if yes else "No", "verdict": verdict, "question": q, "yes": yes}}
+    binding = {"kind": "answer",
+               "value": {"answer": answer, "verdict": verdict, "question": q, "yes": yes, "grounded": True}}
+    return binding, result
+
+
+def _ungrounded_answer(step, q):
+    """The answer step ran but its binding can't ground the question (empty filter, count==0,
+    unsupported kind). Emit grounded:false so _findings surfaces the honest ungrounded state —
+    NEVER a fabricated verdict (Q1 -> A)."""
+    result = {
+        "id": step["id"], "op": "answer", "producer": "answer_question",
+        "status": "empty", "source": "live", "inputs": [step["args"].get("from", "")],
+        "input_label": "no groundable binding", "output_label": "(ungrounded)",
+        "confidence": None, "evidence": _evi(0, []),
+        "note": "the evidence chain did not ground an answer to the question",
+    }
+    binding = {"kind": "answer",
+               "value": {"answer": None, "verdict": None, "question": q, "yes": False, "grounded": False}}
     return binding, result
 
 

@@ -136,13 +136,15 @@ def test_hero_cache_replays_to_grounded_answer(tmp_path, manifest, fake_frame_pr
 
 
 def test_degraded_sibling_carries_partial_signal(tmp_path, manifest, fake_frame_provider, fake_crop_provider):
-    """A degraded clip (no pin, no VLM digits) -> no read_text -> filter empty -> verdict 'No',
-    findings carry a partial/empty signal. Proves the honest-empty path."""
+    """A degraded clip (no pin, no VLM digits) -> no read_text -> filter empty -> no goal events.
+    Post-Phase-0 the answer path is HONEST: with no goal to order, op_answer grounds out
+    (grounded:false, verdict None) instead of fabricating a 'No — ... #10' verdict from no
+    evidence. Proves the honest-empty path now refuses to invent a verdict."""
     out = tmp_path / "cache.json"
     m = json.loads(json.dumps({k: v for k, v in manifest.items() if k != "_dir"}))
     m["_dir"] = manifest["_dir"]
     m["pins"] = []           # no pin
-    m["events"] = []         # no goal -> No path
+    m["events"] = []         # no goal -> nothing to order -> honest ungrounded
     m["sampling"]["read_all_jerseys"] = True  # attempt VLM reads on every det
     rep = run_precompute(
         m, out=out, vision=FakeAzureVision(),
@@ -156,7 +158,10 @@ def test_degraded_sibling_carries_partial_signal(tmp_path, manifest, fake_frame_
     from validate_program import strip_comments
     program = strip_comments(json.loads((API_DIR / "examples" / "hero_program.json").read_text()))["program"]
     run_doc = Interpreter(cache).run(program)
-    assert run_doc["findings"]["verdict"].startswith("No")
+    # Honest ungrounded: no fabricated #10 verdict from no evidence (Q1 -> A).
+    assert run_doc["findings"]["grounded"] is False
+    assert run_doc["findings"]["verdict"] is None
+    assert "#10" not in json.dumps(run_doc["findings"])
     numbers = next(t for t in run_doc["trace"] if t["op"] == "read_text")
     assert numbers["status"] == "empty"
 

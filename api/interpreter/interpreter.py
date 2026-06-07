@@ -53,10 +53,18 @@ class Interpreter:
     def _findings(program: list[dict], answer_binding: dict | None) -> dict:
         if answer_binding and answer_binding["kind"] == "answer":
             v = answer_binding["value"]
+            # Q1 -> A: op_answer can now honestly ground out (grounded:false), in which case the
+            # answer/verdict are null and we surface the ungrounded discriminator instead of a
+            # fabricated string. _findings formats GENERICALLY from the binding either way.
+            if v.get("grounded") is False:
+                return {"answer": None, "verdict": None, "grounded": False,
+                        "reason": "no-grounded-answer", "partial": True}
             supporting = (next((s["id"] for s in program if s["op"] == "temporal_order"), None)
                           or next((s["id"] for s in program if s["op"] == "answer"), None))
-            out = {"answer": v["answer"], "verdict": v["verdict"], "partial": False}
+            out = {"answer": v["answer"], "verdict": v["verdict"],
+                   "grounded": True, "reason": None, "partial": False}
             if supporting:
                 out["supporting_step"] = supporting
             return out
-        return {"answer": "Unknown", "verdict": "Could not determine an answer", "partial": True}
+        return {"answer": None, "verdict": None, "grounded": False,
+                "reason": "no-grounded-answer", "partial": True}
