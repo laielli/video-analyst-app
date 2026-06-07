@@ -1,0 +1,41 @@
+{
+  "_comment": "Per-clip ingest config for single-goal.mov — the human knowledge the precompute pipeline (api/scripts/precompute.py) needs to turn a raw clip into a replayable cache. `source` resolves clip -> .mov relative to this manifest (so canned.py stays unchanged). `sampling` MUST match the hero program's sample_frames args (3500-5000ms @ 8fps -> stride 125) so detect keys align with op_sample_frames. `pins` carry the hand-verified jersey number for the hero #10 and a `match` (frame_ts_ms + nearest_box) that the pipeline resolves to a minted det_id AFTER detect runs, renaming it to the semantic det_id (p_messi). `events` derive their scorer_det from that same pin resolution (NOT an independent literal): scorer_pin names the pin whose resolved det_id becomes events[].scorer_det. `evidence_frames` declares the exact still filenames EvidencePanel.tsx hardcodes (goal-4000.jpg / scorer-4625.jpg) so the frontend stays unchanged.",
+  "clip": {
+    "id": "single-goal",
+    "source": "../../single-goal.mov",
+    "width": 1872,
+    "height": 1042,
+    "duration_ms": 5067,
+    "fps": 60
+  },
+  "sampling": {
+    "start_ms": 3500,
+    "end_ms": 5000,
+    "fps": 8
+  },
+  "detect_classes": ["person"],
+  "ocr_region": "jersey",
+  "pins": [
+    {
+      "match": {
+        "frame_ts_ms": 4625,
+        "nearest_box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 }
+      },
+      "det_id": "p_messi",
+      "text": "10",
+      "note": "Hand-verified. Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision pending TPM quota. The 10 is human-legible and pinned for the hero query (disclosed in the demo)."
+    }
+  ],
+  "events": [
+    {
+      "ts_ms": 4000,
+      "type": "goal",
+      "scorer_pin": "p_messi",
+      "box": { "x": 0.86, "y": 0.34, "w": 0.1, "h": 0.34 }
+    }
+  ],
+  "evidence_frames": [
+    { "ts_ms": 4000, "filename": "goal-4000.jpg" },
+    { "ts_ms": 4625, "filename": "scorer-4625.jpg" }
+  ]
+}
