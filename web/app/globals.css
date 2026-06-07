@@ -81,6 +81,22 @@ h1.query {
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn:focus-visible, .select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Free-text query input — type a novel question (the full ViperGPT thesis). */
+.ask-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.ask-input {
+  flex: 1; min-width: 0; font-family: var(--ff-ui); font-size: 14px;
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  padding: 9px 13px; border-radius: var(--radius); transition: border-color 0.15s var(--ease);
+}
+.ask-input::placeholder { color: var(--muted); }
+.ask-input:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+.clip-tag {
+  font-family: var(--ff-mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line);
+  padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+}
+.btn-ask { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+.btn-ask:hover:not(:disabled) { filter: brightness(1.15); }
+
 /* ---------- Zone 2: panels 45/55 ---------- */
 .panels { display: grid; grid-template-columns: 44fr 56fr; gap: 16px; margin-top: 18px; }
 .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; display: flex; flex-direction: column; }
@@ -133,6 +149,13 @@ h1.query {
 .src-tag { font-family: var(--ff-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
 .src-tag.pinned { color: var(--amber); border-color: var(--amber); }
 .src-tag.cached { color: var(--accent); border-color: var(--accent); }
+/* Program provenance tag in the Evidence header: live compile vs pinned replay vs ungrounded. */
+.prov-tag { font-family: var(--ff-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-right: 8px; }
+.prov-tag.live { color: var(--green); border-color: var(--green); }
+.prov-tag.pinned { color: var(--amber); border-color: var(--amber); }
+.prov-tag.ungrounded { color: var(--amber); border-color: var(--amber); }
+/* Evidence frame placeholder when a (partial free-text) step produced no frame. */
+.frame-empty { display: grid; place-items: center; min-height: 180px; color: var(--muted); font-family: var(--ff-mono); font-size: 12px; background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius); }
 .conf-bar { flex: 1; max-width: 160px; height: 6px; border-radius: 99px; background: var(--line-2); overflow: hidden; }
 .conf-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.5s var(--ease); }
 .note { margin-top: 8px; font-size: 12px; color: var(--amber); font-style: italic; }
@@ -141,6 +164,9 @@ h1.query {
 .findings { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--muted); font-weight: 600; font-size: 15px; }
 .findings.working { color: var(--ink-2); border-color: var(--amber); background: var(--amber-bg); }
 .findings.resolved { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+/* Honest "couldn't ground" — amber, NOT the green resolved state (Q1 -> A). */
+.findings.ungrounded { color: var(--amber); border-color: var(--amber); background: var(--amber-bg); align-items: flex-start; }
+.findings.ungrounded .ungrounded-why { display: block; font-weight: 500; font-size: 12.5px; color: var(--ink-2); margin-top: 2px; max-width: 56ch; }
 .findings .ic { width: 20px; height: 20px; display: grid; place-items: center; }
 .findings .ic svg { width: 15px; height: 15px; }
 .spin { animation: spin 0.9s linear infinite; }

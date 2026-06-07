@@ -1,4 +1,4 @@
-import type { StepResult } from "@/lib/types";
+import type { StepResult, ProgramSource } from "@/lib/types";
 
 const pct = (n: number) => `${(n * 100).toFixed(3)}%`;
 const ms = (n: number) => {
@@ -7,26 +7,48 @@ const ms = (n: number) => {
 };
 
 function frameSrc(ts: number) {
+  // Clip-scoped to the single v1 clip's hero stills (documented single-clip assumption).
   return ts && ts <= 4200 ? "/frames/goal-4000.jpg" : "/frames/scorer-4625.jpg";
 }
 
-export default function EvidencePanel({ step }: { step: StepResult | null }) {
+export default function EvidencePanel({
+  step,
+  programSource,
+}: {
+  step: StepResult | null;
+  programSource?: ProgramSource;
+}) {
   const ev = step?.evidence;
-  const ts = ev?.frame_ts_ms ?? 4625;
+  // A free-text program may run partway: a step can carry no evidence frame (ts 0) or no
+  // overlays. Only show a still when there's a real evidence frame (ts > 0), so we never draw
+  // a misleading hero frame for a step that produced none. With no step at all, fall back to
+  // the hero still (the canned auto-play idle state — preserves prior behavior).
+  const rawTs = ev?.frame_ts_ms ?? 0;
+  const hasFrame = step ? rawTs > 0 : true;
+  const ts = step ? rawTs : 4625;
   const conf = step?.confidence;
 
   return (
     <section className="panel evidence" aria-label="Evidence — inspectable">
       <div className="panel-head">
         <div className="panel-title">Evidence <span className="sub">(inspectable)</span></div>
-        <div className="panel-meta">frame {ms(ts)}</div>
+        <div className="panel-meta">
+          {programSource && <span className={`prov-tag ${programSource}`} title="Program provenance">{programSource}</span>}
+          {hasFrame ? `frame ${ms(ts)}` : "no evidence frame"}
+        </div>
       </div>
       <div className="evi-body">
         <div className="frame">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={frameSrc(ts)} alt="analyzed video frame" />
-          <div className="tc">{ms(ts)}</div>
-          {(ev?.overlays ?? []).map((o, i) => (
+          {hasFrame ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={frameSrc(ts)} alt="analyzed video frame" />
+              <div className="tc">{ms(ts)}</div>
+            </>
+          ) : (
+            <div className="frame-empty">No evidence frame for this step.</div>
+          )}
+          {(hasFrame ? ev?.overlays ?? [] : []).map((o, i) => (
             <div
               key={i}
               className={`ov ${o.tone}`}

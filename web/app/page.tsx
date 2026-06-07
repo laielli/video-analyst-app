@@ -11,6 +11,7 @@ import Findings from "@/components/Findings";
 export default function Page() {
   const [queries, setQueries] = useState<CatalogQuery[]>([]);
   const [queryId, setQueryId] = useState<string | null>(null);
+  const [typed, setTyped] = useState(""); // the free-text question the user is composing
   const [err, setErr] = useState<string | null>(null);
   const run = useRun(queryId, 1200);
 
@@ -23,7 +24,8 @@ export default function Page() {
       .catch(() => setErr("Can't reach the API. Start it: cd api && uvicorn server:app --port 8000"));
   }, []);
 
-  // Auto-run on first load and whenever the query changes (the public URL self-plays — D-DR7).
+  // Auto-run on first load and whenever the canned query changes (the public URL self-plays —
+  // D-DR7). Free text is explicit-submit only, so it does NOT trigger this effect.
   useEffect(() => {
     if (!queryId) return;
     run.run();
@@ -32,9 +34,21 @@ export default function Page() {
   }, [queryId]);
 
   const selected = queries.find((q) => q.id === queryId);
+  // v1 has a single clip; the free-text question compiles against the selected query's clip.
+  const clipId = selected?.clip ?? "single-goal";
   const program = run.meta?.program ?? [];
   const currentStep = run.current >= 0 ? run.steps[run.current] ?? null : null;
   const total = run.meta?.total_steps ?? program.length;
+
+  // Compile + run the typed question against the current clip (no pinned fallback — the answer
+  // may honestly ground out). Empty/whitespace is a no-op (useRun guards it too).
+  const askTyped = () => {
+    const text = typed.trim();
+    if (!text) return;
+    run.run({ kind: "free", text, clip: clipId });
+  };
+  // The headline shows the live query once a run is in flight; otherwise the selected canned one.
+  const headline = run.meta?.query ?? selected?.text ?? "Loading…";
 
   return (
     <>
@@ -49,7 +63,7 @@ export default function Page() {
         <header className="bar">
           <div className="eyebrow"><span className="dot" /> Glass-Box Video Analyst · Portfolio Demo</div>
           <div className="query-row">
-            <h1 className="query">{selected?.text ?? "Loading…"}</h1>
+            <h1 className="query">{headline}</h1>
             <div className="controls">
               {queries.length > 1 && (
                 <select className="select" value={queryId ?? ""} onChange={(e) => setQueryId(e.target.value)}>
@@ -61,13 +75,38 @@ export default function Page() {
               </button>
             </div>
           </div>
+
+          {/* Free-text query input — type a novel question; Azure OpenAI compiles it live into a
+              visible DSL program (no pinned fallback). Explicit "Ask" submit; no keystroke run. */}
+          <form
+            className="ask-row"
+            onSubmit={(e) => { e.preventDefault(); askTyped(); }}
+          >
+            <input
+              className="ask-input"
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={selected ? `Ask anything — e.g. "${selected.text}"` : "Ask a question about the clip…"}
+              maxLength={500}
+              aria-label="Ask a free-text question about the clip"
+            />
+            <span className="clip-tag" title="The clip this question runs against">{clipId}</span>
+            <button
+              type="submit"
+              className="btn btn-ask"
+              disabled={run.status === "running" || typed.trim() === ""}
+            >
+              Ask
+            </button>
+          </form>
         </header>
 
         {err && <p style={{ color: "var(--amber)", marginTop: 16, fontFamily: "var(--ff-mono)", fontSize: 13 }}>{err}</p>}
 
         <div className="panels">
           <ProgramPanel program={program} steps={run.steps} current={run.current} />
-          <EvidencePanel step={currentStep} />
+          <EvidencePanel step={currentStep} programSource={run.meta?.program_source} />
         </div>
 
         <section className="tracker" aria-label="Execution pipeline">
