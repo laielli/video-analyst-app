@@ -37,11 +37,17 @@ export type ProgramStep = {
 export type Clip = { id: string; width: number; height: number; duration_ms: number; fps?: number };
 
 export type Findings = {
-  answer: string;
-  verdict: string;
+  // null when the run couldn't ground an answer (Resolved Q1 -> A); a string when grounded.
+  answer: string | null;
+  verdict: string | null;
   supporting_step?: string;
   partial?: boolean;
   partial_note?: string;
+  // Honest "couldn't ground this" discriminator (Q1 -> A): grounded:false carries a `reason`
+  // (fixed enum: codegen-disabled | codegen-error | invalid-program | execution-error |
+  // no-grounded-answer); answer/verdict are null. Never a fabricated verdict, never a hero sub.
+  grounded?: boolean;
+  reason?: string | null;
 };
 
 export type Meta = {
@@ -51,8 +57,9 @@ export type Meta = {
   total_steps: number;
   pace_ms: number;
   // Provenance of the program: "live" = compiled this run by Azure OpenAI codegen and
-  // validated; "pinned" = the known-good fallback (no creds, or live failed — D-DR6).
-  program_source?: "live" | "pinned";
+  // validated; "pinned" = the known-good fallback (no creds, or live failed — D-DR6);
+  // "ungrounded" = a free-text query that couldn't be grounded (no hero substitution).
+  program_source?: "live" | "pinned" | "ungrounded";
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };

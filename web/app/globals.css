@@ -81,6 +81,19 @@ h1.query {
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn:focus-visible, .select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Free-text query input (the full ViperGPT loop: type a question -> live codegen -> execute). */
+.ask-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.ask-input {
+  font-family: var(--ff-ui); font-size: 14px; border: 1px solid var(--line);
+  background: var(--paper); color: var(--ink); padding: 9px 13px; border-radius: var(--radius);
+  flex: 1; min-width: 280px; transition: all 0.15s var(--ease);
+}
+.ask-input::placeholder { color: var(--faint); }
+.ask-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ask-clip { font-family: var(--ff-mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.btn-ask { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+.btn-ask:hover { filter: brightness(1.15); }
+
 /* ---------- Zone 2: panels 45/55 ---------- */
 .panels { display: grid; grid-template-columns: 44fr 56fr; gap: 16px; margin-top: 18px; }
 .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; display: flex; flex-direction: column; }
@@ -110,6 +123,12 @@ h1.query {
 .evi-body { padding: 13px 15px 15px; }
 .frame { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: var(--radius-s); overflow: hidden; background: #0b1f12; }
 .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* A step with no frame-grounded evidence (count / ungrounded answer): dim the still + a note. */
+.frame.no-evi img { opacity: 0.18; filter: grayscale(1); }
+.frame.no-evi .no-evi-tag {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+  font-family: var(--ff-mono); font-size: 12px; color: #cfe9dc; padding: 0 24px; line-height: 1.5;
+}
 .frame .tc { position: absolute; top: 7px; left: 7px; font-family: var(--ff-mono); font-size: 11px; color: #eafff6; background: rgba(0,0,0,0.55); padding: 2px 7px; border-radius: var(--radius-s); }
 .ov { position: absolute; border: 2px solid var(--ov-detect); border-radius: var(--radius-s); box-shadow: 0 0 0 1px rgba(0,0,0,0.3); transition: all 0.3s var(--ease); }
 .ov.teal { border-color: var(--ov-focus); box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 0 12px rgba(20,184,166,0.6); }
@@ -141,6 +160,9 @@ h1.query {
 .findings { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--muted); font-weight: 600; font-size: 15px; }
 .findings.working { color: var(--ink-2); border-color: var(--amber); background: var(--amber-bg); }
 .findings.resolved { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+/* Honest "couldn't ground this" state (Resolved Q1 -> A): neutral/amber, NOT the green check. */
+.findings.ungrounded { color: var(--amber); border-color: var(--amber); background: var(--amber-bg); }
+.findings .reason { margin-left: 8px; font-weight: 500; font-size: 12px; opacity: 0.85; font-family: var(--ff-mono); }
 .findings .ic { width: 20px; height: 20px; display: grid; place-items: center; }
 .findings .ic svg { width: 15px; height: 15px; }
 .spin { animation: spin 0.9s linear infinite; }
@@ -149,6 +171,11 @@ h1.query {
 .tracker { margin-top: 18px; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 16px; }
 .tracker-top { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
 .findings-wrap { display: flex; align-items: center; gap: 12px; }
+.findings-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* Program provenance: live = Azure OpenAI codegen this run; pinned = fallback; ungrounded = miss. */
+.prov-tag { font-family: var(--ff-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.prov-tag.live { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+.prov-tag.ungrounded { color: var(--amber); border-color: var(--amber); background: var(--amber-bg); }
 .legend { display: flex; gap: 14px; }
 .legend .it { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
 .sw { width: 9px; height: 9px; border-radius: 50%; }

@@ -18,9 +18,18 @@ export type RunState = {
   current: number;
 };
 
+/** A run request: a canned query id, OR a typed free-text question against a clip. */
+export type RunRequest =
+  | { kind: "canned"; queryId: string }
+  | { kind: "free"; text: string; clip: string };
+
 /**
  * Connects to GET /api/run over SSE and accumulates the run-doc step by step.
  * meta -> step* -> findings -> done. After done, `select()` scrubs to any step.
+ *
+ * `run()` with no arg replays the current canned `queryId` (the D-DR7 auto-play default URL);
+ * `run({ kind: "free", text, clip })` compiles + runs a typed question. A free-text run that
+ * can't be grounded streams findings.grounded:false (never the hero program) — Resolved Q1 -> A.
  */
 export function useRun(queryId: string | null, paceMs = 1200) {
   const [state, setState] = useState<RunState>({
@@ -34,13 +43,22 @@ export function useRun(queryId: string | null, paceMs = 1200) {
     esRef.current = null;
   }, []);
 
-  const run = useCallback(() => {
-    if (!queryId) return;
+  const run = useCallback((req?: RunRequest) => {
+    // Default: replay the current canned query (auto-play call site `run.run()`).
+    const request: RunRequest | null =
+      req ?? (queryId ? { kind: "canned", queryId } : null);
+    if (!request) return;
+    if (request.kind === "free" && !request.text.trim()) return; // empty submit is a no-op
+
     stop();
     userPinnedRef.current = false;
     setState({ status: "running", meta: null, steps: [], findings: null, error: null, current: -1 });
 
-    const url = `${API_BASE}/api/run?query=${encodeURIComponent(queryId)}&pace_ms=${paceMs}`;
+    const params =
+      request.kind === "canned"
+        ? `query=${encodeURIComponent(request.queryId)}`
+        : `query_text=${encodeURIComponent(request.text)}&clip=${encodeURIComponent(request.clip)}`;
+    const url = `${API_BASE}/api/run?${params}&pace_ms=${paceMs}`;
     const es = new EventSource(url);
     esRef.current = es;
 

@@ -7,26 +7,33 @@ const ms = (n: number) => {
 };
 
 function frameSrc(ts: number) {
-  return ts && ts <= 4200 ? "/frames/goal-4000.jpg" : "/frames/scorer-4625.jpg";
+  return ts <= 4200 ? "/frames/goal-4000.jpg" : "/frames/scorer-4625.jpg";
 }
 
 export default function EvidencePanel({ step }: { step: StepResult | null }) {
   const ev = step?.evidence;
-  const ts = ev?.frame_ts_ms ?? 4625;
+  const ts = ev?.frame_ts_ms ?? 0;
+  const overlays = ev?.overlays ?? [];
   const conf = step?.confidence;
+  // A step with ts 0 and no overlays has no frame-grounded evidence (e.g. count, or an ungrounded
+  // answer). Free-text programs may run partway, so degrade gracefully instead of showing a
+  // misleading hero still as if it were this step's evidence.
+  const hasFrame = ts > 0 || overlays.length > 0;
+  const shownTs = hasFrame && ts > 0 ? ts : 4625; // default the placeholder background to a real still
 
   return (
     <section className="panel evidence" aria-label="Evidence — inspectable">
       <div className="panel-head">
         <div className="panel-title">Evidence <span className="sub">(inspectable)</span></div>
-        <div className="panel-meta">frame {ms(ts)}</div>
+        <div className="panel-meta">{hasFrame ? `frame ${ms(shownTs)}` : "no evidence frame"}</div>
       </div>
       <div className="evi-body">
-        <div className="frame">
+        <div className={`frame ${hasFrame ? "" : "no-evi"}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={frameSrc(ts)} alt="analyzed video frame" />
-          <div className="tc">{ms(ts)}</div>
-          {(ev?.overlays ?? []).map((o, i) => (
+          <img src={frameSrc(shownTs)} alt={hasFrame ? "analyzed video frame" : "no evidence for this step"} />
+          <div className="tc">{ms(shownTs)}</div>
+          {!hasFrame && <div className="no-evi-tag">This step produced no frame-level evidence.</div>}
+          {overlays.map((o, i) => (
             <div
               key={i}
               className={`ov ${o.tone}`}
