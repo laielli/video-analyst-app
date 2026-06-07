@@ -1,0 +1,792 @@
+#!/usr/bin/env python3
+"""
+Automated clip -> cache precompute pipeline.
+
+Turns a raw clip (starting with single-goal.mov) + a per-clip manifest into the two
+artifacts the demo replays today, with NO hand-annotation of vision output:
+
+  (a) frame stills under web/public/frames/  (the unchanged EvidencePanel renders these)
+  (b) a per-clip replay cache JSON in the exact shape api/interpreter/cache.py loads
+      (`clip` block, `detect` map keyed by sampled-frame ms, `read_text` map keyed by
+       det_id, `events` list) — see docs/cache-schema.md.
+
+The human knowledge (which det is the scorer, the pinned #10, the goal moment, the sampling
+window) lives in clips/<id>/manifest.json. Azure supplies only the detections and (when
+creds + quota allow) the gpt-4o VLM jersey read; everything that grounds the verdict —
+det_ids, read_text linkage, events — is minted/pinned here, deterministically.
+
+    python scripts/precompute.py --clip single-goal --query hero-10-first-goal
+    python scripts/precompute.py --manifest ../clips/single-goal/manifest.json --dry-run
+    python scripts/precompute.py --clip single-goal --require-ocr   # hard-fail if a read is skipped
+
+Exit 0 = cache written + self-validated (replays the hero program to a grounded answer).
+       1 = produced but validation / grounding failed (or --require-ocr and a read skipped).
+       2 = setup problem (no ffmpeg / no manifest / no creds when required).
+
+Reuses scripts/ocr_probe.py:extract_frame + load_dotenv (the scripts-import-scripts path
+hack other probes use) and vision/azure_vision.py:AzureVision / vision/vlm_read.py:AzureVLM.
+
+OPEN-KNOB choices (justified in the PR body):
+  - frame sampling : detect on EVERY sampled ts in the window (12-13 frames @ 8fps, cheap).
+  - det_id scheme  : p{N} by descending confidence per frame (p0 = highest); manifest pins
+                     RENAME the nearest-box det to a semantic id (p_messi).
+  - JPEG stills    : ffmpeg emits .jpg directly (-q:v) to the destination (no Pillow dep).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+API_DIR = HERE.parent
+REPO_ROOT = API_DIR.parent
+sys.path.insert(0, str(HERE))      # ocr_probe, validate_program, run_program (script imports)
+sys.path.insert(0, str(API_DIR))   # vision, interpreter packages
+
+# ocr_probe gives us the proven ffmpeg extraction + the no-dep .env loader.
+from ocr_probe import extract_frame, load_dotenv  # noqa: E402
+
+CLIPS_DIR = REPO_ROOT / "clips"
+FRAMES_DIR = REPO_ROOT / "web" / "public" / "frames"
+DEFAULT_OUT = API_DIR / "examples" / "hero_cache.json"
+
+
+# --------------------------------------------------------------------------------------
+# manifest loading + resolution
+# --------------------------------------------------------------------------------------
+
+def _strip_comments(obj):
+    """Drop _-prefixed authoring keys recursively (same convention as validate_program)."""
+    if isinstance(obj, dict):
+        return {k: _strip_comments(v) for k, v in obj.items() if not str(k).startswith("_")}
+    if isinstance(obj, list):
+        return [_strip_comments(v) for v in obj]
+    return obj
+
+
+class SetupError(Exception):
+    """Raised for setup problems -> exit 2 (no manifest / no ffmpeg / missing creds when required)."""
+
+
+class GroundingError(Exception):
+    """Raised when the produced cache fails self-validation / grounding -> exit 1."""
+
+
+def manifest_path_for_clip(clip_id: str) -> Path:
+    return CLIPS_DIR / clip_id / "manifest.json"
+
+
+def load_manifest(path: Path) -> dict:
+    if not path.exists():
+        raise SetupError(
+            f"no manifest at {path}\n"
+            f"Author clips/<id>/manifest.json (see clips/single-goal/manifest.json). "
+            f"This pipeline never synthesizes defaults for a missing manifest."
+        )
+    raw = json.loads(path.read_text())
+    m = _strip_comments(raw)
+    m["_dir"] = path.parent  # for resolving the relative `source` path
+    return m
+
+
+def resolve_source(manifest: dict) -> Path:
+    """The clip .mov path, resolved relative to the manifest directory (carried IN the manifest
+    so canned.py stays unchanged). Repo-root-relative paths also work."""
+    src = manifest["clip"].get("source")
+    if not src:
+        raise SetupError("manifest clip.source is required (path to the .mov).")
+    p = Path(src)
+    if not p.is_absolute():
+        p = (manifest["_dir"] / p).resolve()
+    return p
+
+
+# --------------------------------------------------------------------------------------
+# clip dims (registry source of truth; ffprobe fallback)
+# --------------------------------------------------------------------------------------
+
+def clip_block(manifest: dict) -> dict:
+    """Build the cache `clip` block. Source of truth = canned.CLIPS registry (NOT edited);
+    fall back to manifest values, then ffprobe, if the registry has no entry."""
+    m_clip = manifest["clip"]
+    clip_id = m_clip["id"]
+    block = {
+        "id": clip_id,
+        "width": m_clip.get("width"),
+        "height": m_clip.get("height"),
+        "duration_ms": m_clip.get("duration_ms"),
+        "fps": m_clip.get("fps"),
+    }
+    # Registry wins for dims/duration when present (reconcile cache clip vs registry).
+    try:
+        from canned import CLIPS  # noqa: E402
+        reg = CLIPS.get(clip_id)
+        if reg:
+            for k in ("width", "height", "duration_ms"):
+                if reg.get(k) is not None:
+                    block[k] = reg[k]
+    except Exception:  # noqa: BLE001 — registry is optional here
+        pass
+    # ffprobe fallback only for anything still missing.
+    if None in (block["width"], block["height"], block["duration_ms"]):
+        probed = _ffprobe_dims(manifest)
+        for k, v in probed.items():
+            if block.get(k) is None and v is not None:
+                block[k] = v
+    return block
+
+
+def _ffprobe_dims(manifest: dict) -> dict:
+    out: dict = {"width": None, "height": None, "duration_ms": None}
+    if not shutil.which("ffprobe"):
+        return out
+    try:
+        video = resolve_source(manifest)
+    except SetupError:
+        return out
+    if not video.exists():
+        return out
+    try:
+        res = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height:format=duration",
+             "-of", "json", str(video)],
+            capture_output=True, text=True, check=True,
+        )
+        data = json.loads(res.stdout)
+        st = (data.get("streams") or [{}])[0]
+        out["width"] = st.get("width")
+        out["height"] = st.get("height")
+        dur = (data.get("format") or {}).get("duration")
+        if dur is not None:
+            out["duration_ms"] = int(round(float(dur) * 1000))
+    except Exception:  # noqa: BLE001 — ffprobe is best-effort
+        return {"width": None, "height": None, "duration_ms": None}
+    return out
+
+
+# --------------------------------------------------------------------------------------
+# sampling — same stride as op_sample_frames (primitives.py:25-38)
+# --------------------------------------------------------------------------------------
+
+def sampled_timestamps(manifest: dict) -> list[int]:
+    s = manifest["sampling"]
+    start, end, fps = s["start_ms"], s["end_ms"], s["fps"]
+    stride = max(1, round(1000 / fps))
+    return list(range(start, end + 1, stride))
+
+
+# --------------------------------------------------------------------------------------
+# det_id minting (OPEN KNOB: p{N} by descending confidence per frame)
+# --------------------------------------------------------------------------------------
+
+def _round_box(box: dict) -> dict:
+    return {k: round(float(box[k]), 4) for k in ("x", "y", "w", "h")}
+
+
+def mint_det_ids(detections: list[dict]) -> list[dict]:
+    """Assign p0,p1,... by DESCENDING confidence (highest = p0). Deterministic: ties broken
+    by box (x,y,w,h) so a fixed input always yields the same ids. Input dicts: {cls,confidence,box}."""
+    ordered = sorted(
+        detections,
+        key=lambda d: (
+            -(d["confidence"] if d.get("confidence") is not None else -1.0),
+            d["box"]["x"], d["box"]["y"], d["box"]["w"], d["box"]["h"],
+        ),
+    )
+    out = []
+    for i, d in enumerate(ordered):
+        out.append({
+            "det_id": f"p{i}",
+            "cls": d["cls"],
+            "confidence": round(d["confidence"], 4) if d.get("confidence") is not None else None,
+            "box": _round_box(d["box"]),
+        })
+    return out
+
+
+def _box_distance(a: dict, b: dict) -> float:
+    """Squared L2 distance between two normalized boxes (center + size) — for nearest-box pin match."""
+    acx, acy = a["x"] + a["w"] / 2, a["y"] + a["h"] / 2
+    bcx, bcy = b["x"] + b["w"] / 2, b["y"] + b["h"] / 2
+    return (acx - bcx) ** 2 + (acy - bcy) ** 2 + (a["w"] - b["w"]) ** 2 + (a["h"] - b["h"]) ** 2
+
+
+def apply_pin_rename(detect: dict, pin: dict) -> str | None:
+    """Rename the detection nearest the pin's box (at the pin's frame_ts_ms) to pin['det_id'].
+    Returns the resolved det_id (the semantic id) or None if no detections at that frame.
+    Mutates `detect` in place. This is step (i) of the ordered pin-resolution."""
+    match = pin["match"]
+    ts = match["frame_ts_ms"]
+    target = match["nearest_box"]
+    dets = detect.get(str(ts))
+    if not dets:
+        return None
+    nearest = min(dets, key=lambda d: _box_distance(d["box"], target))
+    nearest["det_id"] = pin["det_id"]
+    return pin["det_id"]
+
+
+# --------------------------------------------------------------------------------------
+# OCR ladder (Phase 3) — pin > gpt-4o VLM > skip. Azure Read is deliberately NOT a rung.
+# --------------------------------------------------------------------------------------
+
+class OcrLadder:
+    """Resolves a jersey read for a det. Constructs the VLM via from_env() (so tests can
+    monkeypatch AzureVLM.from_env). Counts VLM calls for the zero-call test assertions."""
+
+    def __init__(self, *, require_ocr: bool = False):
+        self.require_ocr = require_ocr
+        self._vlm = None
+        self._vlm_attempted = False
+        self.vlm_calls = 0
+        self.warnings: list[str] = []
+
+    def _get_vlm(self):
+        if not self._vlm_attempted:
+            self._vlm_attempted = True
+            try:
+                from vision.vlm_read import AzureVLM  # noqa: E402
+                self._vlm = AzureVLM.from_env()
+            except Exception as e:  # noqa: BLE001 — missing creds / ValueError -> degrade
+                self.warnings.append(f"gpt-4o VLM unavailable ({e}); jersey reads will skip.")
+                self._vlm = None
+        return self._vlm
+
+    def read(self, *, det_id: str, pin_read: dict | None, crop_bytes: bytes | None) -> dict | None:
+        """Return a read_text entry dict, or None to SKIP (write no entry, honest-empty)."""
+        # Rung 1: manifest pin (verbatim, source=pinned).
+        if pin_read is not None:
+            entry = {
+                "text": str(pin_read["text"]),
+                "confidence": pin_read.get("confidence"),
+                "source": "pinned",
+            }
+            if pin_read.get("note"):
+                entry["note"] = pin_read["note"]
+            return entry
+
+        # Rung 2: gpt-4o VLM (source=live, accept if digits).
+        vlm = self._get_vlm()
+        if vlm is not None and crop_bytes is not None:
+            try:
+                self.vlm_calls += 1
+                res = vlm.read_jersey_number(crop_bytes)
+                if res.digits:
+                    return {"text": res.digits, "confidence": None, "source": "live"}
+                # Legible call but no digits -> honest-empty (skip).
+                if self.require_ocr:
+                    raise GroundingError(f"--require-ocr: VLM returned no digits for {det_id}")
+                self.warnings.append(f"VLM read no digits for {det_id}; skipping (honest-empty).")
+                return None
+            except GroundingError:
+                raise
+            except Exception as e:  # noqa: BLE001 — 429 / TPM / SDK error -> degrade (NOT Azure Read)
+                self.warnings.append(f"VLM read failed for {det_id} ({e}); skipping.")
+                if self.require_ocr:
+                    raise GroundingError(f"--require-ocr and VLM read failed for {det_id}: {e}")
+                return None
+
+        # Rung 3: skip (no VLM available / no crop).
+        if self.require_ocr:
+            raise GroundingError(f"--require-ocr but no OCR rung succeeded for {det_id}")
+        return None
+
+
+# --------------------------------------------------------------------------------------
+# detect (Phase 2) — extract frame -> AzureVision.analyze -> mint det_ids
+# --------------------------------------------------------------------------------------
+
+def run_detect(manifest: dict, timestamps: list[int], *, frame_provider, vision) -> tuple[dict, dict]:
+    """Returns (detect_map, raw_objects_by_ts). frame_provider(ts) -> png bytes | None (guarded).
+    vision is an AzureVision-like with .analyze(bytes, detect=True, read=False)."""
+    classes = [c.lower() for c in manifest.get("detect_classes", ["person"])]
+    detect: dict = {}
+    raw_by_ts: dict = {}
+    for ts in timestamps:
+        img = frame_provider(ts)
+        if img is None:
+            continue  # guarded: one bad frame doesn't abort the run
+        result = vision.analyze(img, detect=True, read=False)
+        objs = []
+        for d in result.objects:
+            if d.cls.lower() not in classes:
+                continue
+            b = d.box.rounded() if hasattr(d.box, "rounded") else d.box
+            box = {"x": b.x, "y": b.y, "w": b.w, "h": b.h} if hasattr(b, "x") else dict(b)
+            objs.append({"cls": d.cls, "confidence": d.confidence, "box": box})
+        raw_by_ts[ts] = objs
+        minted = mint_det_ids(objs)
+        if minted:
+            detect[str(ts)] = minted
+    return detect, raw_by_ts
+
+
+# --------------------------------------------------------------------------------------
+# the linchpin: pins + read_text + events in ONE ordered step (Phase 2.5 / 3 / 4)
+# --------------------------------------------------------------------------------------
+
+def crop_jersey_box(person_box: dict) -> dict:
+    """op_crop jersey math (primitives.py:77-79), normalized."""
+    return {
+        "x": round(person_box["x"] + 0.22 * person_box["w"], 4),
+        "y": round(person_box["y"] + 0.10 * person_box["h"], 4),
+        "w": round(0.56 * person_box["w"], 4),
+        "h": round(0.22 * person_box["h"], 4),
+    }
+
+
+def resolve_pins_reads_events(
+    manifest: dict, detect: dict, clip: dict, *, ladder: OcrLadder, jersey_crop_provider
+) -> tuple[dict, list[dict]]:
+    """ONE ordered step (plan Phase 2.5):
+      (i)   apply each pin by nearest-box to RENAME the matched det to its semantic id;
+      (ii)  resolve that det's read_text via the OCR ladder (pin wins) under the SAME id;
+      (iii) build events deriving scorer_det FROM the same pin-resolution result.
+    Returns (read_text_map, events). Asserts the verdict linchpin before returning."""
+    pins = manifest.get("pins", [])
+    read_text: dict = {}
+
+    # (i) rename matched dets to semantic ids; remember the resolved id per pin.
+    resolved_pin_ids: dict[str, str] = {}  # pin det_id -> actually-resolved det_id
+    pin_read_for: dict[str, dict] = {}      # resolved det_id -> pin read spec
+    for pin in pins:
+        resolved = apply_pin_rename(detect, pin)
+        if resolved is None:
+            raise GroundingError(
+                f"pin '{pin.get('det_id')}' matched no detection at "
+                f"frame_ts_ms={pin['match']['frame_ts_ms']} (no det to rename)."
+            )
+        resolved_pin_ids[pin["det_id"]] = resolved
+        if pin.get("read_text") is not None:
+            pin_read_for[resolved] = pin["read_text"]
+
+    # (ii) read_text for OCR-target dets, in deterministic order. A det is an OCR target if it
+    #      has a pin (the pin wins, no VLM call) OR the manifest opts into reading every jersey
+    #      (sampling.read_all_jerseys, default false). The hero pins only p_messi, so the hero
+    #      makes ZERO VLM calls and reproduces the committed cache (read_text only for p_messi).
+    read_all = bool(manifest.get("sampling", {}).get("read_all_jerseys", False))
+    for ts in sorted(detect, key=int):
+        for d in detect[ts]:
+            det_id = d["det_id"]
+            if det_id in read_text:
+                continue  # already read at an earlier (or same-id) frame
+            pin_read = pin_read_for.get(det_id)
+            if pin_read is None and not read_all:
+                continue  # not an OCR target -> honest-empty (no entry, no VLM call)
+            crop_bytes = None
+            if pin_read is None:
+                # Only spend a VLM crop call on non-pinned OCR targets.
+                jbox = crop_jersey_box(d["box"])
+                crop_bytes = jersey_crop_provider(int(ts), jbox)
+            entry = ladder.read(det_id=det_id, pin_read=pin_read, crop_bytes=crop_bytes)
+            if entry is not None:
+                read_text[det_id] = entry
+
+    # (iii) events deriving scorer_det from the pin resolution (NOT an independent literal).
+    events: list[dict] = []
+    for ev in manifest.get("events", []):
+        scorer_pin = ev.get("scorer_pin")
+        scorer_det = resolved_pin_ids.get(scorer_pin, scorer_pin)
+        if scorer_det is None:
+            raise GroundingError(f"event at {ev.get('ts_ms')}ms has no scorer_pin/scorer_det.")
+        events.append({
+            "ts_ms": ev["ts_ms"],
+            "type": ev["type"],
+            "scorer_det": scorer_det,
+            "box": _round_box(ev["box"]),
+        })
+
+    # linchpin assertions (before writing).
+    all_det_ids = {d["det_id"] for dets in detect.values() for d in dets}
+    for ev in events:
+        sd = ev["scorer_det"]
+        if sd not in all_det_ids:
+            raise GroundingError(
+                f"event scorer_det '{sd}' is not a minted det_id in `detect` "
+                f"(op_answer's overlay re-scan would drop the focus frame)."
+            )
+    return read_text, events
+
+
+# --------------------------------------------------------------------------------------
+# canonical JSON + atomic write (Phase 5)
+# --------------------------------------------------------------------------------------
+
+def canonical_cache(clip: dict, detect: dict, read_text: dict, events: list[dict]) -> dict:
+    """Deterministic output: detect keys numeric-sorted, detections by det_id, boxes 4dp."""
+    sorted_detect = {}
+    for k in sorted(detect, key=int):
+        dets = sorted(detect[k], key=lambda d: d["det_id"])
+        sorted_detect[k] = [
+            {"det_id": d["det_id"], "cls": d["cls"], "confidence": d["confidence"], "box": _round_box(d["box"])}
+            for d in dets
+        ]
+    return {
+        "clip": {
+            "id": clip["id"], "width": clip["width"], "height": clip["height"],
+            "duration_ms": clip["duration_ms"], "fps": clip["fps"],
+        },
+        "detect": sorted_detect,
+        "read_text": {k: read_text[k] for k in sorted(read_text)},
+        "events": sorted(events, key=lambda e: e["ts_ms"]),
+    }
+
+
+def cache_to_json(cache: dict) -> str:
+    return json.dumps(cache, indent=2, ensure_ascii=False) + "\n"
+
+
+def atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+# --------------------------------------------------------------------------------------
+# cache shape validation (per docs/cache-schema.md — no separate schema file)
+# --------------------------------------------------------------------------------------
+
+def validate_cache_shape(cache: dict) -> list[str]:
+    errs: list[str] = []
+    if "clip" not in cache:
+        errs.append("missing `clip`")
+    else:
+        for k in ("id", "width", "height", "duration_ms", "fps"):
+            if cache["clip"].get(k) is None:
+                errs.append(f"clip.{k} is missing/null")
+    detect = cache.get("detect", {})
+    read_text = cache.get("read_text", {})
+    events = cache.get("events", [])
+    all_det_ids: set[str] = set()
+    for ts, dets in detect.items():
+        if not str(ts).lstrip("-").isdigit():
+            errs.append(f"detect key '{ts}' is not an integer ms")
+        seen = set()
+        for d in dets:
+            for k in ("det_id", "cls", "box"):
+                if k not in d:
+                    errs.append(f"detect[{ts}] detection missing '{k}'")
+            did = d.get("det_id")
+            if did in seen:
+                errs.append(f"detect[{ts}] duplicate det_id '{did}' in frame")
+            seen.add(did)
+            all_det_ids.add(did)
+            box = d.get("box", {})
+            for k in ("x", "y", "w", "h"):
+                v = box.get(k)
+                if not isinstance(v, (int, float)) or not (0 <= v <= 1):
+                    errs.append(f"detect[{ts}] {did} box.{k}={v!r} not in [0,1]")
+    for did, rt in read_text.items():
+        if did not in all_det_ids:
+            errs.append(f"read_text key '{did}' is not a real det_id in `detect`")
+        if rt.get("source") not in ("live", "cached", "pinned"):
+            errs.append(f"read_text[{did}].source={rt.get('source')!r} not in live/cached/pinned")
+        if not rt.get("text"):
+            errs.append(f"read_text[{did}] has no text")
+    for ev in events:
+        for k in ("ts_ms", "type", "scorer_det", "box"):
+            if k not in ev:
+                errs.append(f"event missing '{k}'")
+        if ev.get("scorer_det") not in all_det_ids:
+            errs.append(f"event scorer_det '{ev.get('scorer_det')}' not in `detect`")
+    return errs
+
+
+# --------------------------------------------------------------------------------------
+# self-validating replay (Phase 6.2) — replay the hero program over the produced cache
+# --------------------------------------------------------------------------------------
+
+def self_validate_replay(cache: dict, *, program_path: Path, expect_grounded: bool = True) -> dict:
+    """Load the produced cache, run the pinned program, and assert it conforms to
+    run_doc.schema.json. When the cache carries goal events (a positive claim), assert the FULL
+    grounded chain: events[0].scorer_det survives op_filter text==10, carries read_text '10', and
+    the answer grounds to Yes (the verdict linchpin — not the hardcoded verdict string). A cache
+    with NO goal events validly grounds to 'No' (D-DR5 honest-empty); `expect_grounded=False`
+    skips the positive-chain assertions for such degraded clips. Returns the run-doc."""
+    import jsonschema
+    from interpreter import Cache, Interpreter  # noqa: E402
+    from validate_program import strip_comments  # noqa: E402
+
+    program = strip_comments(json.loads(program_path.read_text()))["program"]
+
+    # Build a Cache directly from the in-memory dict (avoid a temp file).
+    run_cache = Cache(cache)
+    run_doc = Interpreter(run_cache).run(program)
+
+    rd_schema = json.loads((API_DIR / "schema" / "run_doc.schema.json").read_text())
+    rd_errs = sorted(jsonschema.Draft202012Validator(rd_schema).iter_errors(run_doc),
+                     key=lambda e: list(e.path))
+    if rd_errs:
+        msgs = "; ".join(f"{'/'.join(str(p) for p in e.path) or '<root>'}: {e.message}" for e in rd_errs)
+        raise GroundingError(f"run-doc does not conform to run_doc.schema.json: {msgs}")
+
+    ordered = next((t for t in run_doc["trace"] if t["op"] == "temporal_order"), None)
+    answer = next((t for t in run_doc["trace"] if t["op"] == "answer"), None)
+    if not (ordered and answer):
+        raise GroundingError("program lacks temporal_order/answer step")
+
+    goals = run_cache.goal_events()
+    if not (expect_grounded and goals):
+        return run_doc  # degraded / no-claim cache: a valid 'No' is the correct answer.
+
+    # Positive claim -> assert the grounded chain (the verdict linchpin).
+    if answer["output_label"] != "Yes":
+        raise GroundingError(f"goal events present but verdict did not ground to Yes "
+                             f"(got {answer['output_label']!r})")
+    scorer = goals[0]["scorer_det"]
+    rt = run_cache.read_text_for(scorer)
+    if not (rt and rt.get("text") == "10"):
+        raise GroundingError(f"scorer det '{scorer}' has no read_text '10' (got {rt})")
+    return run_doc
+
+
+# --------------------------------------------------------------------------------------
+# frame stills (Phase 4) — ffmpeg emits .jpg directly to web/public/frames/
+# --------------------------------------------------------------------------------------
+
+def emit_stills(manifest: dict, *, video: Path | None, frames_dir: Path = FRAMES_DIR,
+                dry_run: bool = False) -> list[str]:
+    """Write one still per unique evidence frame, with the EXACT filename the manifest declares
+    (reproduces goal-4000.jpg / scorer-4625.jpg; frameSrc is NOT edited). Returns filenames written.
+    Skips (warns) if the .mov / ffmpeg is unavailable so the cache still gets produced."""
+    written: list[str] = []
+    frames = manifest.get("evidence_frames", [])
+    if dry_run or not frames:
+        return written
+    if not shutil.which("ffmpeg") or video is None or not video.exists():
+        return written
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    seen_ts = set()
+    for fr in frames:
+        ts = fr["ts_ms"]
+        if ts in seen_ts:
+            continue
+        seen_ts.add(ts)
+        dest = frames_dir / fr["filename"]
+        cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+               "-ss", str(ts / 1000.0), "-i", str(video),
+               "-frames:v", "1", "-q:v", "3", str(dest)]
+        try:
+            subprocess.run(cmd, check=True)
+            written.append(fr["filename"])
+        except Exception:  # noqa: BLE001 — a bad frame shouldn't abort the run
+            continue
+    return written
+
+
+# --------------------------------------------------------------------------------------
+# orchestration
+# --------------------------------------------------------------------------------------
+
+def run_precompute(
+    manifest: dict,
+    *,
+    dry_run: bool = False,
+    require_ocr: bool = False,
+    out: Path = DEFAULT_OUT,
+    program_path: Path | None = None,
+    vision=None,
+    vlm_ladder: OcrLadder | None = None,
+    frame_provider=None,
+    jersey_crop_provider=None,
+    emit_frames: bool = True,
+) -> dict:
+    """Pipeline core. Returns a report dict. Injectable seams (vision/ladder/providers) let the
+    pytest suite mock Azure + ffmpeg with zero real calls; defaults wire the real adapters."""
+    program_path = program_path or (API_DIR / "examples" / "hero_program.json")
+    load_dotenv(API_DIR / ".env")
+
+    clip = clip_block(manifest)
+    timestamps = sampled_timestamps(manifest)
+
+    # Resolve the .mov (may be absent in this worktree — guarded).
+    try:
+        video = resolve_source(manifest)
+    except SetupError:
+        video = None
+
+    # default frame_provider: guarded extract_frame (PNG bytes), one bad frame won't abort.
+    if frame_provider is None:
+        def frame_provider(ts: int):  # noqa: ANN001
+            if video is None or not video.exists():
+                return None
+            try:
+                return extract_frame(video, ts / 1000.0, crop=None, scale=1.0)
+            except SystemExit:
+                return None
+            except Exception:  # noqa: BLE001
+                return None
+
+    # default jersey_crop_provider: pixel crop (normalized box * dims) at scale 3 for the VLM.
+    if jersey_crop_provider is None:
+        def jersey_crop_provider(ts: int, jbox: dict):  # noqa: ANN001
+            if video is None or not video.exists():
+                return None
+            W, H = clip["width"], clip["height"]
+            if not (W and H):
+                return None
+            x = int(round(jbox["x"] * W)); y = int(round(jbox["y"] * H))
+            w = int(round(jbox["w"] * W)); h = int(round(jbox["h"] * H))
+            if w <= 0 or h <= 0:
+                return None
+            try:
+                return extract_frame(video, ts / 1000.0, crop=f"{x},{y},{w},{h}", scale=3.0)
+            except SystemExit:
+                return None
+            except Exception:  # noqa: BLE001
+                return None
+
+    # default vision adapter via from_env (so tests patch AzureVision.from_env).
+    if vision is None and not dry_run:
+        try:
+            from vision.azure_vision import AzureVision  # noqa: E402
+            vision = AzureVision.from_env()
+        except Exception as e:  # noqa: BLE001
+            raise SetupError(f"Azure Vision unavailable ({e}); set AZURE_VISION_* in api/.env.")
+
+    ladder = vlm_ladder or OcrLadder(require_ocr=require_ocr)
+
+    # --- dry run: sample + report, NO Azure calls, NO writes ---
+    if dry_run:
+        return {
+            "dry_run": True,
+            "clip": clip,
+            "timestamps": timestamps,
+            "n_frames": len(timestamps),
+            "out": str(out),
+            "video": str(video) if video else None,
+            "warnings": ["dry-run: no Azure calls, no writes"],
+            "exit": 0,
+        }
+
+    # --- detect ---
+    detect, _raw = run_detect(manifest, timestamps, frame_provider=frame_provider, vision=vision)
+    if not detect:
+        raise GroundingError("no detections produced for any sampled frame (cache would be empty).")
+
+    # --- pins + read_text + events (one ordered step) ---
+    read_text, events = resolve_pins_reads_events(
+        manifest, detect, clip, ladder=ladder, jersey_crop_provider=jersey_crop_provider,
+    )
+
+    # --- canonical cache + shape validation ---
+    cache = canonical_cache(clip, detect, read_text, events)
+    shape_errs = validate_cache_shape(cache)
+    if shape_errs:
+        raise GroundingError("cache shape invalid: " + "; ".join(shape_errs))
+
+    # --- self-validating replay ---
+    # A manifest that declares goal events is making a positive claim -> assert the grounded
+    # Yes chain. A manifest with no events validly grounds to 'No' (honest-empty degraded clip).
+    run_doc = self_validate_replay(
+        cache, program_path=program_path,
+        expect_grounded=bool(manifest.get("events")),
+    )
+
+    # --- write cache atomically ---
+    text = cache_to_json(cache)
+    atomic_write(out, text)
+
+    # --- stills ---
+    stills = emit_stills(manifest, video=video, dry_run=not emit_frames) if emit_frames else []
+
+    return {
+        "dry_run": False,
+        "clip": clip,
+        "timestamps": timestamps,
+        "detect_frames": sorted(detect, key=int),
+        "n_detect": sum(len(v) for v in detect.values()),
+        "read_text_ids": sorted(read_text),
+        "events": events,
+        "stills": stills,
+        "vlm_calls": ladder.vlm_calls,
+        "warnings": ladder.warnings,
+        "out": str(out),
+        "verdict": run_doc["findings"]["verdict"],
+        "exit": 0,
+    }
+
+
+# --------------------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------------------
+
+def _print_report(report: dict) -> None:
+    if report.get("dry_run"):
+        print(f"# DRY RUN — {report['n_frames']} frames sampled (no Azure, no writes)")
+        print(f"clip:   {report['clip']['id']} "
+              f"({report['clip']['width']}x{report['clip']['height']})")
+        print(f"video:  {report['video']}")
+        print(f"would write -> {report['out']}")
+        ts = report["timestamps"]
+        print(f"sampled ts (ms): {ts[:6]}{' ...' if len(ts) > 6 else ''}  "
+              f"({len(ts)} total, stride {ts[1]-ts[0] if len(ts) > 1 else '-'})")
+        return
+    print(f"# precompute OK -> {report['out']}")
+    print(f"clip:    {report['clip']['id']} ({report['clip']['width']}x{report['clip']['height']})")
+    print(f"detect:  {report['n_detect']} dets across {len(report['detect_frames'])} frame(s) "
+          f"{report['detect_frames'][:6]}")
+    print(f"reads:   {report['read_text_ids']}")
+    print(f"events:  {[(e['ts_ms'], e['scorer_det']) for e in report['events']]}")
+    print(f"stills:  {report['stills'] or '(none — .mov/ffmpeg absent)'}")
+    print(f"VLM calls: {report['vlm_calls']}")
+    for w in report.get("warnings", []):
+        print(f"  warn: {w}")
+    print(f"verdict: {report['verdict']}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Clip -> replay cache precompute pipeline.")
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument("--clip", help="clip id; loads clips/<id>/manifest.json")
+    g.add_argument("--manifest", type=Path, help="explicit path to a manifest.json")
+    ap.add_argument("--query", default="hero-10-first-goal",
+                    help="canned query id this cache backs (for the report; default hero-10-first-goal)")
+    ap.add_argument("--dry-run", action="store_true", help="sample + report; no Azure calls, no writes")
+    ap.add_argument("--require-ocr", action="store_true", help="hard-fail (exit 1) if any OCR read is skipped")
+    ap.add_argument("--out", type=Path, default=DEFAULT_OUT, help="cache output path")
+    args = ap.parse_args(argv)
+
+    try:
+        if args.manifest:
+            mpath = args.manifest
+        elif args.clip:
+            mpath = manifest_path_for_clip(args.clip)
+        else:
+            print("ERROR: pass --clip <id> or --manifest <path>.", file=sys.stderr)
+            return 2
+        manifest = load_manifest(mpath)
+    except SetupError as e:
+        print(f"ERROR (setup): {e}", file=sys.stderr)
+        return 2
+
+    try:
+        report = run_precompute(
+            manifest, dry_run=args.dry_run, require_ocr=args.require_ocr, out=args.out,
+        )
+    except SetupError as e:
+        print(f"ERROR (setup): {e}", file=sys.stderr)
+        return 2
+    except GroundingError as e:
+        print(f"ERROR (grounding/validation): {e}", file=sys.stderr)
+        return 1
+
+    _print_report(report)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

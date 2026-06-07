@@ -1,0 +1,11 @@
+{
+  "_comment": "Canned Azure detect output for the scorer frame (mirrors hero_cache.json @ 4.625s). Deliberately NOT in det_id or confidence order so the minting test exercises the sort. `ball` is present to verify class filtering. Consumed by test_minting_from_fixture.",
+  "objects": [
+    { "class": "person", "confidence": 0.598, "box": { "x": 0.2452, "y": 0.5739, "w": 0.2618, "h": 0.2553 } },
+    { "class": "person", "confidence": 0.753, "box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 } },
+    { "class": "person", "confidence": 0.629, "box": { "x": 0.7959, "y": 0.2649, "w": 0.1277, "h": 0.2534 } },
+    { "class": "person", "confidence": 0.567, "box": { "x": 0.8793, "y": 0.0, "w": 0.1122, "h": 0.2505 } },
+    { "class": "ball", "confidence": 0.4, "box": { "x": 0.5, "y": 0.5, "w": 0.05, "h": 0.05 } },
+    { "class": "person", "confidence": 0.562, "box": { "x": 0.0, "y": 0.0355, "w": 0.0705, "h": 0.7726 } }
+  ]
+}
