@@ -14,14 +14,19 @@ api/
   examples/hero_run_doc.json    # a worked run-doc (reference)
   interpreter/                  # cache.py · primitives.py · interpreter.py (tree-walking executor)
   scripts/run_program.py        # program + cache -> validated run-doc (zero Azure calls)
+  scripts/precompute.py         # raw clip + manifest -> replay cache + stills (clip->cache pipeline)
   scripts/validate_program.py   # structural (jsonschema) + named-binding validation
   scripts/validate_run_doc.py   # run-doc contract validation + program cross-check
   scripts/ocr_probe.py          # T1: Azure AI Vision read (misreads jersey fonts; see below)
   scripts/vlm_probe.py          # T1: gpt-4o vision read (accurate; quota-gated)
   vision/azure_vision.py        # Azure AI Vision 4.0 adapter: detect + read_text, normalized boxes
   vision/vlm_read.py            # gpt-4o vision read_text backend (Azure OpenAI)
-  requirements.txt  .env.example
+  tests/                        # first pytest suite (precompute pipeline; Azure + ffmpeg mocked)
+  pytest.ini  requirements.txt  .env.example
 ```
+
+The replay cache's shape is documented in [`docs/cache-schema.md`](../docs/cache-schema.md)
+(prose, not a JSON Schema — the box/detection `$defs` already live in `run_doc.schema.json`).
 
 ## Run the hero program (replay, no Azure)
 
@@ -33,6 +38,44 @@ python scripts/run_program.py --out /tmp/hero_run.json
 Validates the program, interprets it over `hero_cache.json` (real detect boxes + the pinned
 #10), and emits a run-doc that re-validates against `run_doc.schema.json`. This is the demo's
 replay path — deterministic and free. The run-doc is what the UI renders.
+
+## Precompute a clip's replay cache (`scripts/precompute.py`)
+
+Turns a raw clip + a per-clip manifest into the two artifacts the demo replays — the replay
+cache (`examples/hero_cache.json`) and the evidence stills (`web/public/frames/*.jpg`) — with
+**no hand-annotation of vision output**. Azure supplies only detections (+ optional gpt-4o
+jersey reads); the human knowledge (sampling window, the scorer, the pinned #10, the goal
+moment) lives in `clips/<id>/manifest.json`.
+
+```bash
+cd api && source .venv/bin/activate && pip install -r requirements.txt   # ffmpeg on PATH
+python scripts/precompute.py --clip single-goal --query hero-10-first-goal   # detect + cache + stills
+python scripts/precompute.py --clip single-goal --dry-run                    # sample + report, no Azure, no writes
+python scripts/precompute.py --clip single-goal --require-ocr                # hard-fail if any jersey read is skipped
+python scripts/precompute.py --manifest ../clips/single-goal/manifest.json   # explicit manifest path
+```
+
+After writing, the pipeline **self-validates**: it replays the pinned hero program over the
+fresh cache and asserts the run-doc conforms to `run_doc.schema.json` and grounds to the same
+verdict ("Yes — #10 scored the first goal"). Exit codes: `0` written + validated · `1`
+produced but validation/grounding failed (or `--require-ocr` and a read skipped) · `2` setup
+problem (no ffmpeg / no manifest / no Azure creds when required). Re-running on the same inputs
+is idempotent (byte-identical cache JSON). The cache shape is `docs/cache-schema.md`.
+
+The OCR ladder is **pin → gpt-4o VLM → skip** (Azure Read is deliberately not a rung — it
+misreads the stylized WC font, 22→77). A missing read is honest-empty (D-DR5), not a guess.
+
+## Tests
+
+```bash
+cd api && source .venv/bin/activate && pip install -r requirements.txt
+python -m pytest -q
+```
+
+The first `api/` pytest suite (`tests/`). It mocks **both** Azure (fake `AzureVision`/`AzureVLM`
+via `from_env`) and ffmpeg (injected frame providers), so it needs neither Azure creds, the
+`.mov`, nor ffmpeg — only `jsonschema` + `pytest`. Covers det_id minting, the OCR ladder, the
+verdict linchpin, idempotency, dry-run, and the run-doc self-validation.
 
 ## Serve it (FastAPI + SSE)
 
