@@ -11,3 +11,7 @@ openai>=1.40
 # Web: FastAPI + SSE wrapper around the interpreter
 fastapi>=0.110
 uvicorn[standard]>=0.29
+
+# Tests: first pytest suite (api/tests) — covers the precompute pipeline + cache contract.
+# Azure + ffmpeg are mocked via pytest's built-in monkeypatch (no pytest-mock dependency).
+pytest>=8.0

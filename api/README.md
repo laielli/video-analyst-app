@@ -34,6 +34,44 @@ Validates the program, interprets it over `hero_cache.json` (real detect boxes +
 #10), and emits a run-doc that re-validates against `run_doc.schema.json`. This is the demo's
 replay path — deterministic and free. The run-doc is what the UI renders.
 
+## Precompute a clip's replay cache (`scripts/precompute.py`)
+
+Turns a raw clip + a per-clip **manifest** of human knowledge into the two artifacts the demo
+replays: the replay cache (`examples/hero_cache.json`, in the shape `interpreter/cache.py`
+loads) and the evidence stills under `../web/public/frames/`. No hand-annotation — Azure AI
+Vision supplies the detect boxes, manifest pins + gpt-4o vision supply `read_text`, and the
+manifest carries the goal events and the clip→`.mov` resolution (`clip.source`).
+
+```bash
+cd api && source .venv/bin/activate
+python scripts/precompute.py --clip single-goal --query hero-10-first-goal           # full run
+python scripts/precompute.py --clip single-goal --query hero-10-first-goal --dry-run # sample + report, no Azure/writes
+python scripts/precompute.py --manifest clips/single-goal/manifest.json --require-ocr # hard-fail if any OCR read is skipped
+```
+
+The manifest lives at `clips/<id>/manifest.json`. The pipeline samples on the **same stride**
+the interpreter's `sample_frames` uses (so `detect` keys align), runs Azure detect per frame,
+mints `det_id`s (`p{N}` by descending confidence; pins rename a matched det to a semantic id
+like `p_messi` by nearest box), runs the OCR ladder (**pin → gpt-4o VLM → skip**; Azure Read is
+deliberately *not* a rung — it misreads the WC font), derives `events[].scorer_det` from the
+same pin resolution (the verdict linchpin), then writes the cache **atomically** and
+**self-validates** by replaying the hero program and re-checking the run-doc. Re-running with
+the same inputs is a byte-identical no-op (idempotent). Exit codes: `0` written + validated ·
+`1` produced but validation/grounding failed (or `--require-ocr` and a read was skipped) · `2`
+setup problem (no ffmpeg / no manifest / missing required creds). Missing creds degrade
+gracefully (detect→empty, VLM reads→skipped); the hero #10 is pinned so its verdict is
+unaffected. Cache shape is documented in [`docs/cache-schema.md`](../docs/cache-schema.md).
+
+## Tests
+
+```bash
+cd api && source .venv/bin/activate && pip install -r requirements.txt
+python -m pytest -q          # api/tests — pipeline + cache contract; Azure + ffmpeg mocked
+```
+
+The suite is hermetic: Azure (`AzureVision`/`AzureVLM`) and ffmpeg (`extract_frame`) are mocked
+via `monkeypatch`, so it needs no creds, no ffmpeg, and not the gitignored `.mov`.
+
 ## Serve it (FastAPI + SSE)
 
 ```bash
@@ -141,4 +179,5 @@ discloses what is pinned vs live (demo honesty).
 - [x] **Azure OpenAI codegen** (`codegen.py`): question -> DSL with strict schema validation + the
   pinned-program fallback (D-DR6). Env-gated; `program_source` (`live`/`pinned`) rides the `meta` event.
 - [ ] **Live `read_text` via gpt-4o vision** once TPM quota clears (`vlm_read.py` is ready; flip cache source from `pinned` to `live`).
-- [ ] **Precompute + cache** the hero clip's real detect/read outputs into Azure Blob.
+- [x] **Precompute pipeline** (`scripts/precompute.py`): raw clip + manifest → replay cache + stills,
+  self-validating and idempotent (local storage; Azure Blob is out of scope). Docs: [`docs/cache-schema.md`](../docs/cache-schema.md).
