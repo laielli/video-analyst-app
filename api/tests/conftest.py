@@ -121,3 +121,58 @@ def fake_crop_provider():
 @pytest.fixture
 def hero_program_path():
     return API_DIR / "examples" / "hero_program.json"
+
+
+# ---- codegen mock seam (free-text path) -------------------------------------------------------
+# conftest's other seams fake VISION; the free-text feature needs a seam over codegen too. There
+# is no AzureCodegen mock today, so this is authored explicitly (not a free mirror). FakeCodegen
+# captures the system message it was handed, returns a configured program (or raises), and counts
+# calls — so prompt-injection and no-fallback contracts get real assertions without hitting Azure.
+
+class FakeCodegen:
+    """Stand-in for codegen.AzureCodegen. generate(question, clip=...) returns a configured
+    program (or raises), recording the (question, clip) and the system message it would send."""
+    def __init__(self, program=None, raise_exc=None):
+        self.program = program
+        self.raise_exc = raise_exc
+        self.calls = 0
+        self.last_question = None
+        self.last_clip = None
+        self.last_system = None
+
+    @classmethod
+    def from_env(cls):
+        return cls()
+
+    def generate(self, question, clip=None):
+        import codegen
+        self.calls += 1
+        self.last_question = question
+        self.last_clip = clip
+        # Mirror the real system-message assembly so prompt-injection tests are meaningful.
+        self.last_system = codegen.AzureCodegen._system_message(clip)
+        if self.raise_exc is not None:
+            raise self.raise_exc
+        return list(self.program or [])
+
+
+@pytest.fixture
+def hero_program(hero_program_path):
+    """The committed hero program, comment-stripped (the golden free-text target)."""
+    from validate_program import strip_comments
+    return strip_comments(json.loads(hero_program_path.read_text()))["program"]
+
+
+@pytest.fixture
+def fake_codegen(monkeypatch):
+    """Factory: install a FakeCodegen with a given program/exception over codegen, with
+    codegen.enabled() forced True. Returns the FakeCodegen instance so tests can assert calls."""
+    import codegen
+
+    def install(program=None, raise_exc=None, enabled=True):
+        fake = FakeCodegen(program=program, raise_exc=raise_exc)
+        monkeypatch.setattr(codegen, "enabled", lambda: enabled)
+        monkeypatch.setattr(codegen.AzureCodegen, "from_env", classmethod(lambda cls: fake))
+        return fake
+
+    return install

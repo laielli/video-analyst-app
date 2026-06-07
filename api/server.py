@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -109,6 +110,98 @@ def build_run_doc(entry: dict) -> dict:
     return doc
 
 
+# --- Free-text path (the full ViperGPT loop, no pinned fallback) ----------------------------
+
+# Cost/abuse guard (§Risks): cap the typed query length and bound paid codegen calls per process
+# so an unauthenticated GET can't run up unbounded Azure spend or OOM the URL parser.
+MAX_QUERY_TEXT_LEN = 500
+MAX_CODEGEN_CALLS = int(os.environ.get("CODEGEN_CALL_BUDGET", "200"))
+_codegen_calls = 0
+
+# Fixed enums only — never forward raw exception text into the SSE payload (§Risks: info leakage).
+UNGROUNDED_REASONS = {
+    "codegen-disabled", "codegen-error", "invalid-program", "execution-error",
+    "no-grounded-answer", "budget-exceeded",
+}
+
+
+def _ungrounded(clip: dict, query_text: str, reason: str, program: list[dict] | None = None,
+                trace: list[dict] | None = None) -> dict:
+    """A complete, schema-valid run-doc for the honest 'couldn't ground this' state (Q1 -> A).
+    Carries ALL keys the SSE stream loop reads (query/clip/program/trace/findings) so the loop
+    never KeyErrors. `program`/`trace` are empty when codegen failed before producing a program;
+    when a validated program ran but didn't ground, its trace IS included so the UI shows where
+    it ran dry. `reason` is a fixed enum (never an exception string)."""
+    return {
+        "schema_version": "1",
+        "query": query_text,
+        "clip": {k: clip[k] for k in ("id", "width", "height", "duration_ms") if k in clip},
+        "program": program or [],
+        "trace": trace or [],
+        "findings": {"answer": None, "verdict": None, "partial": False,
+                     "grounded": False, "reason": reason},
+        "program_source": "ungrounded",
+    }
+
+
+def build_free_text_run_doc(query_text: str, clip_id: str) -> dict:
+    """Compile a typed question for `clip_id` and replay it — the complete ViperGPT loop with the
+    safety net removed. There is NO pinned program for a novel question, so every failure mode
+    (codegen disabled/error, invalid program, execution error, no grounded answer) resolves to an
+    explicit ungrounded run-doc, NEVER a hero-program substitution. The caller (route) has already
+    resolved `clip_id` to a known clip and bounded `query_text` length."""
+    global _codegen_calls
+    clip = canned.clip_by_id(clip_id)  # route 404s before we get here if unknown
+    cache = Cache.load(clip["cache"])
+
+    if not codegen.enabled():
+        return _ungrounded(clip, query_text, "codegen-disabled")
+    if _codegen_calls >= MAX_CODEGEN_CALLS:
+        return _ungrounded(clip, query_text, "budget-exceeded")
+
+    try:
+        _codegen_calls += 1
+        program = codegen.AzureCodegen.from_env().generate(query_text, clip=clip)
+    except Exception:  # noqa: BLE001 — any generation failure -> honest ungrounded (no fallback)
+        return _ungrounded(clip, query_text, "codegen-error")
+
+    # Trust boundary: no generated program executes unvalidated. Numeric bounds are enforced too
+    # (a validated program can still OOM via sample_frames' range expansion) using the clip duration.
+    if validation_errors({"program": program}, clip=clip):
+        return _ungrounded(clip, query_text, "invalid-program", program=program)
+
+    try:
+        doc = Interpreter(cache).run(program, query=query_text)
+    except Exception:  # noqa: BLE001 — e.g. the sampled window misses the cached frames
+        return _ungrounded(clip, query_text, "execution-error", program=program)
+
+    f = doc.get("findings", {})
+    if f.get("grounded") is False or f.get("partial") or f.get("answer") in (None, "", "Unknown"):
+        # The (validated) program ran but didn't ground — stream its trace so the UI shows where.
+        return _ungrounded(clip, query_text, "no-grounded-answer",
+                           program=program, trace=doc.get("trace", []))
+
+    doc["program_source"] = "live"
+    return doc
+
+
+def resolve_run_request(query: str | None, query_text: str | None):
+    """Param-check for /api/run and /api/run_doc: require EXACTLY ONE of `query` (canned) or
+    `query_text` (free text). Returns ("canned"|"free", error_status, error_detail). Extracted as
+    a plain helper so it unit-tests without a FastAPI TestClient (system python lacks fastapi)."""
+    has_canned = query is not None and query != ""
+    has_free = query_text is not None and query_text != ""
+    if has_canned and has_free:
+        return None, 400, "provide exactly one of 'query' or 'query_text', not both"
+    if not has_canned and not has_free:
+        return None, 400, "provide exactly one of 'query' or 'query_text'"
+    if has_free:
+        if len(query_text) > MAX_QUERY_TEXT_LEN:
+            return None, 400, f"query_text exceeds {MAX_QUERY_TEXT_LEN} characters"
+        return "free", None, None
+    return "canned", None, None
+
+
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
@@ -126,20 +219,36 @@ def catalog():
     }
 
 
-@app.get("/api/run_doc")
-def run_doc(query: str = Query(...)):
+def _resolve_doc(query: str | None, query_text: str | None, clip: str) -> dict:
+    """Shared route resolution: param-check, then build either the canned or the free-text
+    run-doc. Raises HTTPException(400) on a bad param combo and HTTPException(404) on an unknown
+    canned query or unknown clip. Used by both /api/run and /api/run_doc."""
+    kind, status, detail = resolve_run_request(query, query_text)
+    if status:
+        raise HTTPException(status_code=status, detail=detail)
+    if kind == "free":
+        if canned.clip_by_id(clip) is None:
+            raise HTTPException(status_code=404, detail=f"unknown clip '{clip}'")
+        return build_free_text_run_doc(query_text, clip)
     entry = canned.by_id(query)
     if not entry:
         raise HTTPException(status_code=404, detail=f"unknown query '{query}'")
     return build_run_doc(entry)
 
 
+@app.get("/api/run_doc")
+def run_doc(query: str = Query(None), query_text: str = Query(None), clip: str = Query("single-goal")):
+    return _resolve_doc(query, query_text, clip)
+
+
 @app.get("/api/run")
-async def run(query: str = Query(...), pace_ms: int = Query(1200, ge=0, le=10000)):
-    entry = canned.by_id(query)
-    if not entry:
-        raise HTTPException(status_code=404, detail=f"unknown query '{query}'")
-    doc = build_run_doc(entry)
+async def run(
+    query: str = Query(None),
+    query_text: str = Query(None),
+    clip: str = Query("single-goal"),
+    pace_ms: int = Query(1200, ge=0, le=10000),
+):
+    doc = _resolve_doc(query, query_text, clip)
 
     async def gen():
         try:
