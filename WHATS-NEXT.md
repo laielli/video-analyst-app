@@ -4,35 +4,27 @@ _Generated 2026-06-06 by `/whats-next`. Each entry is sized for the 5-agent para
 
 ## Top moves (highest-leverage first)
 
-### 1. Automated clip→cache precompute pipeline — turn a raw clip + query into a replayable run, no hand-annotation
+### 1. Free-text query input — the full ViperGPT thesis, end to end
 
-- **Why now:** The whole demo is pinned to one hand-built artifact (`api/examples/hero_cache.json` + hand-extracted `web/public/frames/*.jpg`). There is no orchestrated path from a `.mov` to a cache — only a single-frame probe (`api/scripts/ocr_probe.py:extract_frame`). This is the foundation every other feature stands on: multi-query, multi-clip, and free-text all need real precomputed evidence. Build this first and the next three items get dramatically cheaper.
-- **Scope:** ~1,500–3,000 LOC. New `api/scripts/precompute.py` (or `api/ingest/`) + a cache-schema doc; reuses ffmpeg extraction from `ocr_probe.py`, `AzureVision.analyze` (`api/vision/azure_vision.py`) for detect+Read, and the existing `Cache`/run-doc shapes (`api/interpreter/cache.py`, `api/schema/`). Writes frame stills into `web/public/frames/`.
-- **Pipeline-ready:** ✅ — real design room: frame-sampling strategy, cache keying + idempotency/incremental re-runs, local-vs-Blob storage, OCR-miss handling (manual-pin override vs Azure Read vs skip), CLI ergonomics, and how it degrades when the gpt-4o VLM path is TPM-gated (fall back to Azure Read). Five agents would diverge meaningfully on storage model and failure posture.
-- **Plan artifact:** needs writing — start with a draft, then `/refine-plan`.
-- **Status:** [ ] pending
-
-### 2. Free-text query input — the full ViperGPT thesis, end to end
-
-- **Why now:** v1 deliberately deferred free text (design Premise 1/6), but live codegen already landed (PR #2). Letting a user type a question and watch the LLM compile + execute a visible program is the single biggest "wow" and the product's whole point. Highest product leverage once #1 gives novel questions real evidence to run against.
+- **Why now:** Both prerequisites just landed — the precompute pipeline (#7, shipped) produces real precomputed evidence, and live Azure OpenAI codegen (#2) already turns a question into a DSL program. Letting a user *type* a question and watch the LLM compile + execute a visible program is the product's whole point and its single biggest "wow." With the foundation in place, this is now the top move.
 - **Scope:** ~1,500–2,500 LOC across all three layers: a query input in the Glass-Box UI (`web/`), a new `GET /api/run?query_text=…&clip=…` route (`api/server.py`), a clip-aware system prompt (`api/codegen.py`), and an honest degradation path — free text has *no* pinned fallback, so the D-DR5/D-DR6 "couldn't ground this" UX must be designed, not inherited.
 - **Pipeline-ready:** ✅ — wide design room: fallback/error UX when codegen or execution can't ground an answer, prompt design + clip-metadata injection, caching of novel generated programs, and input affordances. Five agents would diverge most on the "no grounded answer" experience.
 - **Plan artifact:** needs writing — start with a draft, then `/refine-plan`.
 - **Status:** [ ] pending
 
-### 3. Test suite + CI — make this portfolio piece reviewable and the above work safe
+### 2. Extend the test suite + add CI — the harness exists now; widen coverage and gate it
 
-- **Why now:** Zero tests today, and this is a career/portfolio repo senior engineers will read. Tests de-risk #1 and #2 and let five parallel agents be compared on behavior, not vibes. Compounds across everything that follows.
-- **Scope:** ~1,500–3,000 LOC. Python: pytest for interpreter ops (`api/interpreter/primitives.py`), validator semantics (`api/scripts/validate_program.py`), codegen with mocked Azure (`api/codegen.py`), and SSE routes (`api/server.py`). Web: Vitest + Testing Library for the SSE hook (`web/lib/useRun.ts`), panels, and the scrubber. Plus a GitHub Actions workflow (none exists today).
-- **Pipeline-ready:** ✅ — design room in mocking strategy (how to fake Azure + EventSource), fixture design, coverage targets, and CI matrix. No external blockers — everything mocks.
+- **Why now:** PR #7 stood up the **first `api/` pytest harness** (`api/pytest.ini` + `conftest.py` + 22 tests) — but only for the precompute module. The interpreter ops (`primitives.py`/`cache.py`), validator semantics, codegen (mocked Azure), and the server SSE routes are still untested; `web/` has zero tests; and there's no CI. Activation energy is now low (the harness + mock seams exist), and this protects a now-multi-module portfolio codebase senior reviewers will scrutinize.
+- **Scope:** ~1,500–3,000 LOC. Python: extend pytest to `api/interpreter/primitives.py`, `api/scripts/validate_program.py`, `api/codegen.py` (reusing PR #7's `from_env` mock seam), and `api/server.py` SSE. Web: Vitest + Testing Library for the SSE hook (`web/lib/useRun.ts`), panels, and the scrubber. Plus a GitHub Actions workflow (none exists today).
+- **Pipeline-ready:** ✅ — design room in mocking strategy (fake Azure + `EventSource`), fixture design, coverage targets, and the CI matrix. No external blockers — everything mocks.
 - **Plan artifact:** needs writing — start with a draft, then `/refine-plan`.
 - **Status:** [ ] pending
 
-### 4. Multi-query / multi-clip catalog — prove repeatability beyond the hero path
+### 3. Multi-query / multi-clip catalog — prove repeatability beyond the hero path
 
-- **Why now:** The registry already supports a list (`api/canned.py`), but only one clip + one query exist, and the UI already has selectors. Adding a second clip and 3–4 queries shows the system generalizes — the difference between "a demo" and "a system." Much cheaper once #1 (precompute pipeline) lands, so it sits below it.
-- **Scope:** ~800–1,500 LOC: register new clips/queries in `api/canned.py`, generate their caches (via #1's pipeline) + frame stills, and add any query-shape variety the interpreter needs (e.g. a counting or out-of-bounds question that exercises `count`/`filter`/`temporal_order` differently).
-- **Pipeline-ready:** ✅ (moderate) — design room mostly in query selection and which new op-paths to stress; lower variance than #1–#3 since it's largely data + registry once the pipeline exists.
+- **Why now:** The precompute pipeline (shipped) makes generating new caches cheap, and the registry (`api/canned.py`) + UI selectors already support a list — but only one clip + one query exist. A second clip and 3–4 queries turn "a demo" into "a system."
+- **Scope:** ~800–1,500 LOC: author new manifests + programs, register clips/queries in `api/canned.py`, generate caches via `scripts/precompute.py` + stills, and add query-shape variety (e.g. a counting or out-of-bounds question that exercises `count`/`filter`/`temporal_order` differently).
+- **Pipeline-ready:** ✅ (moderate) — design room mostly in query selection and which op-paths to stress; lower variance than #1–#2 (more content/data than structural design). **Note:** producing the *real* caches needs live Azure Vision detect + the source video, so the 5 worktree agents author manifests/programs + verify via mocks, while the actual cache generation runs separately with creds (the same live step the precompute pipeline already has).
 - **Plan artifact:** needs writing — start with a draft, then `/refine-plan`.
 - **Status:** [ ] pending
 
@@ -40,8 +32,8 @@ _Generated 2026-06-06 by `/whats-next`. Each entry is sized for the 5-agent para
 
 ### A. Live gpt-4o VLM `read_text` backend
 
-- **Blocker:** Azure OpenAI TPM quota — `api/vision/vlm_read.py` is written and ready, but the deployment is rate-limited; it can't be exercised. Also small (~300 LOC), so it's one-agent work, not a 5-agent fan-out.
-- **Unblocking action:** Raise the TPM quota on the gpt-4o deployment (`mjlaielli-6579-resource`, AIServices/eastus2), then flip `Cache.read_text_for` to call the VLM with an Azure-Read fallback. Until then, #1 uses Azure AI Vision Read for OCR.
+- **Blocker:** Azure OpenAI TPM quota — `api/vision/vlm_read.py` is ready but the deployment is rate-limited, so it can't be exercised. The merged precompute OCR ladder is **pin → gpt-4o VLM → skip** (Azure Read was deliberately dropped), so the VLM is *the* live OCR backend once unblocked. Also small (~300 LOC) — one-agent work, not a 5-agent fan-out.
+- **Unblocking action:** Raise the TPM quota on the gpt-4o deployment (`mjlaielli-6579-resource`, AIServices/eastus2). Then live precompute/codegen can read novel jersey numbers without hand-pins; until then non-pinned jerseys honestly skip to diagnostic-empty.
 
 ### B. Azure production deployment + infrastructure-as-code
 
@@ -50,6 +42,7 @@ _Generated 2026-06-06 by `/whats-next`. Each entry is sized for the 5-agent para
 
 ## Recently shipped (auto-tracked)
 
+- 2026-06-06 #7: Automated clip→cache precompute pipeline — `scripts/precompute.py` turns a clip + manifest into the replay cache + stills (pin→VLM→skip OCR ladder, atomic deterministic writes, the events/det_id verdict-linchpin); also stood up the **first `api/` pytest suite (22 tests)**. Completed the prior top entry #1.
 - 2026-06-06 #2: live Azure OpenAI codegen (question → DSL) with D-DR6 fallback — codegen is live; behavior is identical to pinned when creds/quota are absent.
 - 2026-06-04 #1: vertical slice — ViperGPT-style video analyst (backend + web UI) — FastAPI + SSE + JSON-DSL interpreter + Azure AI Vision primitives + Next.js Glass-Box run viewer.
 
