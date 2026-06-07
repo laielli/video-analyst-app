@@ -53,9 +53,14 @@ class Interpreter:
     def _findings(program: list[dict], answer_binding: dict | None) -> dict:
         if answer_binding and answer_binding["kind"] == "answer":
             v = answer_binding["value"]
+            # Phase 0 / Resolved Q1 -> A: an answer binding that couldn't ground carries
+            # grounded:false; surface the honest discriminator instead of a fake verdict.
+            if v.get("grounded") is False:
+                return {"answer": None, "verdict": None, "partial": False,
+                        "grounded": False, "reason": "no-grounded-answer"}
             supporting = (next((s["id"] for s in program if s["op"] == "temporal_order"), None)
                           or next((s["id"] for s in program if s["op"] == "answer"), None))
-            out = {"answer": v["answer"], "verdict": v["verdict"], "partial": False}
+            out = {"answer": v["answer"], "verdict": v["verdict"], "partial": False, "grounded": True}
             if supporting:
                 out["supporting_step"] = supporting
             return out
