@@ -37,14 +37,21 @@ The only ops allowed (with their output kind):
   temporal_order(events, by="timestamp")          -> ordered events
   answer(from, question)                          -> verdict       (MUST be the last step)
 
+The final `answer` step summarizes whatever it consumes, honestly:
+- from a temporal_order (ordered) binding -> a boolean/temporal verdict ("did X score first?").
+- from a count (number) binding -> a count read-out ("how many players?").
+- from a read_text (texts) binding -> the recognized text ("what number is the scorer wearing?").
+- from a detect/crop/frames binding -> an existence verdict ("is there a referee/ball?").
+Pick the chain whose final step's output kind matches the SHAPE of the question, then answer.
+
 Rules:
 - The load-bearing association is detect -> crop -> read_text: a detection box flows into a
   crop, then into OCR. To reason about a jersey number you MUST crop region "jersey", then
   read_text, then filter on the read text.
-- The clip is ~5 seconds of a World Cup goal. To decide whether a given shirt number scores
-  the first goal: sample frames around the goal (roughly start_ms 3500, end_ms 5000, fps 8),
+- To decide whether a given shirt number scores the first goal: sample frames around the goal,
   detect "person", crop "jersey", read_text, filter text == the number in the question,
-  temporal_order by "timestamp", then answer.
+  temporal_order by "timestamp", then answer. Use the clip's timing hint (below) for the window.
+- To count something: detect (and optionally filter), then count -> answer.
 - Use only the whitelisted ops and arg shapes. Every binding must reference the id of an
   EARLIER step of a compatible kind. The final step must be `answer`, with the user's
   question passed through verbatim.
@@ -90,10 +97,26 @@ class AzureCodegen:
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21"),
         )
 
-    def generate(self, question: str) -> list[dict]:
-        """Compile `question` into a program (list of DSL steps). Raises on API error or
-        unparseable output; the caller validates structure/semantics and falls back to the
-        pinned program on any failure (D-DR6)."""
+    @staticmethod
+    def _system_message(clip: dict | None) -> str:
+        """Stable rules (SYSTEM_PROMPT) + an injected per-clip context block (Q2 -> Alt C). The
+        timing/event-window is no longer a SYSTEM_PROMPT literal — it rides as clip DATA, so the
+        prompt stays clip-agnostic while the grounding signal survives for the demo clip."""
+        sys_msg = SYSTEM_PROMPT
+        if clip:
+            sys_msg += (
+                f"\n\nClip context:\n- label: {clip['label']}\n"
+                f"- duration_ms: {clip['duration_ms']}, sample within [0, duration_ms]\n"
+            )
+            if clip.get("hint"):  # per-clip timing/event window, injected as data
+                sys_msg += f"- hint: {clip['hint']}\n"
+        return sys_msg
+
+    def generate(self, question: str, clip: dict | None = None) -> list[dict]:
+        """Compile `question` into a program (list of DSL steps). When `clip` is given, its
+        label/duration and timing `hint` are injected into the system message (Q2 -> Alt C) so
+        the question is compiled against the actual clip. Raises on API error or unparseable
+        output; the caller validates structure/semantics and grounds out honestly on failure."""
         resp = self._client.chat.completions.create(
             model=self._deployment,
             temperature=0,
@@ -108,7 +131,7 @@ class AzureCodegen:
                 "json_schema": {"name": "visual_program", "strict": False, "schema": _schema_for_openai()},
             },
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_message(clip)},
                 {"role": "user", "content": question},
             ],
         )

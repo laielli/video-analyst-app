@@ -121,3 +121,58 @@ def fake_crop_provider():
 @pytest.fixture
 def hero_program_path():
     return API_DIR / "examples" / "hero_program.json"
+
+
+# ---- codegen mock seam (the free-text / clip-aware-prompt tests need it) ----
+# There is no AzureCodegen mock in production fixtures; add one here so the free-text path can be
+# exercised without creds or a network call. FakeCodegen.generate returns a configured program
+# and records every (question, clip) it was asked to compile, so prompt-injection + no-fallback
+# assertions are real. `enable_codegen` flips codegen.enabled() True + pins from_env to the fake.
+
+class FakeCodegen:
+    """Stands in for AzureCodegen. generate() returns a configured program (or raises) and
+    records its calls. Counts calls so 'codegen called N times' assertions are real."""
+
+    def __init__(self, program=None, raise_exc=None):
+        self.program = program if program is not None else []
+        self.raise_exc = raise_exc
+        self.calls: list[dict] = []
+
+    @classmethod
+    def from_env(cls):
+        return cls()
+
+    def generate(self, question, clip=None):
+        self.calls.append({"question": question, "clip": clip})
+        if self.raise_exc is not None:
+            raise self.raise_exc
+        return self.program
+
+
+@pytest.fixture
+def enable_codegen(monkeypatch):
+    """Return a helper that turns codegen on and pins AzureCodegen.from_env to a FakeCodegen
+    returning `program` (or raising). Yields the installed fake so tests can inspect .calls."""
+    import codegen
+
+    def _install(program=None, raise_exc=None):
+        fake = FakeCodegen(program=program, raise_exc=raise_exc)
+        monkeypatch.setattr(codegen, "enabled", lambda: True)
+        monkeypatch.setattr(codegen.AzureCodegen, "from_env", classmethod(lambda cls: fake))
+        return fake
+
+    return _install
+
+
+@pytest.fixture
+def disable_codegen(monkeypatch):
+    """Force codegen.enabled() False (no creds) — the codegen-disabled ungrounded path."""
+    import codegen
+    monkeypatch.setattr(codegen, "enabled", lambda: False)
+
+
+@pytest.fixture
+def hero_program():
+    """The committed hero program, comment-stripped (the golden program codegen should reproduce)."""
+    from validate_program import strip_comments
+    return strip_comments(json.loads((API_DIR / "examples" / "hero_program.json").read_text()))["program"]
