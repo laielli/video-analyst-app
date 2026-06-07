@@ -11,6 +11,7 @@ import Findings from "@/components/Findings";
 export default function Page() {
   const [queries, setQueries] = useState<CatalogQuery[]>([]);
   const [queryId, setQueryId] = useState<string | null>(null);
+  const [text, setText] = useState(""); // the typed free-text question
   const [err, setErr] = useState<string | null>(null);
   const run = useRun(queryId, 1200);
 
@@ -23,7 +24,8 @@ export default function Page() {
       .catch(() => setErr("Can't reach the API. Start it: cd api && uvicorn server:app --port 8000"));
   }, []);
 
-  // Auto-run on first load and whenever the query changes (the public URL self-plays — D-DR7).
+  // Auto-run on first load and whenever the canned query changes (the public URL self-plays —
+  // D-DR7). Free-text runs are explicit (the Ask button), never auto-run on keystroke.
   useEffect(() => {
     if (!queryId) return;
     run.run();
@@ -32,9 +34,22 @@ export default function Page() {
   }, [queryId]);
 
   const selected = queries.find((q) => q.id === queryId);
+  // v1 has a single clip; carry its id so a free-text question runs against the right clip.
+  const clipId = selected?.clip;
+
+  // Submit the typed question (no-op on empty/whitespace). The streamed meta.query then reflects
+  // the user's words, so the heading shows the typed question rather than the canned label.
+  const ask = () => {
+    const t = text.trim();
+    if (!t) return;
+    run.run({ kind: "free", text: t, clip: clipId });
+  };
+
   const program = run.meta?.program ?? [];
   const currentStep = run.current >= 0 ? run.steps[run.current] ?? null : null;
   const total = run.meta?.total_steps ?? program.length;
+  // The heading reflects the live run's query when present (free text), else the canned label.
+  const heading = run.meta?.query ?? selected?.text ?? "Loading…";
 
   return (
     <>
@@ -49,7 +64,7 @@ export default function Page() {
         <header className="bar">
           <div className="eyebrow"><span className="dot" /> Glass-Box Video Analyst · Portfolio Demo</div>
           <div className="query-row">
-            <h1 className="query">{selected?.text ?? "Loading…"}</h1>
+            <h1 className="query">{heading}</h1>
             <div className="controls">
               {queries.length > 1 && (
                 <select className="select" value={queryId ?? ""} onChange={(e) => setQueryId(e.target.value)}>
@@ -61,13 +76,29 @@ export default function Page() {
               </button>
             </div>
           </div>
+          {/* Free-text query: type a question, click Ask. The interpreter runs over this clip's
+              precomputed cache, so most novel questions honestly "couldn't ground" (by design). */}
+          <form className="ask-row" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+            <input
+              className="ask-input"
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={selected ? `Ask about this clip… e.g. "${selected.text}"` : "Ask about this clip…"}
+              aria-label="Ask a free-text question about the clip"
+            />
+            <button className="btn ask-btn" type="submit" disabled={run.status === "running" || !text.trim()}>
+              Ask
+            </button>
+            {clipId && <span className="clip-label" aria-label="Clip being analyzed">clip: {clipId}</span>}
+          </form>
         </header>
 
         {err && <p style={{ color: "var(--amber)", marginTop: 16, fontFamily: "var(--ff-mono)", fontSize: 13 }}>{err}</p>}
 
         <div className="panels">
           <ProgramPanel program={program} steps={run.steps} current={run.current} />
-          <EvidencePanel step={currentStep} />
+          <EvidencePanel step={currentStep} programSource={run.meta?.program_source} />
         </div>
 
         <section className="tracker" aria-label="Execution pipeline">

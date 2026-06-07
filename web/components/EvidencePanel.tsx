@@ -1,4 +1,4 @@
-import type { StepResult } from "@/lib/types";
+import type { StepResult, ProgramSource } from "@/lib/types";
 
 const pct = (n: number) => `${(n * 100).toFixed(3)}%`;
 const ms = (n: number) => {
@@ -6,26 +6,46 @@ const ms = (n: number) => {
   return `00:00:${String(s).padStart(2, "0")}:${String(cs).padStart(2, "0")}`;
 };
 
-function frameSrc(ts: number) {
-  return ts && ts <= 4200 ? "/frames/goal-4000.jpg" : "/frames/scorer-4625.jpg";
+// frameSrc stays clip-scoped to the single v1 clip's hero stills. A free-text run over the same
+// clip uses these same stills. When a step carries no evidence frame (ts === 0 — e.g. an
+// ungrounded answer step), there is no meaningful frame to show, so we degrade to no still rather
+// than show a misleading default frame.
+function frameSrc(ts: number): string | null {
+  if (!ts) return null; // no/zero evidence ts -> no frame (graceful, not a misleading still)
+  return ts <= 4200 ? "/frames/goal-4000.jpg" : "/frames/scorer-4625.jpg";
 }
 
-export default function EvidencePanel({ step }: { step: StepResult | null }) {
+export default function EvidencePanel({
+  step, programSource,
+}: { step: StepResult | null; programSource?: ProgramSource }) {
   const ev = step?.evidence;
-  const ts = ev?.frame_ts_ms ?? 4625;
+  const ts = ev?.frame_ts_ms ?? 0;
   const conf = step?.confidence;
+  const src = frameSrc(ts);
 
   return (
     <section className="panel evidence" aria-label="Evidence — inspectable">
       <div className="panel-head">
         <div className="panel-title">Evidence <span className="sub">(inspectable)</span></div>
-        <div className="panel-meta">frame {ms(ts)}</div>
+        <div className="panel-meta">
+          {/* Program provenance: live compile vs. the honest ungrounded state (vs. pinned replay). */}
+          {programSource && <span className={`prov-tag ${programSource}`}>{programSource}</span>}
+          <span style={{ marginLeft: programSource ? 8 : 0 }}>{ts ? `frame ${ms(ts)}` : "no frame"}</span>
+        </div>
       </div>
       <div className="evi-body">
         <div className="frame">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={frameSrc(ts)} alt="analyzed video frame" />
-          <div className="tc">{ms(ts)}</div>
+          {src ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="analyzed video frame" />
+              <div className="tc">{ms(ts)}</div>
+            </>
+          ) : (
+            <div className="frame-empty" aria-label="No evidence frame for this step">
+              No evidence frame for this step.
+            </div>
+          )}
           {(ev?.overlays ?? []).map((o, i) => (
             <div
               key={i}
