@@ -1,0 +1,42 @@
+{
+  "_comment": "Per-clip ingest config for the precompute pipeline (api/scripts/precompute.py). Carries the HUMAN KNOWLEDGE the vision models cannot supply: where the .mov lives, the analysis window + sampling rate, the known goal moment, and the hand-verified jersey pin for the hero #10. The pipeline runs real Azure detect over the sampled window, mints stable det_ids (p0 = highest confidence per frame), then resolves pins by nearest-detection-box (so the semantic id `p_messi` lands on the right person) and derives the goal event's scorer_det from that same resolution. Boxes are normalized 0-1. `source` is repo-root-relative.",
+  "clip": {
+    "id": "single-goal",
+    "source": "../../single-goal.mov",
+    "label": "Messi vs Mexico — World Cup 2022",
+    "width": 1872,
+    "height": 1042,
+    "duration_ms": 5067,
+    "fps": 60
+  },
+  "sampling": {
+    "start_ms": 3500,
+    "end_ms": 5000,
+    "fps": 8
+  },
+  "detect_classes": ["person"],
+  "ocr_region": "jersey",
+  "events": [
+    {
+      "ts_ms": 4000,
+      "type": "goal",
+      "scorer_pin": "p_messi",
+      "box": { "x": 0.86, "y": 0.34, "w": 0.10, "h": 0.34 }
+    }
+  ],
+  "pins": [
+    {
+      "det_id": "p_messi",
+      "text": "10",
+      "match": {
+        "frame_ts_ms": 4625,
+        "nearest_box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 }
+      },
+      "note": "Hand-verified. Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision pending TPM quota. The 10 is human-legible and pinned for the hero query (disclosed in the demo)."
+    }
+  ],
+  "evidence_frames": [
+    { "ts_ms": 4000, "filename": "goal-4000.jpg" },
+    { "ts_ms": 4625, "filename": "scorer-4625.jpg" }
+  ]
+}
