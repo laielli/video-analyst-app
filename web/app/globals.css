@@ -81,6 +81,19 @@ h1.query {
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn:focus-visible, .select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Free-text query input — type a novel question; compiled live (no pinned fallback). */
+.ask-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.ask-input {
+  flex: 1; font-family: var(--ff-ui); font-size: 14px; color: var(--ink);
+  border: 1px solid var(--line); background: var(--paper);
+  padding: 10px 13px; border-radius: var(--radius); transition: border-color 0.15s var(--ease);
+}
+.ask-input::placeholder { color: var(--faint); }
+.ask-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ask-clip { font-family: var(--ff-mono); font-size: 11px; color: var(--muted); border: 1px dashed var(--line); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+.btn-ask { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn-ask:hover:not(:disabled) { filter: brightness(1.08); }
+
 /* ---------- Zone 2: panels 45/55 ---------- */
 .panels { display: grid; grid-template-columns: 44fr 56fr; gap: 16px; margin-top: 18px; }
 .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; display: flex; flex-direction: column; }
@@ -110,6 +123,7 @@ h1.query {
 .evi-body { padding: 13px 15px 15px; }
 .frame { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: var(--radius-s); overflow: hidden; background: #0b1f12; }
 .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.frame-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: #cdebdd; font-family: var(--ff-mono); font-size: 12px; }
 .frame .tc { position: absolute; top: 7px; left: 7px; font-family: var(--ff-mono); font-size: 11px; color: #eafff6; background: rgba(0,0,0,0.55); padding: 2px 7px; border-radius: var(--radius-s); }
 .ov { position: absolute; border: 2px solid var(--ov-detect); border-radius: var(--radius-s); box-shadow: 0 0 0 1px rgba(0,0,0,0.3); transition: all 0.3s var(--ease); }
 .ov.teal { border-color: var(--ov-focus); box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 0 12px rgba(20,184,166,0.6); }
@@ -141,8 +155,16 @@ h1.query {
 .findings { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--muted); font-weight: 600; font-size: 15px; }
 .findings.working { color: var(--ink-2); border-color: var(--amber); background: var(--amber-bg); }
 .findings.resolved { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+/* Honest "couldn't ground this" — neutral/amber, NEVER the green resolved styling (Q1 -> A). */
+.findings.ungrounded { color: var(--amber); border-color: var(--amber); background: var(--amber-bg); }
+.findings-reason { font-weight: 500; color: var(--ink-2); }
 .findings .ic { width: 20px; height: 20px; display: grid; place-items: center; }
 .findings .ic svg { width: 15px; height: 15px; }
+/* Program-provenance tag in the findings row: live | pinned | ungrounded. */
+.prov-tag { font-family: var(--ff-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.prov-tag.live { color: var(--accent); border-color: var(--accent); }
+.prov-tag.pinned { color: var(--amber); border-color: var(--amber); }
+.prov-tag.ungrounded { color: var(--amber); border-color: var(--amber); background: var(--amber-bg); }
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

@@ -6,26 +6,39 @@ const ms = (n: number) => {
   return `00:00:${String(s).padStart(2, "0")}:${String(cs).padStart(2, "0")}`;
 };
 
-function frameSrc(ts: number) {
-  return ts && ts <= 4200 ? "/frames/goal-4000.jpg" : "/frames/scorer-4625.jpg";
+// frameSrc is clip-scoped to the single v1 clip's hero stills. A free-text program may run
+// partway and produce steps with no evidence frame (ts === 0 / missing) — return null then so
+// the panel degrades to a neutral placeholder instead of showing a misleading hero still.
+function frameSrc(ts: number): string | null {
+  if (!ts) return null;
+  return ts <= 4200 ? "/frames/goal-4000.jpg" : "/frames/scorer-4625.jpg";
 }
 
 export default function EvidencePanel({ step }: { step: StepResult | null }) {
   const ev = step?.evidence;
-  const ts = ev?.frame_ts_ms ?? 4625;
+  // Only default to the hero scorer frame when a step is actually selected; with no step (idle)
+  // or a step that produced no frame, fall back to no-frame so we don't fabricate evidence.
+  const ts = ev?.frame_ts_ms ?? (step ? 4625 : 0);
+  const src = frameSrc(ts);
   const conf = step?.confidence;
 
   return (
     <section className="panel evidence" aria-label="Evidence — inspectable">
       <div className="panel-head">
         <div className="panel-title">Evidence <span className="sub">(inspectable)</span></div>
-        <div className="panel-meta">frame {ms(ts)}</div>
+        <div className="panel-meta">{ts ? `frame ${ms(ts)}` : "no frame"}</div>
       </div>
       <div className="evi-body">
         <div className="frame">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={frameSrc(ts)} alt="analyzed video frame" />
-          <div className="tc">{ms(ts)}</div>
+          {src ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="analyzed video frame" />
+              <div className="tc">{ms(ts)}</div>
+            </>
+          ) : (
+            <div className="frame-empty">No evidence frame for this step.</div>
+          )}
           {(ev?.overlays ?? []).map((o, i) => (
             <div
               key={i}

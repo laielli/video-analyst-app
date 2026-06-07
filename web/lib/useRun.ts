@@ -18,11 +18,32 @@ export type RunState = {
   current: number;
 };
 
+/** A run request: either a canned query id, or a typed free-text question for a clip. */
+export type RunRequest =
+  | { kind: "canned"; queryId: string }
+  | { kind: "free"; text: string; clip: string };
+
+/** Whether a findings payload is the honest "couldn't ground this" state (Q1 -> A). */
+export function isUngrounded(findings: Findings | null): boolean {
+  return findings?.grounded === false;
+}
+
+function runUrl(req: RunRequest, paceMs: number): string {
+  const q =
+    req.kind === "free"
+      ? `query_text=${encodeURIComponent(req.text)}&clip=${encodeURIComponent(req.clip)}`
+      : `query=${encodeURIComponent(req.queryId)}`;
+  return `${API_BASE}/api/run?${q}&pace_ms=${paceMs}`;
+}
+
 /**
  * Connects to GET /api/run over SSE and accumulates the run-doc step by step.
  * meta -> step* -> findings -> done. After done, `select()` scrubs to any step.
+ *
+ * `run(req)` takes a RunRequest (canned id or free-text). The hook holds no query identity of
+ * its own; the caller supplies the request at run time so canned + free text share one path.
  */
-export function useRun(queryId: string | null, paceMs = 1200) {
+export function useRun(paceMs = 1200) {
   const [state, setState] = useState<RunState>({
     status: "idle", meta: null, steps: [], findings: null, error: null, current: -1,
   });
@@ -34,14 +55,14 @@ export function useRun(queryId: string | null, paceMs = 1200) {
     esRef.current = null;
   }, []);
 
-  const run = useCallback(() => {
-    if (!queryId) return;
+  const run = useCallback((req: RunRequest) => {
+    if (req.kind === "canned" && !req.queryId) return;
+    if (req.kind === "free" && !req.text.trim()) return;
     stop();
     userPinnedRef.current = false;
     setState({ status: "running", meta: null, steps: [], findings: null, error: null, current: -1 });
 
-    const url = `${API_BASE}/api/run?query=${encodeURIComponent(queryId)}&pace_ms=${paceMs}`;
-    const es = new EventSource(url);
+    const es = new EventSource(runUrl(req, paceMs));
     esRef.current = es;
 
     es.addEventListener("meta", (e) => {
@@ -71,7 +92,7 @@ export function useRun(queryId: string | null, paceMs = 1200) {
       );
       stop();
     });
-  }, [queryId, paceMs, stop]);
+  }, [paceMs, stop]);
 
   /** Scrub to a step after the run completes (D-DR3 click-to-replay). */
   const select = useCallback((i: number) => {

@@ -13,6 +13,8 @@ export type Overlay = {
 
 export type StepStatus = "pending" | "active" | "done" | "empty" | "error";
 export type Source = "live" | "cached" | "pinned";
+// Program provenance: includes "ungrounded" for a free-text query that couldn't be grounded.
+export type ProgramSource = "live" | "pinned" | "ungrounded";
 
 export type StepResult = {
   id: string;
@@ -37,11 +39,17 @@ export type ProgramStep = {
 export type Clip = { id: string; width: number; height: number; duration_ms: number; fps?: number };
 
 export type Findings = {
-  answer: string;
-  verdict: string;
+  // Null when grounded === false (the honest "couldn't ground this" state, Q1 -> A).
+  answer: string | null;
+  verdict: string | null;
   supporting_step?: string;
   partial?: boolean;
   partial_note?: string;
+  // Q1 -> A discriminator: false = no answer could be grounded (free-text path);
+  // reason is then a fixed enum (codegen-disabled, codegen-error, invalid-program,
+  // execution-error, no-grounded-answer, budget-exceeded). True/absent = grounded.
+  grounded?: boolean;
+  reason?: string | null;
 };
 
 export type Meta = {
@@ -51,8 +59,9 @@ export type Meta = {
   total_steps: number;
   pace_ms: number;
   // Provenance of the program: "live" = compiled this run by Azure OpenAI codegen and
-  // validated; "pinned" = the known-good fallback (no creds, or live failed — D-DR6).
-  program_source?: "live" | "pinned";
+  // validated; "pinned" = the known-good fallback (no creds, or live failed — D-DR6);
+  // "ungrounded" = a free-text query that couldn't be grounded (no pinned fallback for free text).
+  program_source?: ProgramSource;
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };
