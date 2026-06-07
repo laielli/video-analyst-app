@@ -1,0 +1,62 @@
+{
+  "_comment": "Per-clip ingest config for the precompute pipeline (api/scripts/precompute.py). Carries the HUMAN knowledge the vision models cannot supply: where the source clip lives, which window/fps to sample, the known goal moment, the evidence frames the demo renders, and the hand-verified jersey pin that keeps the hero #10 correct. The pipeline samples on the SAME stride the hero program uses (fps 8 over 3500-5000ms => stride 125ms => 13 keys incl. 4625), runs Azure detect per sampled ts, mints det_ids, then resolves the pin by nearest-box AFTER detect so det_ids are stable. `clip.source` is the clip->.mov resolution (kept IN the manifest so canned.py / canned.CLIPS stay untouched). Paths are relative to the repo root.",
+
+  "clip": {
+    "id": "single-goal",
+    "source": "single-goal.mov",
+    "width": 1872,
+    "height": 1042,
+    "duration_ms": 5067,
+    "fps": 60
+  },
+
+  "sampling": {
+    "_comment": "MUST match the hero program's sample_frames args (start_ms/end_ms/fps) so the detect keys align with what op_sample_frames derives (stride = round(1000/fps) = 125; ts = range(start, end+1, 125)). detect_on='all' => detect on every sampled ts in the window (12-13 frames @ 8fps; cheap and robust). Alt 'evidence' would detect only on evidence + event frames (sparse).",
+    "start_ms": 3500,
+    "end_ms": 5000,
+    "fps": 8,
+    "detect_on": "all"
+  },
+
+  "detect_classes": ["person"],
+
+  "ocr": {
+    "_comment": "Sub-region cropped from each person box before OCR. Matches op_crop's 'jersey' math (x+0.22w, y+0.10h, 0.56w, 0.22h) so the cache crop band lines up with what the interpreter shows. scale upsamples the small number band for the VLM.",
+    "region": "jersey",
+    "scale": 3.0
+  },
+
+  "events": [
+    {
+      "_comment": "The known goal moment. scorer_det is the SEMANTIC id the pin mints (see pins[].det_id); the pipeline rewrites this scorer_det from the pin-resolution result, it is NOT trusted as an independent literal. box is the ball/goal overlay shown by op_temporal_order.",
+      "ts_ms": 4000,
+      "type": "goal",
+      "scorer_det": "p_messi",
+      "box": { "x": 0.86, "y": 0.34, "w": 0.10, "h": 0.34 }
+    }
+  ],
+
+  "pins": [
+    {
+      "_comment": "Hand-verified jersey read for the hero #10 (Messi). Matched to the nearest detection box at frame_ts_ms AFTER detect runs; the matched det is RENAMED to det_id (p_messi) and gets this read_text written under that same id. nearest_box is the approximate person box at 4625ms used only for the nearest-match (the real cached box comes from Azure). Azure Read misreads the stylized WC numeral (22 -> 77) so this is pinned, not live.",
+      "match": { "frame_ts_ms": 4625, "nearest_box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 } },
+      "det_id": "p_messi",
+      "text": "10",
+      "source": "pinned",
+      "note": "Hand-verified. Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision pending TPM quota. The 10 is human-legible and pinned for the hero query (disclosed in the demo)."
+    }
+  ],
+
+  "evidence_frames": [
+    {
+      "_comment": "ts<=4200 frame the EvidencePanel renders for the goal moment. filename is reproduced EXACTLY (frameSrc in EvidencePanel.tsx is NOT edited).",
+      "ts_ms": 4000,
+      "filename": "goal-4000.jpg"
+    },
+    {
+      "_comment": "the scorer frame (#10 legible). filename reproduced exactly.",
+      "ts_ms": 4625,
+      "filename": "scorer-4625.jpg"
+    }
+  ]
+}

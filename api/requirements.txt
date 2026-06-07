@@ -11,3 +11,6 @@ openai>=1.40
 # Web: FastAPI + SSE wrapper around the interpreter
 fastapi>=0.110
 uvicorn[standard]>=0.29
+
+# Test suite (api/tests/) — precompute pipeline + interpreter contract checks
+pytest>=8.0

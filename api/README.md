@@ -132,6 +132,51 @@ background), the design's sanctioned fallback applies: hand-verify/correct the n
 precomputing the cache and pin it for the hero query (design doc, "The Assignment"). The demo
 discloses what is pinned vs live (demo honesty).
 
+## Precompute a clip's replay cache (`scripts/precompute.py`)
+
+The replay cache (`examples/hero_cache.json`) used to be hand-authored. `scripts/precompute.py`
+is the orchestrated, **idempotent** pipeline that regenerates it from a raw clip + a per-clip
+**manifest** — no hand-annotation. It samples the clip on the SAME stride the program uses,
+runs Azure AI Vision `detect` per sampled frame, mints stable `det_id`s, resolves the
+manifest's hand-verified jersey pin by nearest box, builds the `events` block, writes the
+canonical cache atomically, and **self-validates** by replaying the hero program over the fresh
+cache (re-checking the run-doc against `run_doc.schema.json`).
+
+```bash
+cd api && source ../.venv/bin/activate
+python scripts/precompute.py --clip single-goal --query hero-10-first-goal   # full run
+python scripts/precompute.py --clip single-goal --query hero-10-first-goal --dry-run  # plan only
+python scripts/precompute.py --manifest ../clips/single-goal/manifest.json --require-ocr
+```
+
+- The clip→`.mov` resolution and all human knowledge (sampling window/fps, goal events,
+  jersey pins, evidence-frame filenames) live in `clips/<id>/manifest.json` — `canned.py` is
+  untouched. A clip with no manifest is a setup error (exit 2); the pipeline never synthesizes
+  defaults.
+- **OCR ladder:** manifest pin → gpt-4o VLM (`vlm_read.py`) → skip (honest-empty). Azure Read
+  is deliberately not a rung (its WC-font misread, 22→77, would poison the cache). On
+  429/missing-creds the VLM rung skips and warns; `--require-ocr` opts into hard-fail (exit 1).
+- **Stills:** real JPEGs into `../web/public/frames/`, reproducing the exact filenames the
+  `EvidencePanel` renders (`goal-4000.jpg`, `scorer-4625.jpg`) — `frameSrc` is not edited.
+- **Idempotent:** canonical JSON (sorted keys, det_id-sorted detections, 4-decimal boxes), so
+  re-running yields a byte-identical cache. Exit codes: 0 = written + self-validated, 1 =
+  produced but invalid/ungrounded (or a required OCR read was skipped), 2 = setup problem.
+
+The exact cache shape is documented in [`../docs/cache-schema.md`](../docs/cache-schema.md)
+(prose contract; the box/detection `$defs` already live in `run_doc.schema.json`).
+
+## Tests
+
+```bash
+cd api && source ../.venv/bin/activate && pip install -r requirements.txt
+python -m pytest -q          # first pytest suite (api/tests/): precompute + interpreter contract
+```
+
+Azure (detect + VLM) and ffmpeg are mocked, so the suite runs offline with no `.mov` and no
+creds. It asserts the **grounded** verdict chain (`events.scorer_det` → `detect` det_id →
+`read_text` text=="10") rather than the hardcoded verdict string, the cache structural
+invariants, det_id minting determinism, the OCR ladder, and idempotency.
+
 ## What's next (per the locked plan)
 
 - [x] DSL schema + validator; run-doc contract + validator.
@@ -140,5 +185,7 @@ discloses what is pinned vs live (demo honesty).
 - [x] **Next.js UI** (`../web`) rendering the SSE stream (the `finalized.html` motion reference is the target).
 - [x] **Azure OpenAI codegen** (`codegen.py`): question -> DSL with strict schema validation + the
   pinned-program fallback (D-DR6). Env-gated; `program_source` (`live`/`pinned`) rides the `meta` event.
+- [x] **Precompute pipeline** (`scripts/precompute.py`): raw clip + manifest -> replay cache + stills,
+  self-validating + idempotent. First pytest suite (`tests/`). Local storage (no Blob yet).
 - [ ] **Live `read_text` via gpt-4o vision** once TPM quota clears (`vlm_read.py` is ready; flip cache source from `pinned` to `live`).
-- [ ] **Precompute + cache** the hero clip's real detect/read outputs into Azure Blob.
+- [ ] **Precompute + cache** to Azure Blob (the pipeline writes locally today; `--storage`/Blob is the next step).
