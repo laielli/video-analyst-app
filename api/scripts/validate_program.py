@@ -36,6 +36,10 @@ PRODUCES = {
     "answer": "answer",
 }
 # (binding arg field -> required input kind, or None for "any collection").
+# `answer.from` uses the sentinel ANY_SYNTHESIZABLE: the generalized op_answer (Phase 0)
+# synthesizes a verdict from a count (number), texts, detections/crops/frames, OR an ordered
+# binding — so it accepts more than just collections. Don't pin it to one kind.
+ANY_SYNTHESIZABLE = "<answerable>"
 EXPECTS = {
     "detect": {"frames": "frames"},
     "crop": {"detections": "detections"},
@@ -43,9 +47,13 @@ EXPECTS = {
     "filter": {"items": None},
     "count": {"items": None},
     "temporal_order": {"events": None},
-    "answer": {"from": None},
+    "answer": {"from": ANY_SYNTHESIZABLE},
 }
 COLLECTION_KINDS = {"frames", "detections", "crops", "texts"}
+# Kinds the generalized answer step can synthesize a verdict from (Phase 0). `number` is the
+# count read-out; the collection kinds cover existence/text; `unknown` is the walk-time result
+# of temporal_order/filter passthrough (ordered events), which answer also handles.
+ANSWERABLE_KINDS = COLLECTION_KINDS | {"number", "ordered", "unknown"}
 
 
 def strip_comments(obj):
@@ -69,18 +77,53 @@ def structural_errors(program_doc: dict, schema: dict) -> list[str]:
     return out
 
 
-def validation_errors(program_doc: dict, schema: dict | None = None) -> list[str]:
-    """The full valid-by-construction gate (structural then semantic) as one flat list — empty
-    means valid. Shared by this CLI and the codegen fallback path (server._try_live). Comments
-    are stripped here so callers can pass raw codegen/authoring output. Semantic checks are
-    skipped when structure fails (malformed refs make them meaningless)."""
+# Numeric arg ranges the JSON Schema documents only as prose (dsl.schema.json). The interpreter
+# materializes frames via range(start, end+1, stride) (primitives.op_sample_frames), so an
+# out-of-range window can OOM even for a structurally-valid program. This is the trust boundary:
+# a validated free-text program MUST be bounded before Interpreter.run (plan §Risks CORRECTION).
+FPS_MIN, FPS_MAX = 1, 30
+
+
+def numeric_bounds_errors(program: list[dict], clip: dict | None = None) -> list[str]:
+    """Bound sample_frames numeric args so a validated program can't OOM the interpreter:
+    0 <= start < end <= clip.duration_ms (if a clip is given), and FPS_MIN <= fps <= FPS_MAX."""
+    errors: list[str] = []
+    duration = clip.get("duration_ms") if clip else None
+    for i, step in enumerate(program):
+        if step.get("op") != "sample_frames":
+            continue
+        a = step.get("args", {})
+        sid = step.get("id")
+        start, end, fps = a.get("start_ms"), a.get("end_ms"), a.get("fps")
+        if not all(isinstance(v, int) for v in (start, end, fps)):
+            continue  # structural validation already flags non-integers
+        if start < 0:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): start_ms {start} < 0")
+        if end <= start:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): end_ms {end} must be > start_ms {start}")
+        if duration is not None and end > duration:
+            errors.append(f"step[{i}] '{sid}' (sample_frames): end_ms {end} > clip duration_ms {duration}")
+        if not (FPS_MIN <= fps <= FPS_MAX):
+            errors.append(f"step[{i}] '{sid}' (sample_frames): fps {fps} outside [{FPS_MIN}, {FPS_MAX}]")
+    return errors
+
+
+def validation_errors(program_doc: dict, schema: dict | None = None, clip: dict | None = None) -> list[str]:
+    """The full valid-by-construction gate (structural -> semantic -> numeric bounds) as one flat
+    list — empty means valid. Shared by this CLI and the free-text/codegen path. Comments are
+    stripped here so callers can pass raw codegen/authoring output. Semantic + numeric checks are
+    skipped when structure fails (malformed refs/args make them meaningless). `clip` (optional)
+    enables duration-bounding of sample_frames — the OOM trust boundary for free text."""
     if schema is None:
         schema = json.loads(SCHEMA_PATH.read_text())
     doc = strip_comments(program_doc)
     struct = structural_errors(doc, schema)
     if struct:
         return [f"structural: {m}" for m in struct]
-    return [f"semantic: {m}" for m in semantic_errors(doc["program"])]
+    sem = [f"semantic: {m}" for m in semantic_errors(doc["program"])]
+    if sem:
+        return sem
+    return [f"numeric: {m}" for m in numeric_bounds_errors(doc["program"], clip)]
 
 
 def semantic_errors(program: list[dict]) -> list[str]:
@@ -112,12 +155,18 @@ def semantic_errors(program: list[dict]) -> list[str]:
                 )
                 continue
             got = produced[ref]
-            if want is not None and got != want:
+            if want == ANY_SYNTHESIZABLE:
+                if got not in ANSWERABLE_KINDS:
+                    errors.append(
+                        f"step[{i}] '{sid}' ({op}): arg '{field}' expects an answerable kind "
+                        f"(collection / number / ordered) but '{ref}' produces '{got}'"
+                    )
+            elif want is not None and got != want:
                 errors.append(
                     f"step[{i}] '{sid}' ({op}): arg '{field}' expects kind "
                     f"'{want}' but '{ref}' produces '{got}'"
                 )
-            if want is None and got not in COLLECTION_KINDS:
+            elif want is None and got not in COLLECTION_KINDS:
                 errors.append(
                     f"step[{i}] '{sid}' ({op}): arg '{field}' expects a collection "
                     f"but '{ref}' produces '{got}'"
