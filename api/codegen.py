@@ -37,20 +37,46 @@ The only ops allowed (with their output kind):
   temporal_order(events, by="timestamp")          -> ordered events
   answer(from, question)                          -> verdict       (MUST be the last step)
 
+The `answer` step summarizes whatever binding it consumes, HONESTLY. Choose the chain whose
+final binding fits the question — do NOT force a temporal_order when the question is a count
+or a read-out:
+- ordered binding (temporal_order) -> a temporal/boolean verdict ("did #N score first?").
+- number binding (count)           -> a count answer ("how many players are visible?").
+- texts binding (read_text)        -> a text read-out ("what number is the scorer wearing?").
+- detections/crops binding         -> an existence answer ("is there a referee?").
+
 Rules:
 - The load-bearing association is detect -> crop -> read_text: a detection box flows into a
   crop, then into OCR. To reason about a jersey number you MUST crop region "jersey", then
   read_text, then filter on the read text.
-- The clip is ~5 seconds of a World Cup goal. To decide whether a given shirt number scores
-  the first goal: sample frames around the goal (roughly start_ms 3500, end_ms 5000, fps 8),
-  detect "person", crop "jersey", read_text, filter text == the number in the question,
-  temporal_order by "timestamp", then answer.
+- To decide whether a given shirt number scores the first goal: sample frames around the goal
+  window (see the Clip context block for THIS clip's timing/event window), detect "person",
+  crop "jersey", read_text, filter text == the number in the question, temporal_order by
+  "timestamp", then answer. To count people: sample frames, detect "person", count, answer.
 - Use only the whitelisted ops and arg shapes. Every binding must reference the id of an
   EARLIER step of a compatible kind. The final step must be `answer`, with the user's
   question passed through verbatim.
 - Give each step a short, descriptive snake_case id that reads like a variable name for what
   it holds (e.g. frames, people, jerseys, numbers, tens, ordered, result) — NOT step1, step2.
   The program is shown to the user as the model's reasoning, so the ids should be legible."""
+
+
+def build_system_message(clip: dict | None = None) -> str:
+    """The stable rules prompt + an injected, per-clip Clip-context block (Q2 -> Alt C). The
+    hero timing is NOT a SYSTEM_PROMPT constant — it arrives as clip DATA (label, duration_ms,
+    hint from canned.CLIPS), so the prompt stays clip-agnostic while the demo keeps grounding.
+    clip=None -> base prompt only (back-compat with the canned path call site)."""
+    if not clip:
+        return SYSTEM_PROMPT
+    block = (
+        "\n\nClip context (compile against THIS clip):\n"
+        f"- label: {clip.get('label', '')}\n"
+        f"- duration_ms: {clip.get('duration_ms')}; sample windows must stay within "
+        "[0, duration_ms]\n"
+    )
+    if clip.get("hint"):
+        block += f"- hint: {clip['hint']}\n"
+    return SYSTEM_PROMPT + block
 
 
 def enabled() -> bool:
@@ -90,10 +116,14 @@ class AzureCodegen:
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21"),
         )
 
-    def generate(self, question: str) -> list[dict]:
-        """Compile `question` into a program (list of DSL steps). Raises on API error or
-        unparseable output; the caller validates structure/semantics and falls back to the
-        pinned program on any failure (D-DR6)."""
+    def generate(self, question: str, clip: dict | None = None) -> list[dict]:
+        """Compile `question` into a program (list of DSL steps). When `clip` is supplied, the
+        per-clip metadata (label, duration_ms, timing/event hint from canned.CLIPS) is injected
+        into the system message so the question compiles against the ACTUAL clip (Q2 -> Alt C);
+        clip=None keeps the canned-path behavior. Raises on API error or unparseable output; the
+        caller validates structure/semantics. For free text there is NO pinned fallback — a miss
+        grounds out honestly (Q1 -> A)."""
+        sys_msg = build_system_message(clip)
         resp = self._client.chat.completions.create(
             model=self._deployment,
             temperature=0,
@@ -108,7 +138,7 @@ class AzureCodegen:
                 "json_schema": {"name": "visual_program", "strict": False, "schema": _schema_for_openai()},
             },
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": sys_msg},
                 {"role": "user", "content": question},
             ],
         )
