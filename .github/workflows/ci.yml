@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Python (api) — pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r api/requirements.txt
+      - name: Pytest (with non-gating coverage)
+        working-directory: api
+        run: python -m pytest -q --cov=. --cov-report=term-missing
+
+  web:
+    name: Web (web) — build + type-check + vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install deps
+        working-directory: web
+        run: npm ci
+      - name: Build (static export)
+        working-directory: web
+        run: npm run build
+      - name: Type-check
+        working-directory: web
+        run: npx tsc --noEmit
+      - name: Vitest (with non-gating coverage)
+        working-directory: web
+        run: npm run test:cov
+
+# Two independent jobs (python, web) on a single pinned toolchain each; fail-fast off so one
+# failure doesn't cancel the other job's signal.
