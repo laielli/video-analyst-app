@@ -65,6 +65,15 @@ def test_canned_event_sequence_is_meta_steps_findings_done():
     assert names == ["meta"] + ["step"] * n + ["findings", "done"]
     assert evs[-1][1] == {"ok": True}
 
+    # Each streamed `step` body must carry its real run-doc trace entry, not just
+    # be a correctly-named empty frame. Pin the step payloads to the program: a
+    # regression that shipped `yield _sse("step", {})` (server.py gen()) would
+    # pass the name/count asserts above but fail here.
+    step_payloads = [d for nm, d in evs if nm == "step"]
+    for s in step_payloads:
+        assert {"op", "output_label", "status"} <= s.keys()
+    assert [s["op"] for s in step_payloads] == [p["op"] for p in meta["program"]]
+
 
 def test_meta_payload_shape():
     resp = client.get("/api/run", params={"query": "hero-10-first-goal", "pace_ms": 0})
