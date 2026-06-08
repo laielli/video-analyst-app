@@ -51,12 +51,19 @@ class Interpreter:
 
     @staticmethod
     def _findings(program: list[dict], answer_binding: dict | None) -> dict:
-        if answer_binding and answer_binding["kind"] == "answer":
+        # Grounded path: a real answer synthesized from the answer binding (any question shape).
+        if answer_binding and answer_binding["kind"] == "answer" and answer_binding["value"].get("grounded"):
             v = answer_binding["value"]
             supporting = (next((s["id"] for s in program if s["op"] == "temporal_order"), None)
                           or next((s["id"] for s in program if s["op"] == "answer"), None))
-            out = {"answer": v["answer"], "verdict": v["verdict"], "partial": False}
+            out = {"answer": v["answer"], "verdict": v["verdict"],
+                   "grounded": True, "reason": None, "partial": False}
             if supporting:
                 out["supporting_step"] = supporting
             return out
-        return {"answer": "Unknown", "verdict": "Could not determine an answer", "partial": True}
+        # Ungrounded path (Q1 -> A): the answer step couldn't ground, or there was no answer
+        # binding at all. Carry the explicit discriminator — never a fabricated "Unknown" verdict.
+        reason = "no-answer-step"
+        if answer_binding and answer_binding["kind"] == "answer":
+            reason = answer_binding["value"].get("reason") or "no-grounded-answer"
+        return {"answer": None, "verdict": None, "grounded": False, "reason": reason, "partial": True}

@@ -8,6 +8,15 @@ export const API_BASE =
 
 export type RunStatus = "idle" | "running" | "done" | "error";
 
+/**
+ * A run request: either a canned query (by id) or a free-text query (typed `text` against a
+ * `clip`). `useRun.run` accepts either; a bare `run()` with no arg replays the hook's default
+ * canned query (the auto-play URL — D-DR7).
+ */
+export type RunRequest =
+  | { kind: "canned"; queryId: string }
+  | { kind: "free"; text: string; clip?: string };
+
 export type RunState = {
   status: RunStatus;
   meta: Meta | null;
@@ -18,11 +27,22 @@ export type RunState = {
   current: number;
 };
 
+function runUrl(req: RunRequest, paceMs: number): string {
+  const base = `${API_BASE}/api/run?pace_ms=${paceMs}`;
+  if (req.kind === "canned") return `${base}&query=${encodeURIComponent(req.queryId)}`;
+  const clip = req.clip ? `&clip=${encodeURIComponent(req.clip)}` : "";
+  return `${base}&query_text=${encodeURIComponent(req.text)}${clip}`;
+}
+
 /**
  * Connects to GET /api/run over SSE and accumulates the run-doc step by step.
  * meta -> step* -> findings -> done. After done, `select()` scrubs to any step.
+ *
+ * `defaultQueryId` is the canned query a bare `run()` (auto-play) replays. `run(req)` runs an
+ * explicit request — canned or free-text — so one hook serves both the self-playing public URL
+ * and the typed-question path.
  */
-export function useRun(queryId: string | null, paceMs = 1200) {
+export function useRun(defaultQueryId: string | null, paceMs = 1200) {
   const [state, setState] = useState<RunState>({
     status: "idle", meta: null, steps: [], findings: null, error: null, current: -1,
   });
@@ -34,14 +54,17 @@ export function useRun(queryId: string | null, paceMs = 1200) {
     esRef.current = null;
   }, []);
 
-  const run = useCallback(() => {
-    if (!queryId) return;
+  const run = useCallback((req?: RunRequest) => {
+    // No explicit request -> replay the default canned query (the auto-play URL).
+    const request: RunRequest | null =
+      req ?? (defaultQueryId ? { kind: "canned", queryId: defaultQueryId } : null);
+    if (!request) return;
+    if (request.kind === "free" && !request.text.trim()) return; // empty/whitespace -> no-op
     stop();
     userPinnedRef.current = false;
     setState({ status: "running", meta: null, steps: [], findings: null, error: null, current: -1 });
 
-    const url = `${API_BASE}/api/run?query=${encodeURIComponent(queryId)}&pace_ms=${paceMs}`;
-    const es = new EventSource(url);
+    const es = new EventSource(runUrl(request, paceMs));
     esRef.current = es;
 
     es.addEventListener("meta", (e) => {
@@ -71,7 +94,7 @@ export function useRun(queryId: string | null, paceMs = 1200) {
       );
       stop();
     });
-  }, [queryId, paceMs, stop]);
+  }, [defaultQueryId, paceMs, stop]);
 
   /** Scrub to a step after the run completes (D-DR3 click-to-replay). */
   const select = useCallback((i: number) => {
