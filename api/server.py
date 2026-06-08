@@ -87,7 +87,12 @@ def _live_run_doc(entry: dict, cache: Cache) -> dict | None:
         print(f"[codegen] '{qid}': generation failed ({e}); using pinned program", file=sys.stderr)
         return None
 
-    errors = validation_errors({"program": program})
+    # Apply the same numeric-bounds trust boundary the free-text path uses: resolve THIS
+    # query's clip so validation rejects an out-of-range sample_frames before it can reach
+    # Interpreter.run. clip_by_id(None) -> None -> bounds are skipped (back-compat), so an
+    # unknown/missing clip degrades to the prior structure-only behavior rather than erroring.
+    clip = canned.clip_by_id(entry.get("clip"))
+    errors = validation_errors({"program": program}, clip=clip)
     if errors:
         print(f"[codegen] '{qid}': {len(errors)} validation error(s); using pinned. first: {errors[0]}",
               file=sys.stderr)

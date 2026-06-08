@@ -207,3 +207,42 @@ def test_canned_clip_by_id_resolves_cache():
     cache = Cache.load(clip["cache"])  # loadable
     assert cache.clip["id"] == "single-goal"
     assert canned.clip_by_id("does-not-exist") is None
+
+
+# --------------------------------------------------------------------------------------
+# test_canned_live_codegen_rejects_out_of_range_program — the canned path shares the
+# free-text path's numeric-bounds trust boundary (regression for the post-merge [P1] gap:
+# _live_run_doc previously called validation_errors WITHOUT the clip, so an out-of-range
+# generated program could reach Interpreter.run on the canned route).
+# --------------------------------------------------------------------------------------
+
+def test_canned_live_codegen_rejects_out_of_range_program(mock_codegen, monkeypatch):
+    real_run = Interpreter.run
+    executed = []
+
+    def spy(self, program, *args, **kwargs):
+        executed.append(program)
+        # Never actually replay an out-of-range window (range would be enormous). _live_run_doc
+        # catches the exception and falls back, so a regression is caught here without hanging.
+        if any(s.get("args", {}).get("end_ms", 0) > clip_duration for s in program):
+            raise RuntimeError("out-of-range program reached Interpreter.run (trust boundary breached)")
+        return real_run(self, program, *args, **kwargs)
+
+    clip_duration = canned.clip_by_id("single-goal")["duration_ms"]
+    monkeypatch.setattr(Interpreter, "run", spy)
+
+    oob = [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 999_999_999, "fps": 8}},
+        {"id": "people", "op": "detect", "args": {"frames": "frames", "classes": ["person"]}},
+        {"id": "n", "op": "count", "args": {"items": "people"}},
+        {"id": "result", "op": "answer", "args": {"from": "n", "question": "how many?"}},
+    ]
+    mock_codegen(program=oob)  # canned query whose live codegen returns an out-of-range program
+    doc = server.build_run_doc(canned.by_id("hero-10-first-goal"))
+    # The live program is rejected at validation -> the route falls back to the pinned program.
+    assert doc["program_source"] == "pinned"
+    # The out-of-range program was NEVER executed (rejected before Interpreter.run).
+    assert all(
+        not any(s.get("args", {}).get("end_ms", 0) > clip_duration for s in p)
+        for p in executed
+    )
