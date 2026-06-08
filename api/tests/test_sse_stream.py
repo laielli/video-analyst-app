@@ -186,6 +186,13 @@ def test_run_doc_canned_returns_full_doc():
     for k in ("schema_version", "query", "clip", "program", "trace", "findings", "program_source"):
         assert k in doc
     assert doc["program_source"] in ("pinned", "live")
+    # substance, not just key presence: a skeletal placeholder (empty program/trace, junk
+    # findings) would pass the key-presence loop above but must fail here.
+    assert len(doc["program"]) > 0
+    assert [s["op"] for s in doc["trace"]] == [s["op"] for s in doc["program"]]
+    # the canned hero query is grounded and carries a real verdict.
+    assert doc["findings"]["grounded"] is True
+    assert doc["findings"]["verdict"]
 
 
 def test_run_doc_free_text_ungrounded(mock_codegen):

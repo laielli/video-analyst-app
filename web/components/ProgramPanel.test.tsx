@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import ProgramPanel from "@/components/ProgramPanel";
+import { COMMENTS } from "@/lib/program";
 import type { ProgramStep, StepResult } from "@/lib/types";
 
 // ProgramPanel classes each step block active/done/pending by `current`, shows the empty-step ○
@@ -34,10 +35,14 @@ describe("ProgramPanel", () => {
     expect(firstMarker.textContent).toBe("○");
   });
 
-  it("renders the per-op comment from COMMENTS", () => {
-    render(<ProgramPanel program={program} steps={[]} current={-1} />);
-    expect(screen.getByText("# sample frames around the goal moment")).toBeInTheDocument();
-    expect(screen.getByText("# find every player on the pitch")).toBeInTheDocument();
-    expect(screen.getByText("# keep only player #10")).toBeInTheDocument();
+  it("derives each comment from COMMENTS, with a `# <op>` fallback for an unknown op", () => {
+    const withUnknown: ProgramStep[] = [...program, { id: "mystery", op: "no_such_op", args: {} }];
+    render(<ProgramPanel program={withUnknown} steps={[]} current={-1} />);
+    // each known op renders its COMMENTS entry — tied to the map, not three baked literals.
+    for (const s of program) {
+      expect(screen.getByText(COMMENTS[s.op])).toBeInTheDocument();
+    }
+    // an op absent from COMMENTS falls back to `# <op>`; this only passes if the lookup is real.
+    expect(screen.getByText("# no_such_op")).toBeInTheDocument();
   });
 });
