@@ -1,0 +1,2369 @@
+{
+  "clip": {
+    "id": "best-goal",
+    "width": 2636,
+    "height": 1474,
+    "duration_ms": 30086,
+    "fps": 60
+  },
+  "detect": {
+    "8000": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "8125": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "8250": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "8375": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "8500": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "8625": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "8750": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "8875": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "9000": [
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      },
+      {
+        "det_id": "p_seven",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      }
+    ],
+    "9125": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "9250": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "9375": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "9500": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "9625": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "9750": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "9875": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "10000": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "10125": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "10250": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "10375": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "10500": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "10625": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "10750": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "10875": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "11000": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "11125": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "11250": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "11375": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "11500": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "11625": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "11750": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "11875": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "12000": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "12125": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "12250": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "12375": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "12500": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "12625": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "12750": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "12875": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ],
+    "13000": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.81,
+        "box": {
+          "x": 0.12,
+          "y": 0.2,
+          "w": 0.18,
+          "h": 0.6
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.74,
+        "box": {
+          "x": 0.4,
+          "y": 0.3,
+          "w": 0.14,
+          "h": 0.5
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.69,
+        "box": {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.15,
+          "h": 0.52
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.63,
+        "box": {
+          "x": 0.8,
+          "y": 0.18,
+          "w": 0.13,
+          "h": 0.58
+        }
+      },
+      {
+        "det_id": "p4",
+        "cls": "person",
+        "confidence": 0.57,
+        "box": {
+          "x": 0.02,
+          "y": 0.35,
+          "w": 0.09,
+          "h": 0.45
+        }
+      }
+    ]
+  },
+  "read_text": {
+    "p_seven": {
+      "text": "7",
+      "confidence": null,
+      "source": "pinned",
+      "note": "Hand-verified pin for the second clip's scorer (#7). Distinct from the hero #10 so the multi-query catalog stresses filter on a non-hero value. Azure Read misreads the stylized numeral; the 7 is human-legible and pinned (disclosed in the demo)."
+    }
+  },
+  "events": [
+    {
+      "ts_ms": 8500,
+      "type": "goal",
+      "scorer_det": "p_seven",
+      "box": {
+        "x": 0.14,
+        "y": 0.22,
+        "w": 0.16,
+        "h": 0.55
+      }
+    }
+  ]
+}

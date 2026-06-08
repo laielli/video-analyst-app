@@ -1,0 +1,40 @@
+{
+  "_comment": "Pinned program for the multi-clip OUT-OF-BOUNDS / honest-ungrounded query 'Does #99 score the first goal?' on the best-goal clip. Same chain as the filter-seven grounding program but filters on text == '99', a jersey NOT in the cache. The filter matches nobody -> temporal_order produces an empty subject (subject_label is None) -> the answer step GROUNDS OUT honestly (grounded=false, reason 'no-grounded-answer') rather than fabricating a confident 'No' about a player we never located (the honesty discriminator, primitives.py _answer_temporal). Validates against ../schema/dsl.schema.json.",
+  "program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": { "start_ms": 8000, "end_ms": 13000, "fps": 8 }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": { "frames": "frames", "classes": ["person"] }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": { "detections": "people", "region": "jersey" }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": { "crops": "jerseys" }
+    },
+    {
+      "id": "nineties",
+      "op": "filter",
+      "args": { "items": "numbers", "where": { "field": "text", "equals": "99" } }
+    },
+    {
+      "id": "ordered",
+      "op": "temporal_order",
+      "args": { "events": "nineties", "by": "timestamp" }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": { "from": "ordered", "question": "Does #99 score the first goal?" }
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "_comment": "Pinned GROUNDING program for the multi-clip FILTER-ON-A-NON-HERO-VALUE query 'Does #7 score the first goal?' on the best-goal clip. Same detect->crop->read_text->filter->temporal_order->answer shape as the hero, but filters on text == '7' (a DIFFERENT pinned jersey than the hero's #10), so it stresses grounding on a non-hero value end to end. This is the clip's self-validation target (Phase 4): it declares a goal event scored by p_seven, so self_validate_replay asserts findings.grounded is True. Window 8000-13000 @ fps 8 (stride 125) covers the goal moment (~8500ms) and the scorer frame (~9000ms). Validates against ../schema/dsl.schema.json.",
+  "program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": { "start_ms": 8000, "end_ms": 13000, "fps": 8 }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": { "frames": "frames", "classes": ["person"] }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": { "detections": "people", "region": "jersey" }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": { "crops": "jerseys" }
+    },
+    {
+      "id": "sevens",
+      "op": "filter",
+      "args": { "items": "numbers", "where": { "field": "text", "equals": "7" } }
+    },
+    {
+      "id": "ordered",
+      "op": "temporal_order",
+      "args": { "events": "sevens", "by": "timestamp" }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": { "from": "ordered", "question": "Does #7 score the first goal?" }
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "_comment": "Per-clip ingest config for the SECOND clip (multi-clip catalog, plan Phase 1). Mirrors clips/single-goal/manifest.json field-for-field. This is a distinct ~5s goal window of best-goals-2025-30s.mov (a different real goal than the hero), so the codegen `hint` genuinely differs from single-goal. `source` is resolved relative to this manifest's directory. The pipeline samples on the SAME stride op_sample_frames uses (stride=round(1000/fps)); fps=8 -> stride 125, so 9000 = 8000 + 8*125 (the pin/scorer frame) and 8500 = 8000 + 4*125 (the goal moment) are both in the sampled list -> the scorer frame is always covered. The committed best-goal_cache.json is DERIVED (Alt C) by run_precompute over api/tests/fixtures/fake_detect_best-goal.json with a configurable FakeAzureVision(objects=...), no creds.",
+  "clip": {
+    "id": "best-goal",
+    "source": "../../best-goals-2025-30s.mov",
+    "width": 2636,
+    "height": 1474,
+    "duration_ms": 30086,
+    "fps": 60
+  },
+  "sampling": {
+    "start_ms": 8000,
+    "end_ms": 13000,
+    "fps": 8
+  },
+  "detect_classes": ["person"],
+  "pins": [
+    {
+      "_comment": "Renames the detection nearest this box (at frame_ts_ms 9000) to the semantic id `p_seven` AND pins its jersey read to '7' — a DIFFERENT pinned jersey than the hero's #10, so the filter-on-a-non-hero-value query grounds on a value the hero chain never touches. nearest_box matches the highest-confidence person in fake_detect_best-goal.json so the rename is deterministic.",
+      "match": { "frame_ts_ms": 9000, "nearest_box": { "x": 0.12, "y": 0.2, "w": 0.18, "h": 0.6 } },
+      "det_id": "p_seven",
+      "read_text": {
+        "text": "7",
+        "confidence": null,
+        "source": "pinned",
+        "note": "Hand-verified pin for the second clip's scorer (#7). Distinct from the hero #10 so the multi-query catalog stresses filter on a non-hero value. Azure Read misreads the stylized numeral; the 7 is human-legible and pinned (disclosed in the demo)."
+      }
+    }
+  ],
+  "events": [
+    {
+      "_comment": "The known goal moment for this clip. scorer_pin refers to the pin det_id (p_seven); the pipeline derives events[].scorer_det FROM the pin resolution, not as an independent literal, so the join key stays byte-identical across detect/read_text/events.",
+      "ts_ms": 8500,
+      "type": "goal",
+      "scorer_pin": "p_seven",
+      "box": { "x": 0.14, "y": 0.22, "w": 0.16, "h": 0.55 }
+    }
+  ],
+  "evidence_frames": [
+    {
+      "_comment": "Stills the pipeline emits for completeness. NOTE: EvidencePanel.frameSrc hardcodes the hero's two stills (ts<=4200 cutoff) and does NOT read these filenames, so these won't render in the UI without generalizing that lookup — explicitly OUT of scope (plan Phase 1). Emitted for completeness only.",
+      "ts_ms": 8500,
+      "filename": "best-goal-8500.jpg"
+    },
+    {
+      "ts_ms": 9000,
+      "filename": "best-goal-scorer-9000.jpg"
+    }
+  ]
+}

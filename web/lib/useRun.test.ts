@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useRun, API_BASE } from "@/lib/useRun";
+import { useRun, fetchCatalog, API_BASE } from "@/lib/useRun";
 import { MockEventSource } from "@/vitest.setup";
 
 // useRun connects to GET /api/run over SSE via the global EventSource (mocked in vitest.setup.ts)
@@ -112,5 +112,42 @@ describe("useRun", () => {
     expect(source.closed).toBe(false);
     unmount();
     expect(source.closed).toBe(true);
+  });
+});
+
+// Multi-clip catalog (plan Phase 5, optional web test): /api/catalog now returns >1 query, so
+// page.tsx renders the query <select> (it gates on queries.length > 1). This asserts the contract
+// fetchCatalog relies on — surfacing multiple queries across multiple clips — by stubbing fetch.
+describe("fetchCatalog (multi-query catalog)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("surfaces more than one query, spanning multiple clips", async () => {
+    const payload = {
+      clips: [
+        { id: "single-goal", label: "Hero" },
+        { id: "best-goal", label: "Best goal" },
+      ],
+      queries: [
+        { id: "hero-10-first-goal", text: "Does #10 score the first goal?", clip: "single-goal" },
+        { id: "best-goal-count-players", text: "How many players are visible?", clip: "best-goal" },
+        { id: "best-goal-seven-first-goal", text: "Does #7 score the first goal?", clip: "best-goal" },
+      ],
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toBe(`${API_BASE}/api/catalog`);
+      return { ok: true, status: 200, json: async () => payload } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const cat = await fetchCatalog();
+    expect(cat.queries.length).toBeGreaterThan(1);
+    const clips = new Set(cat.queries.map((q) => q.clip));
+    expect(clips.has("single-goal")).toBe(true);
+    expect(clips.has("best-goal")).toBe(true);
+  });
+
+  it("throws on a non-ok catalog response", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 503 } as Response)));
+    await expect(fetchCatalog()).rejects.toThrow("catalog 503");
   });
 });

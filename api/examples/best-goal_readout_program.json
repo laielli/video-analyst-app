@@ -1,0 +1,30 @@
+{
+  "_comment": "Pinned program for the multi-clip READ_TEXT READOUT query 'What number does the scorer wear?' on the best-goal clip. Exercises the read_text -> answer op-path (the answer step's `texts` dispatch, primitives.py _answer_text) the hero chain never hits as a final binding. The bound best-goal_cache.json carries read_text[p_seven] = {text:'7'}, so the answer reads back '7'. Window 8000-13000 @ fps 8 (stride 125) samples ts 9000 where p_seven is detected and crop->read_text resolves the pin. Validates against ../schema/dsl.schema.json.",
+  "program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": { "start_ms": 8000, "end_ms": 13000, "fps": 8 }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": { "frames": "frames", "classes": ["person"] }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": { "detections": "people", "region": "jersey" }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": { "crops": "jerseys" }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": { "from": "numbers", "question": "What number does the scorer wear?" }
+    }
+  ]
+}

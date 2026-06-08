@@ -1,0 +1,11 @@
+{
+  "_comment": "Checked-in canned-detect fixture (Alt C) that drives the derive of api/examples/best-goal_cache.json. Same posture as fake_detect_4625.json: a configurable FakeAzureVision(objects=...) returns THESE objects at every sampled frame, so the cache is reproduced deterministically with NO creds and NO .mov. Contains 5 persons (so the count query grounds to 5) + 1 ball (verifies class filtering: detect_classes is [person], so the ball is dropped). The highest-confidence person (conf 0.81, box x:0.12) is positioned to be the nearest match for the manifest pin's nearest_box {x:0.12,y:0.2,w:0.18,h:0.6} -> renamed to p_seven, read_text '7'. Boxes are well-separated so nearest-box pin matching is unambiguous. Consumed by test_catalog_multiclip.py (derive + replay) — these timestamps-agnostic objects are emitted at each of the 41 frames sampled over 8000-13000ms @8fps.",
+  "objects": [
+    { "class": "person", "confidence": 0.81, "box": { "x": 0.12, "y": 0.2, "w": 0.18, "h": 0.6 } },
+    { "class": "person", "confidence": 0.74, "box": { "x": 0.4, "y": 0.3, "w": 0.14, "h": 0.5 } },
+    { "class": "person", "confidence": 0.69, "box": { "x": 0.62, "y": 0.25, "w": 0.15, "h": 0.52 } },
+    { "class": "person", "confidence": 0.63, "box": { "x": 0.8, "y": 0.18, "w": 0.13, "h": 0.58 } },
+    { "class": "person", "confidence": 0.57, "box": { "x": 0.02, "y": 0.35, "w": 0.09, "h": 0.45 } },
+    { "class": "ball", "confidence": 0.44, "box": { "x": 0.5, "y": 0.62, "w": 0.04, "h": 0.04 } }
+  ]
+}

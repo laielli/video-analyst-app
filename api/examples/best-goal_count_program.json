@@ -1,0 +1,25 @@
+{
+  "_comment": "Pinned program for the multi-clip COUNT query 'How many players are visible?' on the best-goal clip. Exercises the count -> answer op-path the hero chain never hits. Validates against ../schema/dsl.schema.json. Window 9000-9001 @ fps 1 samples exactly ts 9000 (a detect key in best-goal_cache.json carrying 5 person dets), so count grounds to '5'. Window-alignment invariant (plan Phase 2): the sample_frames window MUST sample a ts present in the bound cache's detect keys or count -> 0 -> ungrounded; 9000 is authored to agree with the fixture-derived cache.",
+  "program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": { "start_ms": 9000, "end_ms": 9001, "fps": 1 }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": { "frames": "frames", "classes": ["person"] }
+    },
+    {
+      "id": "n",
+      "op": "count",
+      "args": { "items": "people" }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": { "from": "n", "question": "How many players are visible?" }
+    }
+  ]
+}

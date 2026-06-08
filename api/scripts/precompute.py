@@ -82,6 +82,43 @@ def manifest_path_for_clip(clip_id: str) -> Path:
     return CLIPS_DIR / clip_id / "manifest.json"
 
 
+def resolve_program_and_out(clip_id: str | None, query_id: str | None) -> tuple[Path, Path]:
+    """Map a --clip / --query selection to (program_path, out) using canned.QUERIES so the
+    pipeline self-validates the RIGHT pinned program for a non-hero clip and writes to that
+    clip's cache path (plan Phase 4). Resolution order:
+      - an explicit --query wins (its `program` + `cache` from the registry);
+      - else the FIRST query registered for --clip (so `--clip best-goal` alone resolves the
+        clip's grounding program/cache without naming the query);
+      - else (no clip, no query) the hero defaults — back-compatible, no-arg behavior unchanged.
+    Returns absolute Paths. `canned` import is guarded (no cycle: clip_block already imports it)."""
+    hero_program = API_DIR / "examples" / "hero_program.json"
+    try:
+        import canned  # noqa: E402
+    except Exception:  # noqa: BLE001 — registry optional; fall back to hero defaults
+        return hero_program, DEFAULT_OUT
+
+    entry = None
+    if query_id:
+        entry = canned.by_id(query_id)
+        if entry is None:
+            raise SetupError(
+                f"unknown --query '{query_id}' (not in canned.QUERIES). "
+                f"Known: {[q['id'] for q in canned.QUERIES]}"
+            )
+    elif clip_id:
+        entry = next((q for q in canned.QUERIES if q.get("clip") == clip_id), None)
+        # No registered query for this clip yet (e.g. deriving its very first cache): fall back to
+        # the hero program only when the clip IS the hero; otherwise require an explicit --query.
+        if entry is None and clip_id != "single-goal":
+            raise SetupError(
+                f"no canned query registered for clip '{clip_id}'; pass --query <id> to select "
+                f"its grounding program, or register the query in canned.QUERIES first."
+            )
+    if entry is None:
+        return hero_program, DEFAULT_OUT
+    return Path(entry["program"]), Path(entry["cache"])
+
+
 def load_manifest(path: Path) -> dict:
     if not path.exists():
         raise SetupError(
@@ -510,12 +547,19 @@ def validate_cache_shape(cache: dict) -> list[str]:
 # --------------------------------------------------------------------------------------
 
 def self_validate_replay(cache: dict, *, program_path: Path, expect_grounded: bool = True) -> dict:
-    """Load the produced cache, run the pinned program, and assert it conforms to
-    run_doc.schema.json. When the cache carries goal events (a positive claim), assert the FULL
-    grounded chain: events[0].scorer_det survives op_filter text==10, carries read_text '10', and
-    the answer grounds to Yes (the verdict linchpin — not the hardcoded verdict string). A cache
-    with NO goal events validly grounds to 'No' (D-DR5 honest-empty); `expect_grounded=False`
-    skips the positive-chain assertions for such degraded clips. Returns the run-doc."""
+    """Load the produced cache, run the clip's pinned grounding program, and assert it conforms to
+    run_doc.schema.json. GENERALIZED for the multi-clip catalog (plan Phase 4): the prior version
+    was hero-shaped — it asserted the literal verdict 'Yes' and read_text '10' and required a
+    `temporal_order` step. That made a `count -> answer` / `read_text -> answer` clip impossible to
+    self-validate. The generic contract is now:
+      (1) the program MUST end in an `answer` step (the evidence-grounded verdict);
+      (2) the run-doc MUST conform to run_doc.schema.json;
+      (3) when `expect_grounded` (the manifest declared a positive claim), assert only the
+          honesty discriminator `findings.grounded is True` — leaving subject-specific
+          expectations (which jersey, which count) to the dedicated replay tests.
+    A clip with NO goal events validly grounds to an honest ungrounded / 'No' (D-DR5);
+    `expect_grounded=False` skips the grounded assertion for such degraded/no-claim clips.
+    Returns the run-doc."""
     import jsonschema
     from interpreter import Cache, Interpreter  # noqa: E402
     from validate_program import strip_comments  # noqa: E402
@@ -533,23 +577,22 @@ def self_validate_replay(cache: dict, *, program_path: Path, expect_grounded: bo
         msgs = "; ".join(f"{'/'.join(str(p) for p in e.path) or '<root>'}: {e.message}" for e in rd_errs)
         raise GroundingError(f"run-doc does not conform to run_doc.schema.json: {msgs}")
 
-    ordered = next((t for t in run_doc["trace"] if t["op"] == "temporal_order"), None)
+    # Require an `answer` step (the verdict) — NOT a temporal_order step, so a count/readout
+    # grounding program is a valid self-validation target.
     answer = next((t for t in run_doc["trace"] if t["op"] == "answer"), None)
-    if not (ordered and answer):
-        raise GroundingError("program lacks temporal_order/answer step")
+    if answer is None:
+        raise GroundingError("program lacks an answer step (the evidence-grounded verdict)")
 
-    goals = run_cache.goal_events()
-    if not (expect_grounded and goals):
-        return run_doc  # degraded / no-claim cache: a valid 'No' is the correct answer.
+    if not expect_grounded:
+        return run_doc  # degraded / no-claim cache: an honest ungrounded/'No' is the correct answer.
 
-    # Positive claim -> assert the grounded chain (the verdict linchpin).
-    if answer["output_label"] != "Yes":
-        raise GroundingError(f"goal events present but verdict did not ground to Yes "
-                             f"(got {answer['output_label']!r})")
-    scorer = goals[0]["scorer_det"]
-    rt = run_cache.read_text_for(scorer)
-    if not (rt and rt.get("text") == "10"):
-        raise GroundingError(f"scorer det '{scorer}' has no read_text '10' (got {rt})")
+    # Positive claim -> assert the honesty discriminator (the verdict linchpin), generic over the
+    # question shape: the run must GROUND. Subject-specific expectations live in the replay tests.
+    if run_doc["findings"]["grounded"] is not True:
+        raise GroundingError(
+            f"manifest declared a positive claim but the program did not ground "
+            f"(findings={run_doc['findings']})"
+        )
     return run_doc
 
 
@@ -753,11 +796,13 @@ def main(argv: list[str] | None = None) -> int:
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--clip", help="clip id; loads clips/<id>/manifest.json")
     g.add_argument("--manifest", type=Path, help="explicit path to a manifest.json")
-    ap.add_argument("--query", default="hero-10-first-goal",
-                    help="canned query id this cache backs (for the report; default hero-10-first-goal)")
+    ap.add_argument("--query",
+                    help="canned query id this cache backs; selects its pinned program + cache out "
+                         "(default: the first query registered for --clip, else the hero defaults)")
     ap.add_argument("--dry-run", action="store_true", help="sample + report; no Azure calls, no writes")
     ap.add_argument("--require-ocr", action="store_true", help="hard-fail (exit 1) if any OCR read is skipped")
-    ap.add_argument("--out", type=Path, default=DEFAULT_OUT, help="cache output path")
+    ap.add_argument("--out", type=Path, default=None,
+                    help="cache output path (default: the resolved query's `cache`, else hero_cache.json)")
     args = ap.parse_args(argv)
 
     try:
@@ -769,13 +814,19 @@ def main(argv: list[str] | None = None) -> int:
             print("ERROR: pass --clip <id> or --manifest <path>.", file=sys.stderr)
             return 2
         manifest = load_manifest(mpath)
+        # Resolve which pinned program self-validates and where the cache is written. An explicit
+        # --query wins; else the first query registered for --clip; else the hero defaults.
+        program_path, resolved_out = resolve_program_and_out(args.clip, args.query)
     except SetupError as e:
         print(f"ERROR (setup): {e}", file=sys.stderr)
         return 2
 
+    out = args.out if args.out is not None else resolved_out
+
     try:
         report = run_precompute(
-            manifest, dry_run=args.dry_run, require_ocr=args.require_ocr, out=args.out,
+            manifest, dry_run=args.dry_run, require_ocr=args.require_ocr, out=out,
+            program_path=program_path,
         )
     except SetupError as e:
         print(f"ERROR (setup): {e}", file=sys.stderr)
