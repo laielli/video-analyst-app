@@ -1,0 +1,40 @@
+{
+  "_comment": "Pinned program for 'Does #99 score the first goal?' on the best-goal clip — the HONEST-UNGROUNDED path. Same chain as the #7 program but filters on a jersey NOT in the cache (text == '99'). The filter matches nobody, so temporal_order yields an empty subject and op_answer grounds out honestly (grounded=False, reason 'no-grounded-answer') rather than fabricating a verdict — even though a real first goal exists. Window 11000-13000ms @ 8fps stays inside duration_ms (30087). Validates against ../schema/dsl.schema.json.",
+  "program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": { "start_ms": 11000, "end_ms": 13000, "fps": 8 }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": { "frames": "frames", "classes": ["person"] }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": { "detections": "people", "region": "jersey" }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": { "crops": "jerseys" }
+    },
+    {
+      "id": "nines",
+      "op": "filter",
+      "args": { "items": "numbers", "where": { "field": "text", "equals": "99" } }
+    },
+    {
+      "id": "ordered",
+      "op": "temporal_order",
+      "args": { "events": "nines", "by": "timestamp" }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": { "from": "ordered", "question": "Does #99 score the first goal?" }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "_comment": "Pinned program for 'How many players are visible?' on the best-goal clip. Chain frames->people->n->result ends count->answer (an op-path the hero chain never hits). A SINGLE-frame window (12125-12126ms @ 1fps -> exactly ts 12125, a detect key in best-goal_cache.json) so count grounds to the per-frame person count (5), not a multi-frame sum. 12125 is inside the clip's duration_ms (30087). Validates against ../schema/dsl.schema.json.",
+  "program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": { "start_ms": 12125, "end_ms": 12126, "fps": 1 }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": { "frames": "frames", "classes": ["person"] }
+    },
+    {
+      "id": "n",
+      "op": "count",
+      "args": { "items": "people" }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": { "from": "n", "question": "How many players are visible?" }
+    }
+  ]
+}

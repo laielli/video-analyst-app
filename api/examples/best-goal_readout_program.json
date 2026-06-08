@@ -1,0 +1,30 @@
+{
+  "_comment": "Pinned program for 'What number does the scorer wear?' on the best-goal clip — the read_text READOUT path (chain ends read_text->answer, no temporal_order, an op-path the hero chain never hits). op_answer dispatches on the `texts` kind and reads back the legible value(s). Only p_seven carries a read_text entry in best-goal_cache.json (the other dets are honest-empty), so the readout is '7'. Window 11000-13000ms @ 8fps samples ts 12125 (where p_seven is read) and stays inside duration_ms (30087). Validates against ../schema/dsl.schema.json.",
+  "program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": { "start_ms": 11000, "end_ms": 13000, "fps": 8 }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": { "frames": "frames", "classes": ["person"] }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": { "detections": "people", "region": "jersey" }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": { "crops": "jerseys" }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": { "from": "numbers", "question": "What number does the scorer wear?" }
+    }
+  ]
+}

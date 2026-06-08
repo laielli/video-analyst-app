@@ -1,0 +1,40 @@
+{
+  "_comment": "Pinned program for 'Does #7 score the first goal?' on the best-goal clip. Same detect->crop->read_text->filter->temporal_order->answer shape as the hero, but filters on a NON-hero value (text == '7'). The clip's pinned scorer reads '7' and the goal event names them, so the subject is DERIVED as #7 (never a literal) and grounds to Yes. Window 11000-13000ms @ 8fps samples ts present in best-goal_cache.json's detect keys (incl. 12125, where p_seven is read) and stays inside duration_ms (30087). Validates against ../schema/dsl.schema.json.",
+  "program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": { "start_ms": 11000, "end_ms": 13000, "fps": 8 }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": { "frames": "frames", "classes": ["person"] }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": { "detections": "people", "region": "jersey" }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": { "crops": "jerseys" }
+    },
+    {
+      "id": "sevens",
+      "op": "filter",
+      "args": { "items": "numbers", "where": { "field": "text", "equals": "7" } }
+    },
+    {
+      "id": "ordered",
+      "op": "temporal_order",
+      "args": { "events": "sevens", "by": "timestamp" }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": { "from": "ordered", "question": "Does #7 score the first goal?" }
+    }
+  ]
+}

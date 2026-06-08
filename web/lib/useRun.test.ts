@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useRun, API_BASE } from "@/lib/useRun";
+import { useRun, fetchCatalog, API_BASE } from "@/lib/useRun";
 import { MockEventSource } from "@/vitest.setup";
 
 // useRun connects to GET /api/run over SSE via the global EventSource (mocked in vitest.setup.ts)
@@ -112,5 +112,41 @@ describe("useRun", () => {
     expect(source.closed).toBe(false);
     unmount();
     expect(source.closed).toBe(true);
+  });
+});
+
+// The multi-clip/multi-query catalog must surface to the UI: page.tsx renders the <select> when
+// queries.length > 1, so fetchCatalog() returning >1 query is the load-bearing contract. (The
+// catalog endpoint now enumerates the second clip's queries; this guards the client decode.)
+describe("fetchCatalog", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("surfaces multiple queries (the >1 case that renders the selector)", async () => {
+    const payload = {
+      clips: [{ id: "single-goal" }, { id: "best-goal" }],
+      queries: [
+        { id: "hero-10-first-goal", text: "Does #10 score the first goal?", clip: "single-goal" },
+        { id: "best-count-players", text: "How many players are visible?", clip: "best-goal" },
+        { id: "best-seven-first-goal", text: "Does #7 score the first goal?", clip: "best-goal" },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        expect(url).toBe(`${API_BASE}/api/catalog`);
+        return { ok: true, status: 200, json: async () => payload } as Response;
+      }),
+    );
+    const cat = await fetchCatalog();
+    expect(cat.queries.length).toBeGreaterThan(1);
+    expect(cat.queries.map((q) => q.clip)).toContain("best-goal");
+  });
+
+  it("throws on a non-ok catalog response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 503, json: async () => ({}) }) as Response),
+    );
+    await expect(fetchCatalog()).rejects.toThrow("catalog 503");
   });
 });

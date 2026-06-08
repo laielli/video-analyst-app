@@ -1,0 +1,11 @@
+{
+  "_comment": "Alt-C canned Azure detect output for the SECOND clip (best-goal, a distinct ~12s goal window of best-goals-2025-30s.mov). FakeAzureVision(objects=...) returns these same objects for EVERY sampled frame, so the precompute derive writes a detect entry at every sampled ts in the manifest window (11000-13000ms @ 8fps). Posture mirrors fake_detect_4625.json: deliberately NOT in det_id/confidence order (so minting is exercised), and a `ball` is present to verify class filtering. The conf-0.71 left box is the scorer the manifest pin renames to p_seven and reads as #7.",
+  "objects": [
+    { "class": "person", "confidence": 0.604, "box": { "x": 0.3120, "y": 0.5510, "w": 0.2410, "h": 0.2480 } },
+    { "class": "person", "confidence": 0.712, "box": { "x": 0.1050, "y": 0.2030, "w": 0.2080, "h": 0.6140 } },
+    { "class": "person", "confidence": 0.655, "box": { "x": 0.7410, "y": 0.2880, "w": 0.1190, "h": 0.2610 } },
+    { "class": "person", "confidence": 0.581, "box": { "x": 0.8620, "y": 0.0410, "w": 0.1080, "h": 0.2440 } },
+    { "class": "ball", "confidence": 0.43, "box": { "x": 0.4800, "y": 0.6200, "w": 0.0420, "h": 0.0420 } },
+    { "class": "person", "confidence": 0.548, "box": { "x": 0.0080, "y": 0.0900, "w": 0.0760, "h": 0.7440 } }
+  ]
+}
