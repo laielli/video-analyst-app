@@ -1,0 +1,11 @@
+{
+  "_comment": "Canned Azure detect output for the bernabeu-counter scorer frame (10.0s). Drives the Alt-C derive of api/examples/bernabeu-counter_cache.json: FakeAzureVision(objects=...) returns THESE for every sampled frame, so the sampling stride is what populates the detect keys. Deliberately NOT in det_id or confidence order so minting exercises the sort. `ball` is present to verify class filtering (dropped, like the hero fixture). The highest-confidence person (0.781) is the white #7 scorer whose box matches the manifest pin's nearest_box, so it mints to p0 and the pin renames it to p_vini. Consumed by test_new_clip_precompute_derives_cache_from_fixture.",
+  "objects": [
+    { "class": "person", "confidence": 0.642, "box": { "x": 0.4063, "y": 0.3402, "w": 0.0921, "h": 0.4087 } },
+    { "class": "person", "confidence": 0.781, "box": { "x": 0.2902, "y": 0.3046, "w": 0.1142, "h": 0.4518 } },
+    { "class": "person", "confidence": 0.704, "box": { "x": 0.7188, "y": 0.5732, "w": 0.0992, "h": 0.3905 } },
+    { "class": "ball", "confidence": 0.38, "box": { "x": 0.5219, "y": 0.6402, "w": 0.0341, "h": 0.0598 } },
+    { "class": "person", "confidence": 0.589, "box": { "x": 0.0156, "y": 0.7188, "w": 0.1063, "h": 0.2734 } },
+    { "class": "person", "confidence": 0.561, "box": { "x": 0.6094, "y": 0.0469, "w": 0.0742, "h": 0.2031 } }
+  ]
+}
