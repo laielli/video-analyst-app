@@ -10,6 +10,8 @@ import their SDK before cred validation — the SDKs are in requirements.txt so 
 """
 from __future__ import annotations
 
+import base64
+
 import pytest
 
 from vision.azure_vision import AzureVision, AnalysisResult, Detection, Box
@@ -170,11 +172,20 @@ def test_azure_vision_analyze_requires_at_least_one_feature():
 
 
 def test_azure_vision_passes_visual_features_to_client():
-    result = _Result(_Metadata(10, 10), objects=_Objects([]), read=_Read([]))
-    vis = _make_vision(result)
+    from azure.ai.vision.imageanalysis.models import VisualFeatures
+
+    # both flags -> exactly [OBJECTS, READ] (analyze() appends detect-then-read).
+    vis = _make_vision(_Result(_Metadata(10, 10), objects=_Objects([]), read=_Read([])))
     vis.analyze(b"img", detect=True, read=True)
-    feats = vis._client.last_kwargs["visual_features"]
-    assert len(feats) == 2  # OBJECTS + READ
+    assert vis._client.last_kwargs["visual_features"] == [VisualFeatures.OBJECTS, VisualFeatures.READ]
+    # detect-only -> only OBJECTS; read-only -> only READ. Pins WHICH feature each flag maps to,
+    # so swapping the read branch for a second OBJECTS (or dropping a branch) would fail here.
+    vis_d = _make_vision(_Result(_Metadata(10, 10), objects=_Objects([])))
+    vis_d.analyze(b"img", detect=True, read=False)
+    assert vis_d._client.last_kwargs["visual_features"] == [VisualFeatures.OBJECTS]
+    vis_r = _make_vision(_Result(_Metadata(10, 10), read=_Read([])))
+    vis_r.analyze(b"img", detect=False, read=True)
+    assert vis_r._client.last_kwargs["visual_features"] == [VisualFeatures.READ]
 
 
 # ---------------------------------------------------------------------------------------
@@ -253,10 +264,13 @@ def test_vlm_extracts_digits_and_sends_expected_request():
     assert kwargs["temperature"] == 0
     assert kwargs["max_tokens"] == 16
     assert kwargs["model"] == "x"
-    # the image is sent as a base64 data URL.
+    # the image is sent as a base64 data URL carrying the ACTUAL input bytes,
+    # not just a constant prefix.
     content = kwargs["messages"][0]["content"]
     img = next(c for c in content if c["type"] == "image_url")
-    assert img["image_url"]["url"].startswith("data:image/png;base64,")
+    url = img["image_url"]["url"]
+    assert url.startswith("data:image/png;base64,")
+    assert base64.b64decode(url.split(",", 1)[1]) == b"\x89PNGfake"
 
 
 def test_vlm_none_response_yields_empty_digits():

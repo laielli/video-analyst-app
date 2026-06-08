@@ -31,17 +31,24 @@ describe("EvidencePanel", () => {
     expect(img.getAttribute("src")).toBe("/frames/scorer-4625.jpg");
   });
 
-  it("renders overlays with tone class + label", () => {
+  it("renders overlays with tone class + label + box coords", () => {
     const s = step({
       evidence: {
         frame_ts_ms: 4625,
-        overlays: [{ box: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 }, label: "#10 scored", tone: "green", kind: "box" }],
+        // distinctive non-round coords so a hard-coded value couldn't coincidentally match.
+        overlays: [{ box: { x: 0.111, y: 0.222, w: 0.333, h: 0.444 }, label: "#10 scored", tone: "green", kind: "box" }],
       },
     });
     render(<EvidencePanel step={s} />);
-    const ov = document.querySelector(".ov.green");
+    const ov = document.querySelector(".ov.green") as HTMLElement;
     expect(ov).toBeInTheDocument();
     expect(screen.getByText("#10 scored")).toBeInTheDocument();
+    // box positioned from its normalized coords (left=x*100% ...). parseFloat is agnostic to
+    // CSSOM trailing-zero formatting; deleting/hard-coding the coord logic would fail these.
+    expect(parseFloat(ov.style.left)).toBeCloseTo(11.1, 5);
+    expect(parseFloat(ov.style.top)).toBeCloseTo(22.2, 5);
+    expect(parseFloat(ov.style.width)).toBeCloseTo(33.3, 5);
+    expect(parseFloat(ov.style.height)).toBeCloseTo(44.4, 5);
   });
 
   it("renders the program provenance tag", () => {
