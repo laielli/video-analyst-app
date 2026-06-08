@@ -77,10 +77,11 @@ def test_temporal_answer_derives_subject_from_filter():
     assert f10["grounded"] is True
     assert f10["verdict"] == "Yes — #10 scored the first goal"  # subject DERIVED from filter == 10
 
-    # Cross-check the derivation is NOT a literal: the answer step's binding carries the derived
-    # subject_label, and op_temporal_order set it from the matched jersey text. Filtering on a
-    # number NOT in the cache (#7) yields an empty subject -> a grounded but negative verdict that
-    # NEVER claims #10 scored (the regression the plan guards against).
+    # Cross-check the derivation is NOT a literal: filtering on a number NOT in the cache (#7)
+    # matches nobody, so op_temporal_order produces an empty subject (subject_label is None).
+    # Even though a first goal exists, we never located #7 — so the answer step must GROUND OUT
+    # honestly (Q1 -> A) rather than emit a confident "No" about a player we couldn't find, and
+    # it must NEVER fabricate a #10 claim.
     program7 = _prefix() + [
         {"id": "sevens", "op": "filter", "args": {"items": "numbers", "where": {"field": "text", "equals": "7"}}},
         {"id": "ordered", "op": "temporal_order", "args": {"events": "sevens", "by": "timestamp"}},
@@ -88,9 +89,9 @@ def test_temporal_answer_derives_subject_from_filter():
     ]
     doc7 = _run(program7, "did #7 score first?")
     f7 = doc7["findings"]
-    # #7 isn't the scorer, so the answer is "No" — and it must NOT fabricate a #10 claim.
-    assert f7["answer"] == "No"
-    assert "#10 scored the first goal" not in (f7["verdict"] or "")
+    assert f7["grounded"] is False
+    assert f7["answer"] is None and f7["verdict"] is None
+    assert f7["reason"] == "no-grounded-answer"
 
 
 # --------------------------------------------------------------------------------------

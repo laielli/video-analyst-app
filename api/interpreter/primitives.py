@@ -213,14 +213,16 @@ def _answer_temporal(src, q):
     subj = v.get("subject_label")
     if not v.get("first"):
         return None, None, None, "no-grounded-answer"   # no goal events -> ungrounded
+    if not subj:
+        # A first goal exists, but the subject filter matched nobody, so we never located the
+        # asked subject. We cannot honestly say they did or didn't score it — a confident "No"
+        # would overclaim about a player we couldn't even find. Ground out instead (Q1 -> A).
+        return None, None, None, "no-grounded-answer"
     yes = bool(v.get("subject_is_first_scorer"))
-    who = subj or "the subject"
     if yes:
-        verdict = f"Yes — {who} scored the first goal"
-    elif subj:
-        verdict = f"No — the first goal was not scored by {subj}"
+        verdict = f"Yes — {subj} scored the first goal"
     else:
-        verdict = "No — the subject did not score the first goal"
+        verdict = f"No — the first goal was not scored by {subj}"
     return ("Yes" if yes else "No"), verdict, yes, None
 
 
