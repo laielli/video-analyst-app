@@ -94,6 +94,27 @@ def test_temporal_answer_derives_subject_from_filter():
 
 
 # --------------------------------------------------------------------------------------
+# test_hero_question_still_grounds_to_ten — dedicated regression guard
+# --------------------------------------------------------------------------------------
+
+def test_hero_question_still_grounds_to_ten():
+    # Generalizing op_answer (Phase 0) must NOT regress the canonical hero demo. This is the
+    # standalone guard for that: it pins the hero question's grounded #10 verdict on its own, so
+    # the guarantee survives even if test_temporal_answer_derives_subject_from_filter (whose
+    # purpose is the DERIVATION, not the demo) is later refactored. Mirrors the dedicated hero
+    # checks #8/#12 carried (the embedded assertion above already covers it; this makes it durable).
+    program = _prefix() + [
+        {"id": "tens", "op": "filter", "args": {"items": "numbers", "where": {"field": "text", "equals": "10"}}},
+        {"id": "ordered", "op": "temporal_order", "args": {"events": "tens", "by": "timestamp"}},
+        {"id": "result", "op": "answer", "args": {"from": "ordered", "question": "Does #10 score the first goal?"}},
+    ]
+    doc = _run(program, "Does #10 score the first goal?")
+    f = doc["findings"]
+    assert f["grounded"] is True
+    assert f["verdict"] == "Yes — #10 scored the first goal"
+
+
+# --------------------------------------------------------------------------------------
 # test_answer_on_unsupported_kind_is_ungrounded — honest grounding-out (ties to Q1=A)
 # --------------------------------------------------------------------------------------
 
