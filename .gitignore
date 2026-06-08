@@ -37,6 +37,12 @@ venv/
 .pytest_cache/
 .mypy_cache/
 
+# Coverage (pytest-cov / vitest v8 — measured in CI, never committed)
+.coverage
+coverage/
+htmlcov/
+coverage.xml
+
 # Azure
 .azure/
 local.settings.json
