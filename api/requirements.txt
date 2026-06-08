@@ -16,3 +16,11 @@ uvicorn[standard]>=0.29
 # no SDK/ffmpeg is needed to run the suite — only jsonschema (above) + pytest.
 pytest>=8.0
 pytest-mock>=3.12
+# Async SSE cancel test (@pytest.mark.asyncio + body_iterator.athrow) needs pytest-asyncio;
+# absent it collection-errors the async test in CI. asyncio_mode=auto is set in pytest.ini.
+pytest-asyncio>=0.23
+# TestClient drives the SSE StreamingResponse; httpx is transitive via fastapi today, pinned
+# explicitly so a clean CI install always has it.
+httpx>=0.27
+# Non-gating coverage measurement (never --cov-fail-under). starlette is left to fastapi.
+pytest-cov>=4.1
