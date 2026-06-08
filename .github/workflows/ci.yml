@@ -1,0 +1,54 @@
+name: CI
+
+# First CI gate: a two-job matrix (independent python + web jobs) on push + PR to main.
+# Coverage is measured but NEVER gating (no --cov-fail-under). Web lint is intentionally dropped
+# from v1 (next lint is deprecated in Next 15, no eslint dep/config); the web job runs
+# next build + tsc --noEmit + vitest instead.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Python (pytest)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+      - name: Install deps
+        run: pip install -r api/requirements.txt
+      - name: Run tests (coverage non-gating)
+        working-directory: api
+        run: python -m pytest -q --cov=. --cov-report=term-missing
+
+  web:
+    name: Web (build + tsc + vitest)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install deps
+        run: npm ci
+      - name: Build (static export)
+        run: npm run build
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Run tests (coverage non-gating)
+        run: npm run test:cov
