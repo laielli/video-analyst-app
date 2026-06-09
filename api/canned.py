@@ -24,6 +24,17 @@ CLIPS = {
         # reproduces this window.
         "hint": "goal ~3500-5000ms; detect class 'person', crop jersey, read_text, fps 8",
     },
+    "bernabeu-counter": {
+        "id": "bernabeu-counter",
+        "label": "Real Madrid counter — Champions League 2025",
+        "width": 2636, "height": 1474, "duration_ms": 30086,
+        # Second clip's replay cache (Alt C: DERIVED from clips/bernabeu-counter/manifest.json +
+        # api/tests/fixtures/fake_detect_bernabeu.json by scripts/precompute.py, not hand-authored).
+        "cache": str(EX / "bernabeu-counter_cache.json"),
+        # Per-clip codegen hint — a DIFFERENT window/event than the hero's, so codegen-repeatability
+        # across clips is genuinely exercised (proven by a mocked free-text-path prompt test).
+        "hint": "goal ~9000-11000ms; detect class 'person', crop jersey, read_text, fps 8; scorer wears #7",
+    },
 }
 
 QUERIES = [
@@ -33,6 +44,39 @@ QUERIES = [
         "clip": "single-goal",
         "program": str(EX / "hero_program.json"),
         "cache": str(EX / "hero_cache.json"),
+    },
+    # ---- bernabeu-counter: 4 query shapes the hero chain never hits (multi-clip / multi-query) ----
+    {
+        # count -> answer (no crop/read_text/filter/temporal_order). Grounds to a number.
+        "id": "bernabeu-count-players",
+        "text": "How many players are visible?",
+        "clip": "bernabeu-counter",
+        "program": str(EX / "bernabeu-counter_count_program.json"),
+        "cache": str(EX / "bernabeu-counter_cache.json"),
+    },
+    {
+        # filter on a NON-hero jersey value (#7, not #10) -> grounds Yes naming #7 (subject derived).
+        "id": "bernabeu-7-first-goal",
+        "text": "Does #7 score the first goal?",
+        "clip": "bernabeu-counter",
+        "program": str(EX / "bernabeu-counter_first-goal-7_program.json"),
+        "cache": str(EX / "bernabeu-counter_cache.json"),
+    },
+    {
+        # out-of-bounds: filter on a value NOT in the cache (#23) -> honest ungrounded (grounded=false).
+        "id": "bernabeu-23-first-goal",
+        "text": "Does #23 score the first goal?",
+        "clip": "bernabeu-counter",
+        "program": str(EX / "bernabeu-counter_first-goal-23_program.json"),
+        "cache": str(EX / "bernabeu-counter_cache.json"),
+    },
+    {
+        # read_text -> answer readout: reads back the scorer's pinned jersey number ('7').
+        "id": "bernabeu-scorer-number",
+        "text": "What number does the scorer wear?",
+        "clip": "bernabeu-counter",
+        "program": str(EX / "bernabeu-counter_scorer-number_program.json"),
+        "cache": str(EX / "bernabeu-counter_cache.json"),
     },
 ]
 

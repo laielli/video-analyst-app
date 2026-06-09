@@ -1,0 +1,50 @@
+{
+  "_comment": "Second clip's ingest manifest — a Real Madrid counterattack from best-goals-2025-30s.mov (a DIFFERENT real goal than the hero, so the codegen hint genuinely differs). Mirrors clips/single-goal/manifest.json field-for-field. `source` resolves relative to this dir. The sampling window 9000-11000ms at fps 8 -> stride 125, so the scorer's legible frame (10000 = 9000 + 8*125) and the goal moment (10500 = 9000 + 12*125) are both sampled, exactly as the hero clip aligns its 4625 frame. The scorer is the white-shirted #7 (Vinicius) running with the ball at the Bernabeu; Azure detect supplies the boxes, the #7 read is human-pinned (same disclosure posture as the hero #10), and the goal event makes the positive temporal claim the 'Does #7 score the first goal?' query grounds against. The COMMITTED cache (api/examples/bernabeu-counter_cache.json) is DERIVED by running scripts/precompute.py over api/tests/fixtures/fake_detect_bernabeu.json under a configurable FakeAzureVision (Alt C, no creds) — not hand-authored.",
+  "clip": {
+    "id": "bernabeu-counter",
+    "source": "../../best-goals-2025-30s.mov",
+    "width": 2636,
+    "height": 1474,
+    "duration_ms": 30086,
+    "fps": 60
+  },
+  "sampling": {
+    "start_ms": 9000,
+    "end_ms": 11000,
+    "fps": 8
+  },
+  "detect_classes": ["person"],
+  "pins": [
+    {
+      "_comment": "Renames the detection nearest this box (at the legible 10.0s frame) to the semantic id `p_vini` AND pins its jersey read to '7'. The match box is the white #7 scorer's person box at 10000ms (matches the fixture's highest-confidence box).",
+      "match": { "frame_ts_ms": 10000, "nearest_box": { "x": 0.2902, "y": 0.3046, "w": 0.1142, "h": 0.4518 } },
+      "det_id": "p_vini",
+      "read_text": {
+        "text": "7",
+        "confidence": null,
+        "source": "pinned",
+        "note": "Hand-verified. The white #7 is human-legible at 10.0s; pinned for the #7 query (gpt-4o vision pending TPM quota; Azure Read is deliberately not a rung). Disclosed in the demo, same posture as the hero #10."
+      }
+    }
+  ],
+  "events": [
+    {
+      "_comment": "The known goal moment of this counterattack. scorer_pin refers to the pin det_id (p_vini); the pipeline derives events[].scorer_det FROM the pin resolution so the join key stays byte-identical across detect/read_text/events.",
+      "ts_ms": 10500,
+      "type": "goal",
+      "scorer_pin": "p_vini",
+      "box": { "x": 0.29, "y": 0.31, "w": 0.11, "h": 0.45 }
+    }
+  ],
+  "evidence_frames": [
+    {
+      "_comment": "Stills the pipeline emits for completeness. NOTE: EvidencePanel.frameSrc hardcodes the HERO's two stills keyed purely on ts (ts<=4200), so these will NOT render in the current UI — generalizing that lookup is out of scope (see PR body). Filenames carried so a creds-enabled live build emits them.",
+      "ts_ms": 10500,
+      "filename": "counter-goal-10500.jpg"
+    },
+    {
+      "ts_ms": 10000,
+      "filename": "counter-scorer-10000.jpg"
+    }
+  ]
+}

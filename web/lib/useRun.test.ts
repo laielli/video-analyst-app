@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useRun, API_BASE } from "@/lib/useRun";
+import { useRun, API_BASE, fetchCatalog } from "@/lib/useRun";
 import { MockEventSource } from "@/vitest.setup";
 
 // useRun connects to GET /api/run over SSE via the global EventSource (mocked in vitest.setup.ts)
@@ -112,5 +112,43 @@ describe("useRun", () => {
     expect(source.closed).toBe(false);
     unmount();
     expect(source.closed).toBe(true);
+  });
+});
+
+// The multi-clip / multi-query catalog: fetchCatalog surfaces >1 query, so page.tsx renders the
+// <select> (queries.length > 1) and the second clip is reachable through the product surface. We
+// stub the global fetch (jsdom has no real network) to return a multi-query catalog.
+describe("fetchCatalog (multi-query catalog)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("surfaces more than one query and the second clip", async () => {
+    const catalog = {
+      clips: [
+        { id: "single-goal", label: "Messi vs Mexico — World Cup 2022" },
+        { id: "bernabeu-counter", label: "Real Madrid counter — Champions League 2025" },
+      ],
+      queries: [
+        { id: "hero-10-first-goal", text: "Does #10 score the first goal?", clip: "single-goal" },
+        { id: "bernabeu-count-players", text: "How many players are visible?", clip: "bernabeu-counter" },
+        { id: "bernabeu-7-first-goal", text: "Does #7 score the first goal?", clip: "bernabeu-counter" },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        expect(url).toBe(`${API_BASE}/api/catalog`);
+        return { ok: true, json: async () => catalog } as Response;
+      }),
+    );
+
+    const { queries } = await fetchCatalog();
+    expect(queries.length).toBeGreaterThan(1);
+    // the second clip is reachable: at least one query binds to it.
+    expect(queries.some((q) => q.clip === "bernabeu-counter")).toBe(true);
+  });
+
+  it("throws on a non-ok catalog response", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 503 } as Response)));
+    await expect(fetchCatalog()).rejects.toThrow("catalog 503");
   });
 });
