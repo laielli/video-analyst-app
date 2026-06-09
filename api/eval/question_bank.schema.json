@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "question_bank.schema.json",
+  "title": "Codegen eval question bank",
+  "description": "A versioned bank of natural-language questions with declared ground-truth expectations, used to calibrate the codegen prompt (ViperGPT Layer 1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bank_version", "prompt_version", "cases"],
+  "properties": {
+    "bank_version": { "type": "integer", "minimum": 1 },
+    "prompt_version": {
+      "type": "string",
+      "description": "Provenance only: the prompt_version this bank was authored against. Never gating."
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "clip_id", "shape", "phrasing_class", "distance", "question", "expect"],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Stable slug; the fixture filename key."
+        },
+        "clip_id": {
+          "type": "string",
+          "enum": ["single-goal", "bernabeu-counter"]
+        },
+        "shape": {
+          "type": "string",
+          "enum": ["first-goal", "count", "scorer-number", "presence", "out-of-scope", "adversarial", "degenerate"]
+        },
+        "phrasing_class": {
+          "type": "string",
+          "enum": ["canonical", "paraphrase", "out_of_scope", "injection", "degenerate"]
+        },
+        "distance": {
+          "type": "string",
+          "enum": ["canonical", "near", "far", "n/a"]
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "maxLength is a LITERAL mirror of server.MAX_QUERY_TEXT_LEN (a static schema cannot import it); the drift guard lives in test_eval_bank.py."
+        },
+        "expect": { "$ref": "#/$defs/expect" },
+        "notes": { "type": "string" }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "answer_match"],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": ["grounded", "ungrounded"]
+        },
+        "answer": {
+          "type": ["string", "null"],
+          "description": "Ground truth for grounded cases; null/absent for ungrounded."
+        },
+        "answer_match": {
+          "type": "string",
+          "enum": ["exact", "ci_contains", "numeric", "any_grounded"]
+        }
+      }
+    }
+  }
+}

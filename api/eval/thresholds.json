@@ -1,0 +1,9 @@
+{
+  "_comment": "Committed CI floors for the replay regression gate (D6). Initially calibrated so the generated SEED fixtures pass; the human re-calibrates from the first real report.json (~5pp under the measured rates, the same calibration move #36's coverage floor used). Keys T0_parsed..T4_answer_correct gate in-scope tier rates; out_of_scope_honest / adversarial_safe gate the inverted axes; min_fixtures catches deletion; max_stale is the partial-staleness tolerance (uniform-all-stale downgrades to advisory regardless).",
+  "T2_semantic_valid": 1.0,
+  "T4_answer_correct": 1.0,
+  "out_of_scope_honest": 1.0,
+  "adversarial_safe": 1.0,
+  "min_fixtures": 60,
+  "max_stale": 0
+}

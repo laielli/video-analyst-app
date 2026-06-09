@@ -1,0 +1,74 @@
+{
+  "fixture_format": 1,
+  "case_id": "hero-firstgoal-far-2",
+  "clip_id": "single-goal",
+  "question": "Tell me if the number 10 opens the scoring here.",
+  "prompt_version": "3aefdf60232f9d4f",
+  "model": "seed",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 3500,
+        "end_ms": 5000,
+        "fps": 8
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": {
+        "detections": "people",
+        "region": "jersey"
+      }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": {
+        "crops": "jerseys"
+      }
+    },
+    {
+      "id": "tens",
+      "op": "filter",
+      "args": {
+        "items": "numbers",
+        "where": {
+          "field": "text",
+          "equals": "10"
+        }
+      }
+    },
+    {
+      "id": "ordered",
+      "op": "temporal_order",
+      "args": {
+        "events": "tens",
+        "by": "timestamp"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "ordered",
+        "question": "Tell me if the number 10 opens the scoring here."
+      }
+    }
+  ],
+  "usage": null,
+  "error": null,
+  "captured_at": "1970-01-01T00:00:00Z"
+}

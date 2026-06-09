@@ -1,0 +1,40 @@
+{
+  "fixture_format": 1,
+  "case_id": "hero-presence-near-1",
+  "clip_id": "single-goal",
+  "question": "Is there a player on the field?",
+  "prompt_version": "3aefdf60232f9d4f",
+  "model": "seed",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 4000,
+        "end_ms": 5000,
+        "fps": 8
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "people",
+        "question": "Is there a player on the field?"
+      }
+    }
+  ],
+  "usage": null,
+  "error": null,
+  "captured_at": "1970-01-01T00:00:00Z"
+}

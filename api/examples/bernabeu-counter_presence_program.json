@@ -1,0 +1,8 @@
+{
+  "_comment": "Pinned presence program for the bernabeu-counter clip, authored for the eval harness presence cell (D1 presence caveat). Hits the detect -> answer existence op-path. Window 10000-10001ms @ fps1 samples exactly the single legible frame (10000) whose fixture-derived cache carries 5 person detections, so the existence answer grounds to 'Yes' — the presence analogue of the count program's single-frame window. end_ms 10001 <= clip duration_ms 30086. Validates against ../schema/dsl.schema.json. Ground truth ('Yes') is derived by executing this program over bernabeu-counter_cache.json, never hand-typed.",
+  "program": [
+    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 10000, "end_ms": 10001, "fps": 1 } },
+    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"] } },
+    { "id": "result", "op": "answer", "args": { "from": "people", "question": "Are there any players on screen?" } }
+  ]
+}
