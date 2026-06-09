@@ -112,6 +112,20 @@ program, or cache gap — it silently falls back to the query's pinned program. 
 provenance rides the SSE `meta` event as `program_source` (`live` | `pinned`). With no creds,
 behavior is identical to before (pinned). Set creds in `api/.env` (see `.env.example`).
 
+## Eval harness (measure the codegen prompt)
+
+`codegen_probe.py` is the fast one-question gut-check; `eval/` is the systematic measurement layer.
+A versioned question bank (phrasing variants × paraphrases per shape per clip, plus out-of-scope /
+injection / degenerate cases) is captured against gpt-4o once into committed fixtures, then scored
+on replay through the **same** validate→execute path the server uses, on a monotone tier ladder
+(schema-valid → semantically-valid → executes-grounded → answer-correct). Replay is creds-free and
+deterministic; a replay-mode threshold gate runs in CI. See `eval/README.md` for the runbook.
+
+```bash
+python eval/run_eval.py replay            # score over committed fixtures, write report.{md,json}, gate
+python eval/run_eval.py capture --dry-run # preview a live capture's call count + cost (no calls)
+```
+
 ## The DSL schema (dsl-json-schema-unification)
 
 `schema/dsl.schema.json` is deliberately one artifact serving three roles:
