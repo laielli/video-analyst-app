@@ -18,8 +18,17 @@ import json
 import os
 from pathlib import Path
 
+from limits import MAX_PROGRAM_BYTES
+
 API_DIR = Path(__file__).resolve().parent
 SCHEMA_PATH = API_DIR / "schema" / "dsl.schema.json"
+
+# Cap the completion length so the model can't emit an unbounded blob the validator must then
+# walk. A within-cap program (32 steps) serializes to a few KB; MAX_PROGRAM_BYTES is 64KB. We
+# request a token budget generous enough to never truncate a legitimate program yet bounded so
+# a runaway generation is cut at the API. (Loose upper bound: ~MAX_PROGRAM_BYTES/4 chars-per-
+# token, rounded down to a round number — the byte check below is the hard gate either way.)
+MAX_COMPLETION_TOKENS = 8192
 
 SYSTEM_PROMPT = """\
 You are the program-generation layer of a ViperGPT-style video analyst. Compile the user's
@@ -122,10 +131,17 @@ class AzureCodegen:
         metadata (label, duration_ms, hint) is injected into the system message so the program is
         compiled against the ACTUAL clip (Q2 -> Alt C). Raises on API error or unparseable output;
         the caller validates structure/semantics (and, for free text, grounds out honestly on any
-        miss — there is no pinned fallback for a novel question)."""
+        miss — there is no pinned fallback for a novel question).
+
+        Trust boundary: the completion is capped two ways so an unbounded blob never reaches the
+        (superlinear) local validator — `max_tokens` cuts a runaway generation at the API, and a
+        hard MAX_PROGRAM_BYTES check on the returned content rejects anything past the byte cap
+        BEFORE json.loads. A reject raises ValueError, which the caller maps to an ungrounded run
+        (the exception text never leaks into a client doc)."""
         resp = self._client.chat.completions.create(
             model=self._deployment,
             temperature=0,
+            max_tokens=MAX_COMPLETION_TOKENS,
             response_format={
                 "type": "json_schema",
                 # strict=False on purpose. Our program is a discriminated union (8 op objects in
@@ -141,7 +157,15 @@ class AzureCodegen:
                 {"role": "user", "content": question},
             ],
         )
-        doc = json.loads(resp.choices[0].message.content or "{}")
+        content = resp.choices[0].message.content or "{}"
+        # Byte cap BEFORE json.loads: a too-large completion is rejected without parsing (the
+        # local validator's anyOf pass is superlinear on hostile input). Measured on the raw
+        # string the API returned, mirroring validate_program's MAX_PROGRAM_BYTES gate.
+        if len(content.encode("utf-8")) > MAX_PROGRAM_BYTES:
+            raise ValueError(
+                f"codegen output exceeds {MAX_PROGRAM_BYTES} bytes; rejected before parse"
+            )
+        doc = json.loads(content)
         program = doc.get("program")
         if not isinstance(program, list):
             raise ValueError("codegen output missing 'program' array")

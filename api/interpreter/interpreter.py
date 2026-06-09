@@ -5,7 +5,9 @@ each op also produces its run-doc trace entry. Replay mode = zero live calls.
 """
 from __future__ import annotations
 
-from .primitives import OPS
+from limits import MAX_STEPS
+
+from .primitives import OPS, ProgramLimitExceeded
 
 
 class Interpreter:
@@ -13,6 +15,14 @@ class Interpreter:
         self.cache = cache
 
     def run(self, program: list[dict], query: str | None = None) -> dict:
+        # Runtime step-count guard (trust-boundary backstop). The validator rejects oversized
+        # programs BEFORE this is ever reached on the server path, but this catches any future
+        # entry point that calls run() without validating first. ProgramLimitExceeded subclasses
+        # ValueError, so server.py's except-Exception maps it to the fixed `execution-error`
+        # reason -- its text never leaks into a client doc.
+        if len(program) > MAX_STEPS:
+            raise ProgramLimitExceeded(f"program has {len(program)} steps; max is {MAX_STEPS}")
+
         env: dict[str, dict] = {}
         trace: list[dict] = []
         answer_binding: dict | None = None

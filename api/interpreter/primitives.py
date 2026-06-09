@@ -17,6 +17,27 @@ Binding kinds and item shapes:
 """
 from __future__ import annotations
 
+from limits import MAX_SAMPLED_FRAMES
+
+
+class ProgramLimitExceeded(ValueError):
+    """A program tried to exceed a hard resource envelope at RUNTIME.
+
+    Subclasses ValueError so the interpreter's / server's existing `except ValueError` /
+    `except Exception` guards keep catching it (server maps it to the fixed `execution-error`
+    reason; its text is NEVER interpolated into a client-visible doc). This is the runtime
+    backstop for the case the validator was bypassed -- a future entry point that calls
+    Interpreter.run without first calling validation_errors."""
+
+
+def _frame_count(start: int, end: int, fps: int) -> int:
+    """Number of frames op_sample_frames would materialize, computed in O(1) from the range
+    bounds WITHOUT building the list (len() on a range never iterates). The validator
+    (validate_program._sampled_frame_count) mirrors this exactly so the reject-time count and
+    the runtime cap never disagree."""
+    stride = max(1, round(1000 / fps))
+    return len(range(start, end + 1, stride))
+
 
 def _evi(frame_ts_ms, overlays):
     return {"frame_ts_ms": int(frame_ts_ms), "overlays": overlays}
@@ -26,6 +47,14 @@ def op_sample_frames(step, env, cache):
     a = step["args"]
     start, end, fps = a["start_ms"], a["end_ms"], a["fps"]
     stride = max(1, round(1000 / fps))
+    # Pre-materialization cap (THE load-bearing runtime OOM guard): bound the would-be length of
+    # range(start, end+1, stride) BEFORE list(range(...)) builds it. A post-hoc len() on the built
+    # list fires only after the bomb is already in memory, so this must sit here.
+    would_build = _frame_count(start, end, fps)
+    if would_build > MAX_SAMPLED_FRAMES:
+        raise ProgramLimitExceeded(
+            f"sample_frames would materialize {would_build} frames; max is {MAX_SAMPLED_FRAMES}"
+        )
     ts = list(range(start, end + 1, stride))
     binding = {"kind": "frames", "items": [{"frame_ts_ms": t} for t in ts]}
     result = {
