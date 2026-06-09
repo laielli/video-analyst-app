@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -39,6 +40,8 @@ from validate_program import strip_comments, validation_errors  # noqa: E402
 from ocr_probe import load_dotenv  # noqa: E402
 import canned  # noqa: E402
 import codegen  # noqa: E402
+import run_cache  # noqa: E402
+from run_cache import FileRunStore, cache_key, is_valid_key  # noqa: E402
 
 # Load api/.env so `uvicorn server:app` picks up AZURE_OPENAI_* (codegen) without extra flags.
 # No-op if the file is absent — codegen then stays disabled and runs fall back to pinned.
@@ -54,6 +57,20 @@ _codegen_calls = 0
 
 def _codegen_budget_left() -> bool:
     return _codegen_calls < MAX_CODEGEN_CALLS
+
+
+# Content-addressed run cache (the cost lever + permalink substrate). ONE store per process,
+# constructed from env so tests can monkeypatch `_run_store` to a tmp_path-rooted FileRunStore
+# (do NOT freeze it in a closure/default-arg — integration tests must redirect it off the real dir).
+RUN_CACHE_DIR = os.environ.get("RUN_CACHE_DIR") or str(API_DIR / ".run_cache")
+RUN_CACHE_MAX_ENTRIES = int(os.environ.get("RUN_CACHE_MAX_ENTRIES", "1000"))
+_run_store: run_cache.RunStore = FileRunStore(RUN_CACHE_DIR, max_entries=RUN_CACHE_MAX_ENTRIES)
+
+
+def get_store() -> run_cache.RunStore:
+    """The cache accessor the request paths call. Reads the module global so a test can swap
+    `server._run_store` to a tmp_path-rooted store without re-importing."""
+    return _run_store
 
 
 app = FastAPI(title="Glass-Box Video Analyst API", version="0.1.0")
@@ -156,16 +173,32 @@ def _ungrounded(clip: dict, query_text: str, reason: str, program: list[dict] | 
 
 
 def build_free_text_run_doc(query_text: str, clip_id: str) -> dict:
-    """ViperGPT loop for a TYPED question, with the safety net removed: codegen -> validate ->
-    execute over the clip's replay cache. There is NO pinned fallback, so every failure mode
-    (no creds, codegen error, invalid program, execution error, no grounded answer) resolves to
-    an explicit `_ungrounded` run-doc — never a hero-program substitution, never a 500. The clip
-    is resolved by the caller (404 on unknown); here it is assumed valid."""
+    """ViperGPT loop for a TYPED question, with the safety net removed: cache lookup -> codegen ->
+    validate -> execute over the clip's replay cache. There is NO pinned fallback, so every failure
+    mode (no creds, codegen error, invalid program, execution error, no grounded answer) resolves
+    to an explicit `_ungrounded` run-doc — never a hero-program substitution, never a 500. The clip
+    is resolved by the caller (404 on unknown); here it is assumed valid.
+
+    Cost lever: a content-addressed lookup runs BEFORE codegen, so an identical repeat question is
+    served for free — no billed `generate()`, no budget burn, no `_codegen_calls` increment. Only
+    a VALIDATED + GROUNDED run is cached (trust boundary respected): an ungrounded/failed run is
+    NEVER stored, so a transient miss can't become permanent and the cache can't be poisoned with a
+    cheap ungrounded question. `run_id` is attached on EXACTLY the grounded path (the one stored)."""
     global _codegen_calls
     clip = canned.clip_by_id(clip_id)  # caller raises 404 if None; defensive guard below
     if clip is None:
         return _ungrounded({"id": clip_id, "width": 0, "height": 0, "duration_ms": 0},
                            query_text, "execution-error")
+
+    # Content-addressed cache lookup — BEFORE codegen.enabled()/budget/generate(). A hit is a pure
+    # replay: no codegen call, no budget burn. The stored doc already passed validation+grounding
+    # and is schema-validated on read (store.get fails-as-miss), so it streams safely. The returned
+    # doc stays SCHEMA-PURE (no run_id/cached keys); the route attaches those envelope fields.
+    key = cache_key(query_text, clip_id)
+    hit = get_store().get(key)
+    if hit is not None:
+        return hit
+
     cache = Cache.load(clip["cache"])
 
     if not codegen.enabled():
@@ -197,18 +230,51 @@ def build_free_text_run_doc(query_text: str, clip_id: str) -> dict:
                            program=doc["program"], trace=doc["trace"])
 
     doc["program_source"] = "live"
+    # Cache ONLY the validated+grounded run. The doc stored (and returned) is schema-pure: run_id
+    # and cached are NOT doc fields (run_doc.schema.json is additionalProperties:false) — the route
+    # attaches them to the meta/response envelope. The permalink id IS this key (cache_key), so the
+    # route re-derives it deterministically without reading it off the doc.
+    get_store().put(key, doc)
     return doc
 
 
-def _resolve_run_request(query: str | None, query_text: str | None, clip_id: str | None):
+def build_permalink_run_doc(run_id: str) -> dict | None:
+    """Replay a STORED run by id (the permalink path). BYPASSES build_free_text_run_doc entirely:
+    a thin store.get, never codegen — so a cold shared link replays even on a credential-less
+    deploy (the exact case permalinks exist for). The caller has already validated the id shape
+    and 404s a miss; here a miss returns None so the route can raise before streaming. The returned
+    doc is the schema-pure stored doc — the route attaches run_id/cached to the envelope."""
+    return get_store().get(run_id)
+
+
+def _resolve_run_request(query: str | None, query_text: str | None, clip_id: str | None,
+                         run: str | None = None):
     """Param validation shared by /api/run and /api/run_doc, factored into a plain helper so it
-    is unit-testable without a TestClient. Returns ("canned", entry) or ("free", (text, clip)).
-    Raises HTTPException(400) unless EXACTLY ONE of query/query_text is given (and the free-text
-    cap holds), and HTTPException(404) for an unknown query or clip."""
+    is unit-testable without a TestClient. Returns ("permalink", run_id) | ("canned", entry) |
+    ("free", (text, clip)).
+
+    EXACTLY-ONE-OF-THREE: `run` (permalink id) | `query` (canned id) | `query_text` (free text).
+    A bare `?run=<id>` (no query/query_text) is now ACCEPTED — the prior two-way XOR would 400 it.
+    Raises HTTPException(400) for none/multiple given (or an over-cap query_text, or a malformed
+    run id) and HTTPException(404) for an unknown query or clip. A permalink MISS is NOT resolved
+    here (the route 404s it before streaming) — only the id SHAPE is validated."""
+    # `run` may arrive as FastAPI's Query(None) sentinel when server.run()/server.run_doc() are
+    # called DIRECTLY (bypassing param resolution — the existing SSE-closure tests do this and do
+    # not pass `run`). Treat anything that is not a non-empty str as absent, so a bare direct call
+    # behaves like the pre-permalink two-way path.
+    has_run = isinstance(run, str) and run != ""
     has_query = bool(query)
     has_text = query_text is not None and query_text.strip() != ""
-    if has_query == has_text:  # neither, or both
-        raise HTTPException(status_code=400, detail="provide exactly one of 'query' or 'query_text'")
+    if sum((has_run, has_query, has_text)) != 1:  # exactly one of the three
+        raise HTTPException(status_code=400,
+                            detail="provide exactly one of 'run', 'query' or 'query_text'")
+    if has_run:
+        # SECURITY: the run param is attacker-controlled and becomes a file-store lookup key.
+        # Reject anything not a 64-char sha256 hex with 400 BEFORE touching the store
+        # (run=../../etc/passwd must be a 400, not a file read).
+        if not is_valid_key(run):
+            raise HTTPException(status_code=400, detail="malformed run id")
+        return "permalink", run
     if has_query:
         entry = canned.by_id(query)
         if not entry:
@@ -223,12 +289,34 @@ def _resolve_run_request(query: str | None, query_text: str | None, clip_id: str
     return "free", (query_text, cid)
 
 
-def _doc_for_request(query: str | None, query_text: str | None, clip_id: str | None) -> dict:
-    kind, payload = _resolve_run_request(query, query_text, clip_id)
+def _doc_for_request(query: str | None, query_text: str | None, clip_id: str | None,
+                     run: str | None = None) -> dict:
+    """Resolve a request to a run-doc, attaching the `run_id`/`cached` ENVELOPE fields here at the
+    route layer (the builders return schema-pure docs; these two are NOT doc fields). The permalink
+    arm BYPASSES build_free_text_run_doc (no codegen): a missing/expired id raises 404 HERE, in the
+    sync caller, BEFORE any StreamingResponse is built — the SSE generator never errors mid-stream,
+    so raising inside it would yield a broken 200, not a 404."""
+    kind, payload = _resolve_run_request(query, query_text, clip_id, run)
+    if kind == "permalink":
+        doc = build_permalink_run_doc(payload)
+        if doc is None:
+            raise HTTPException(status_code=404, detail="unknown run id")
+        doc["run_id"] = payload      # the id IS the cache key
+        doc["cached"] = True         # a permalink replay is always served from the store
+        return doc
     if kind == "canned":
-        return build_run_doc(payload)
+        return build_run_doc(payload)  # canned runs mint no run_id (out of scope)
     text, cid = payload
-    return build_free_text_run_doc(text, cid)
+    # `cached` is derived at serve time: a hit exists iff the store already holds this key BEFORE
+    # the builder runs. `run_id` is attached only on the grounded path (the only one we store) —
+    # the non-grounded exits carry neither, so the UI never offers a share link to an unstored run.
+    key = cache_key(text, cid)
+    was_hit = get_store().get(key) is not None
+    doc = build_free_text_run_doc(text, cid)
+    if doc.get("findings", {}).get("grounded") is True:
+        doc["run_id"] = key
+        doc["cached"] = was_hit
+    return doc
 
 
 def _sse(event: str, data: dict) -> str:
@@ -256,8 +344,11 @@ def run_doc(
     query: str | None = Query(None),
     query_text: str | None = Query(None),
     clip: str | None = Query(None),
+    run: str | None = Query(None),
 ):
-    return _doc_for_request(query, query_text, clip)
+    # The returned doc carries `run_id`/`cached` (when applicable) as the response-envelope fields;
+    # the stored doc stays schema-pure (run_doc.schema.json is additionalProperties:false).
+    return _doc_for_request(query, query_text, clip, run)
 
 
 @app.get("/api/run")
@@ -265,17 +356,27 @@ async def run(
     query: str | None = Query(None),
     query_text: str | None = Query(None),
     clip: str | None = Query(None),
+    run: str | None = Query(None),
     pace_ms: int = Query(1200, ge=0, le=10000),
 ):
-    doc = _doc_for_request(query, query_text, clip)
+    # NOTE: the permalink/free-text resolution (incl. the 404 for a missing run id) happens HERE,
+    # in the sync route body, BEFORE the StreamingResponse is built — never inside gen() (the SSE
+    # generator deliberately never errors mid-stream, so a raise there would be a broken 200).
+    doc = _doc_for_request(query, query_text, clip, run)
 
     async def gen():
         try:
-            yield _sse("meta", {
+            meta = {
                 "query": doc["query"], "clip": doc["clip"],
                 "program": doc["program"], "total_steps": len(doc["trace"]), "pace_ms": pace_ms,
                 "program_source": doc.get("program_source", "pinned"),
-            })
+                # Permalink/cache plumbing. `cached` is derived at serve time (default False); the
+                # web "Copy run link" affordance + load-from-id read these from meta.
+                "cached": bool(doc.get("cached", False)),
+            }
+            if doc.get("run_id"):  # present only on grounded free-text runs + permalink replays
+                meta["run_id"] = doc["run_id"]
+            yield _sse("meta", meta)
             for step in doc["trace"]:
                 await asyncio.sleep(pace_ms / 1000)
                 yield _sse("step", step)

@@ -128,7 +128,7 @@ async def test_info_leak_guard_sends_fixed_message_no_secret(monkeypatch):
     and the secret never reaches the body."""
     real = server._doc_for_request
 
-    def fake(query, query_text, clip):
+    def fake(query, query_text, clip, run=None):
         doc = real("hero-10-first-goal", None, None)
         doc["trace"] = _RaisingTrace()  # len() ok, iteration raises with a secret path
         return doc

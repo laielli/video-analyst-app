@@ -28,6 +28,10 @@ build/
 npm-debug.log*
 yarn-error.log*
 
+# Content-addressed run cache (free-text codegen cache + permalink store) — runtime-only,
+# gitignored, never committed (the top-level .cache/ rule above does NOT match api/.run_cache/).
+api/.run_cache/
+
 # Python
 __pycache__/
 *.py[cod]
