@@ -264,3 +264,40 @@ def test_resolve_run_request_exactly_one_of_three():
     # the existing two arms still resolve.
     assert server._resolve_run_request("hero-10-first-goal", None, None, None)[0] == "canned"
     assert server._resolve_run_request(None, "how many?", None, None)[0] == "free"
+
+
+# --------------------------------------------------------------------------------------
+# corrupt-entry and invalid-program paths, end-to-end through the builder
+# --------------------------------------------------------------------------------------
+
+def test_corrupt_stored_entry_falls_back_to_codegen(mock_codegen, hero_program):
+    # a corrupt on-disk entry must be a MISS on the ask path: the store self-heals
+    # (deletes the bad file) and the question proceeds to a billed codegen call that
+    # grounds — never streaming garbage from disk.
+    mock_codegen(program=hero_program)
+    store = server.get_store()
+    key = run_cache.cache_key(HERO_Q, HERO_CLIP)
+    path = store._path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("}{ corrupt")
+
+    doc = server.build_free_text_run_doc(HERO_Q, HERO_CLIP)
+
+    assert FakeCodegen.total_calls == 1, "a corrupt entry must be a miss -> codegen runs"
+    assert doc["findings"]["grounded"] is True
+    repopulated = store.get(key)
+    assert repopulated is not None and repopulated["findings"]["grounded"] is True
+
+
+def test_invalid_program_run_is_not_cached(mock_codegen):
+    # the invalid-program reject path (distinct from codegen-disabled) must not cache:
+    # a program that fails validation never reaches the interpreter, so nothing
+    # validated+grounded exists to store.
+    invalid = [{"id": "frames", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}}]
+    mock_codegen(program=invalid)
+
+    doc = server.build_free_text_run_doc(HERO_Q, HERO_CLIP)
+
+    assert doc["program_source"] == "ungrounded"
+    assert doc["findings"]["reason"] == "invalid-program"
+    assert server.get_store().get(run_cache.cache_key(HERO_Q, HERO_CLIP)) is None
