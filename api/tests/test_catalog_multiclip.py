@@ -375,3 +375,27 @@ def test_codegen_prompt_injects_new_clip_hint():
     # the new clip's hint is DISTINCT from the hero's (a genuinely different window/event).
     assert clip["hint"] != canned.CLIPS["single-goal"]["hint"]
     assert "9000-11000ms" in msg
+
+
+def test_free_text_path_compiles_new_clip_program_against_its_hint(mock_codegen):
+    """End-to-end (mocked-codegen) free-text repeatability: build_free_text_run_doc for the new
+    clip drives codegen with clip=bernabeu-counter, validates the returned program, and replays it
+    over the new clip's cache to a grounded answer — zero live Azure (FakeCodegen records the clip).
+
+    Cherry-picked from PR #23 (parallel-impl #2): deeper than the build_system_message-only check
+    above — it exercises the FULL free-text compile+validate+replay path against the second clip,
+    not just prompt construction."""
+    import server
+    from conftest import FakeCodegen
+    program = strip_comments(
+        json.loads((EX / "bernabeu-counter_count_program.json").read_text())
+    )["program"]
+    mock_codegen(program=program)
+
+    doc = server.build_free_text_run_doc("How many players are visible?", NEW_CLIP)
+    # codegen was asked to compile against the NEW clip (its hint/label reach the prompt builder).
+    assert FakeCodegen.last_clip is not None
+    assert FakeCodegen.last_clip["id"] == NEW_CLIP
+    assert doc["program_source"] == "live"
+    assert doc["findings"]["grounded"] is True
+    assert doc["findings"]["answer"] == "5"
