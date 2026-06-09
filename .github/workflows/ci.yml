@@ -1,9 +1,8 @@
 name: CI
 
 # First CI gate: a two-job matrix (independent python + web jobs) on push + PR to main.
-# Coverage is measured but NEVER gating (no --cov-fail-under). Web lint is intentionally dropped
-# from v1 (next lint is deprecated in Next 15, no eslint dep/config); the web job runs
-# next build + tsc --noEmit + vitest instead.
+# Coverage is measured but NEVER gating (no --cov-fail-under). The web job runs a flat-config
+# ESLint gate (eslint-config-next, ESLint 9) + next build + tsc --noEmit + vitest.
 on:
   push:
     branches: [main]
@@ -46,6 +45,8 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - name: Install deps
         run: npm ci
+      - name: Lint (eslint flat config)
+        run: npm run lint
       - name: Build (static export)
         run: npm run build
       - name: Type-check
