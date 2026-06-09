@@ -1,0 +1,12 @@
+{
+  "fixture_format": 1,
+  "case_id": "deg-empty-ish",
+  "clip_id": "single-goal",
+  "question": "?",
+  "prompt_version": "3aefdf60232f9d4f",
+  "raw_program": null,
+  "usage": null,
+  "error": "generation-failed",
+  "captured_at": "2026-06-09T00:00:00Z",
+  "model": "seed"
+}

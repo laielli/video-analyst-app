@@ -1,0 +1,8 @@
+{
+  "_comment": "CI floors for the replay-mode regression gate (D6). Initially set so the committed SEED fixtures pass (the seeds are derived from the pinned examples/*_program.json, so every in-scope seed grounds correctly -> T2/T4 = 1.0). After the human runs the first live gpt-4o capture, recalibrate these to ~5pp under the measured rates (the same move the coverage floor used in #36) and commit. min_fixtures catches deletion; max_stale=0 means partial staleness FAILS the gate (uniform all-stale downgrades to advisory inside the runner). The CI step also passes --fail-under flags that override these for T2/T4.",
+  "T2_semantic_valid": 1.0,
+  "T4_answer_correct": 0.85,
+  "out_of_scope_honest": 0.9,
+  "min_fixtures": 57,
+  "max_stale": 0
+}
