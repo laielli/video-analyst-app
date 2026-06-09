@@ -112,6 +112,22 @@ program, or cache gap — it silently falls back to the query's pinned program. 
 provenance rides the SSE `meta` event as `program_source` (`live` | `pinned`). With no creds,
 behavior is identical to before (pinned). Set creds in `api/.env` (see `.env.example`).
 
+## Eval harness (`eval/`) — calibrate the prompt against real model output
+
+`codegen_probe.py` is the one-question gut-check; `eval/` is the systematic N-question calibration
+layer. It scores a versioned **question bank** (phrasing variants × shapes per clip + adversarial
+cases) against recorded gpt-4o output with a tiered rubric (schema-valid → semantically-valid →
+executes-grounded → answer-correct), reusing the server's exact validate+execute path. Replay is
+free, creds-free, and CI-gated; capture is the one billed step (creds-gated, exit-2 on no creds).
+
+```bash
+python eval/run_eval.py replay            # score recorded fixtures, write eval/report.{md,json} (CI-safe)
+python eval/run_eval.py capture --dry-run # preview cost of the one billed step (needs creds)
+```
+
+The committed `eval/fixtures/*.json` are generated seeds so replay + CI are green before any real
+capture; the human runs one ~$0.50 capture afterward (see `eval/README.md` for the runbook).
+
 ## The DSL schema (dsl-json-schema-unification)
 
 `schema/dsl.schema.json` is deliberately one artifact serving three roles:

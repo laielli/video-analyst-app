@@ -15,6 +15,9 @@ to a grounded answer). 1 = generated but invalid / didn't ground. 2 = setup prob
 
 Prereqs: AZURE_OPENAI_* in api/.env (see .env.example). With no creds the server still works —
 it falls back to the pinned program (D-DR6); this probe just reports the missing setup.
+
+For systematic measurement across the question bank (tiered scoring + replay-mode CI gate), see
+`api/eval/` (the eval harness): `python eval/run_eval.py replay`.
 """
 from __future__ import annotations
 

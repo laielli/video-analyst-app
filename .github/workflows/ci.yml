@@ -29,6 +29,9 @@ jobs:
       - name: Run tests (coverage gated at floor)
         working-directory: api
         run: python -m pytest -q --cov=. --cov-report=term-missing --cov-fail-under=85
+      - name: Codegen eval (replay-mode regression gate)
+        working-directory: api
+        run: python eval/run_eval.py replay --fail-under T2_semantic_valid=1.0 --fail-under T4_answer_correct=0.85
 
   web:
     name: Web (build + tsc + vitest)
