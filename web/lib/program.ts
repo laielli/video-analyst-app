@@ -13,6 +13,12 @@ const num = (t: unknown): Tok => ({ c: "num", t: String(t) });
 const str = (t: string): Tok => ({ c: "str", t });
 const kw = (t: string): Tok => ({ c: "kw", t });
 
+// The DSL args are validated upstream (api/schema/run_doc.schema.json); here we only read fields
+// off a step's already-trusted args by op. A loose recursive shape lets us index nested fields
+// (e.g. a.where.field) and array methods (a.classes?.join) without reaching for `any`.
+type Args = { [key: string]: ArgValue };
+type ArgValue = string | number | boolean | null | undefined | ArgValue[] | Args;
+
 function call(id: string, fnName: string, groups: Tok[][]): Tok[] {
   const out: Tok[] = [nm(id), op(" = "), fn(fnName), op("(")];
   groups.forEach((g, i) => {
@@ -35,24 +41,26 @@ export const COMMENTS: Record<string, string> = {
 };
 
 function lineFor(s: ProgramStep): Tok[] {
-  const a = s.args as Record<string, any>;
+  const a = s.args as Args;
   switch (s.op) {
     case "sample_frames":
       return call(s.id, "sample_frames", [[num(a.start_ms)], [num(a.end_ms)], [kw("fps"), op("="), num(a.fps)]]);
     case "detect":
-      return call(s.id, "detect", [[nm(a.frames)], [op("["), str(`"${(a.classes || []).join('", "')}"`), op("]")]]);
+      return call(s.id, "detect", [[nm(String(a.frames))], [op("["), str(`"${((a.classes as string[]) || []).join('", "')}"`), op("]")]]);
     case "crop":
-      return call(s.id, "crop", [[nm(a.detections)], [str(`"${a.region}"`)]]);
+      return call(s.id, "crop", [[nm(String(a.detections))], [str(`"${a.region}"`)]]);
     case "read_text":
-      return call(s.id, "read_text", [[nm(a.crops)]]);
-    case "filter":
-      return call(s.id, "filter", [[nm(a.items)], [nm(a.where.field), op(" == "), str(`"${a.where.equals}"`)]]);
+      return call(s.id, "read_text", [[nm(String(a.crops))]]);
+    case "filter": {
+      const where = a.where as Args;
+      return call(s.id, "filter", [[nm(String(a.items))], [nm(String(where.field)), op(" == "), str(`"${where.equals}"`)]]);
+    }
     case "count":
-      return call(s.id, "count", [[nm(a.items)]]);
+      return call(s.id, "count", [[nm(String(a.items))]]);
     case "temporal_order":
-      return call(s.id, "temporal_order", [[nm(a.events)], [kw("by"), op("="), str(`"${a.by}"`)]]);
+      return call(s.id, "temporal_order", [[nm(String(a.events))], [kw("by"), op("="), str(`"${a.by}"`)]]);
     case "answer":
-      return call(s.id, "answer", [[nm(a.from)], [str(`"${a.question}"`)]]);
+      return call(s.id, "answer", [[nm(String(a.from))], [str(`"${a.question}"`)]]);
     default:
       return [nm(s.id), op(" = "), fn(s.op), op("(…)")];
   }
