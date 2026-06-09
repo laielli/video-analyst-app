@@ -1,0 +1,66 @@
+{
+  "fixture_format": 1,
+  "case_id": "oos-crowd-size-singlegoal",
+  "clip_id": "single-goal",
+  "question": "How many people are in the crowd?",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 4000,
+        "end_ms": 4626,
+        "fps": 8
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": {
+        "detections": "people",
+        "region": "jersey"
+      }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": {
+        "crops": "jerseys"
+      }
+    },
+    {
+      "id": "absent",
+      "op": "filter",
+      "args": {
+        "items": "numbers",
+        "where": {
+          "field": "text",
+          "equals": "99"
+        }
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "absent",
+        "question": "How many people are in the crowd?"
+      }
+    }
+  ],
+  "error": null,
+  "usage": null,
+  "prompt_version": "3aefdf60232f9d4f",
+  "model": "seed",
+  "captured_at": "seed"
+}
