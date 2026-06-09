@@ -18,8 +18,17 @@ import json
 import os
 from pathlib import Path
 
+from limits import MAX_PROGRAM_BYTES
+
 API_DIR = Path(__file__).resolve().parent
 SCHEMA_PATH = API_DIR / "schema" / "dsl.schema.json"
+
+# Cap the completion so a runaway/hostile generation can't bill an unbounded response or hand the
+# local validator a giant blob. ~32k tokens comfortably fits the largest legitimate program
+# (the 7-step hero is well under 1k tokens) while bounding worst-case output. The byte cap on the
+# returned content (MAX_PROGRAM_BYTES, the same yardstick validation_errors uses) is the hard gate;
+# max_tokens is the upstream brake so the network call itself stays bounded.
+MAX_COMPLETION_TOKENS = 32_768
 
 SYSTEM_PROMPT = """\
 You are the program-generation layer of a ViperGPT-style video analyst. Compile the user's
@@ -122,10 +131,14 @@ class AzureCodegen:
         metadata (label, duration_ms, hint) is injected into the system message so the program is
         compiled against the ACTUAL clip (Q2 -> Alt C). Raises on API error or unparseable output;
         the caller validates structure/semantics (and, for free text, grounds out honestly on any
-        miss — there is no pinned fallback for a novel question)."""
+        miss — there is no pinned fallback for a novel question). The completion is bounded by
+        max_tokens, and the returned content is rejected if it exceeds MAX_PROGRAM_BYTES BEFORE it
+        is parsed — the local validator must never be handed an unbounded blob (its 8-way anyOf
+        schema pass is superlinear on hostile input)."""
         resp = self._client.chat.completions.create(
             model=self._deployment,
             temperature=0,
+            max_tokens=MAX_COMPLETION_TOKENS,
             response_format={
                 "type": "json_schema",
                 # strict=False on purpose. Our program is a discriminated union (8 op objects in
@@ -141,7 +154,14 @@ class AzureCodegen:
                 {"role": "user", "content": question},
             ],
         )
-        doc = json.loads(resp.choices[0].message.content or "{}")
+        content = resp.choices[0].message.content or "{}"
+        # Byte cap BEFORE json.loads (trust boundary): reject an oversized blob without parsing it,
+        # so a runaway generation can't DoS the downstream validator. The exception text is generic
+        # (no content echoed) and the caller maps any generate() failure to a fixed reason enum.
+        size = len(content.encode("utf-8"))
+        if size > MAX_PROGRAM_BYTES:
+            raise ValueError(f"codegen output is {size} bytes; max is {MAX_PROGRAM_BYTES}")
+        doc = json.loads(content)
         program = doc.get("program")
         if not isinstance(program, list):
             raise ValueError("codegen output missing 'program' array")

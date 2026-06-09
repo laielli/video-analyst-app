@@ -5,6 +5,12 @@ each op also produces its run-doc trace entry. Replay mode = zero live calls.
 """
 from __future__ import annotations
 
+# Absolute import of the TOP-LEVEL api/limits.py (NOT scripts/). API_DIR is on sys.path in every
+# entry point that imports the interpreter package (server.py, pytest's pythonpath, run_program,
+# precompute), so this resolves with zero scripts/ coupling. ProgramLimitExceeded subclasses
+# ValueError so the existing reject paths catch it and map it to a fixed reason enum.
+from limits import MAX_STEPS, ProgramLimitExceeded
+
 from .primitives import OPS
 
 
@@ -13,6 +19,14 @@ class Interpreter:
         self.cache = cache
 
     def run(self, program: list[dict], query: str | None = None) -> dict:
+        # Runtime guard (trust-boundary backstop): the validator already caps steps at validation
+        # time, but a caller that invokes run() WITHOUT validating (a future entry point, a direct
+        # test) must still be bounded. O(1) length compare sharing limits.MAX_STEPS — no duplicated
+        # logic. This is one of the two runtime checks (the other is the pre-materialization cap in
+        # op_sample_frames); see the plan's two-check runtime guard.
+        if len(program) > MAX_STEPS:
+            raise ProgramLimitExceeded(f"program has {len(program)} steps; max is {MAX_STEPS}")
+
         env: dict[str, dict] = {}
         trace: list[dict] = []
         answer_binding: dict | None = None

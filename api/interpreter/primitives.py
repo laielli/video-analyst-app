@@ -17,6 +17,12 @@ Binding kinds and item shapes:
 """
 from __future__ import annotations
 
+# Absolute import of the TOP-LEVEL api/limits.py (NOT scripts/) — see interpreter.py for why this
+# resolves in every entry point. This is the LOAD-BEARING runtime check: the pre-materialization
+# cap below must sit before list(range(...)) or it stops nothing (a post-hoc counter reading the
+# materialized length fires only AFTER the OOM bomb is already built).
+from limits import MAX_SAMPLED_FRAMES, ProgramLimitExceeded
+
 
 def _evi(frame_ts_ms, overlays):
     return {"frame_ts_ms": int(frame_ts_ms), "overlays": overlays}
@@ -26,6 +32,15 @@ def op_sample_frames(step, env, cache):
     a = step["args"]
     start, end, fps = a["start_ms"], a["end_ms"], a["fps"]
     stride = max(1, round(1000 / fps))
+    # PRE-MATERIALIZATION cap (the one mandatory runtime check): len(range(...)) is O(1) and builds
+    # NO list, so we know the would-be frame count before allocating. This is the only place the
+    # 60M-frame OOM is actually stopped — a counter reading len(ts) AFTER this line is already too
+    # late. Mirrors the validator's cumulative cap (MAX_SAMPLED_FRAMES) so the two never disagree.
+    would_build = len(range(start, end + 1, stride))
+    if would_build > MAX_SAMPLED_FRAMES:
+        raise ProgramLimitExceeded(
+            f"sample_frames would materialize {would_build} frames; max is {MAX_SAMPLED_FRAMES}"
+        )
     ts = list(range(start, end + 1, stride))
     binding = {"kind": "frames", "items": [{"frame_ts_ms": t} for t in ts]}
     result = {
