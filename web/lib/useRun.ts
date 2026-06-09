@@ -15,7 +15,10 @@ export type RunStatus = "idle" | "running" | "done" | "error";
  */
 export type RunRequest =
   | { kind: "canned"; queryId: string }
-  | { kind: "free"; text: string; clip?: string };
+  | { kind: "free"; text: string; clip?: string }
+  // A shareable permalink replay: fetch a stored run-doc by its content-addressed run_id and
+  // replay it through the same SSE accumulate logic. `?run=<id>` bypasses codegen server-side.
+  | { kind: "permalink"; runId: string };
 
 export type RunState = {
   status: RunStatus;
@@ -30,8 +33,17 @@ export type RunState = {
 function runUrl(req: RunRequest, paceMs: number): string {
   const base = `${API_BASE}/api/run?pace_ms=${paceMs}`;
   if (req.kind === "canned") return `${base}&query=${encodeURIComponent(req.queryId)}`;
+  if (req.kind === "permalink") return `${base}&run=${encodeURIComponent(req.runId)}`;
   const clip = req.clip ? `&clip=${encodeURIComponent(req.clip)}` : "";
   return `${base}&query_text=${encodeURIComponent(req.text)}${clip}`;
+}
+
+/**
+ * Build the shareable permalink URL for a stored run: `${origin}/?run=<run_id>`. A pure helper
+ * (no clipboard / window side effects) so it is unit-testable and reusable by the copy button.
+ */
+export function permalinkUrl(origin: string, runId: string): string {
+  return `${origin}/?run=${encodeURIComponent(runId)}`;
 }
 
 /**

@@ -99,6 +99,22 @@ describe("useRun", () => {
     expect(result.current.status).toBe("idle");
   });
 
+  it("permalink request URL carries the run param", () => {
+    const { result } = renderHook(() => useRun(null, 0));
+    act(() => result.current.run({ kind: "permalink", runId: "abc" }));
+    // matches runUrl ordering: pace_ms first, then the request param.
+    expect(es().url).toBe(`${API_BASE}/api/run?pace_ms=0&run=abc`);
+    expect(result.current.status).toBe("running");
+  });
+
+  it("meta run_id and cached are captured into state", () => {
+    const { result } = renderHook(() => useRun(null, 0));
+    act(() => result.current.run({ kind: "permalink", runId: "abc" }));
+    act(() => es().emit("meta", { query: "q", total_steps: 0, program: [], run_id: "abc", cached: true }));
+    expect(result.current.meta?.run_id).toBe("abc");
+    expect(result.current.meta?.cached).toBe(true);
+  });
+
   it("bare run() with no default query is a no-op", () => {
     const { result } = renderHook(() => useRun(null, 0));
     act(() => result.current.run());
