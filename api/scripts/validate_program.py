@@ -25,6 +25,12 @@ HERE = Path(__file__).resolve().parent
 SCHEMA_PATH = HERE.parent / "schema" / "dsl.schema.json"
 DEFAULT_PROGRAM = HERE.parent / "examples" / "hero_program.json"
 
+# Put api/ (the parent of scripts/) on sys.path so `from limits import ...` resolves whether
+# this module is run as the CLI (`python scripts/validate_program.py`) or imported by the server
+# (which already inserts api/). Idempotent; mirrors the path dance the sibling probe scripts do.
+if str(HERE.parent) not in sys.path:
+    sys.path.insert(0, str(HERE.parent))
+
 # Output "kind" each op produces. filter/temporal_order pass their input collection
 # kind through; we resolve those at walk time.
 PRODUCES = {
@@ -60,6 +66,18 @@ ANSWERABLE_KINDS = COLLECTION_KINDS | {"number", "ordered"}
 # also bounded so the stride stays sane. clip.duration_ms is the per-clip upper bound.
 FPS_MIN, FPS_MAX = 1, 30
 
+# Resource/abuse caps (trust-boundary hardening). Single source of truth: api/limits.py — the
+# schema (dsl.schema.json) re-encodes the statically-expressible subset and a test asserts they
+# never drift. `validate_program` is on sys.path under `.` and `scripts`; `limits` is at `.`
+# (api/) so it imports from both the CLI and the server.
+from limits import (  # noqa: E402
+    MAX_DETECT_CLASSES,
+    MAX_PROGRAM_BYTES,
+    MAX_SAMPLED_FRAMES,
+    MAX_STEPS,
+    MAX_STR_ARG_LEN,
+)
+
 
 def strip_comments(obj):
     """Recursively drop dict keys starting with '_' (authoring comments)."""
@@ -87,7 +105,15 @@ def validation_errors(program_doc: dict, schema: dict | None = None, clip: dict 
     means valid. Shared by this CLI and the codegen fallback/free-text paths (server). Comments
     are stripped here so callers can pass raw codegen/authoring output. Semantic checks are
     skipped when structure fails (malformed refs make them meaningless). `clip` (with
-    `duration_ms`) bounds numeric args so a *validated* program can't OOM the interpreter."""
+    `duration_ms`) bounds numeric args so a *validated* program can't OOM the interpreter.
+
+    Size guard FIRST: an oversized blob is rejected BEFORE any json/schema work, because the
+    structural pass is an 8-way `anyOf` per item and superlinear on hostile input -- the
+    validator must never be a DoS vector on an unbounded program. This mirrors the byte cap
+    codegen.generate applies to the raw LLM output (api/limits.MAX_PROGRAM_BYTES)."""
+    size_err = _program_size_error(program_doc)
+    if size_err:
+        return [f"size: {size_err}"]
     if schema is None:
         schema = json.loads(SCHEMA_PATH.read_text())
     doc = strip_comments(program_doc)
@@ -95,6 +121,21 @@ def validation_errors(program_doc: dict, schema: dict | None = None, clip: dict 
     if struct:
         return [f"structural: {m}" for m in struct]
     return [f"semantic: {m}" for m in semantic_errors(doc["program"], clip=clip)]
+
+
+def _program_size_error(program_doc: dict) -> str | None:
+    """Reject a program whose serialized size exceeds MAX_PROGRAM_BYTES, BEFORE any json/schema
+    walk. Comments are NOT stripped first (we guard the size the structural validator would
+    actually have to walk if we let it through). Returns an error string or None."""
+    try:
+        size = len(json.dumps(program_doc).encode("utf-8"))
+    except (TypeError, ValueError):
+        # Non-serializable input is a structural problem the schema pass will surface; don't
+        # short-circuit on it here.
+        return None
+    if size > MAX_PROGRAM_BYTES:
+        return f"program is {size} bytes; max is {MAX_PROGRAM_BYTES}"
+    return None
 
 
 def _sample_frames_bounds(i: int, sid: str, args: dict, clip: dict | None) -> list[str]:
@@ -119,11 +160,83 @@ def _sample_frames_bounds(i: int, sid: str, args: dict, clip: dict | None) -> li
     return out
 
 
+def _sampled_frame_count(args: dict, clip: dict | None) -> int:
+    """How many frames this sample_frames op WOULD materialize — mirrors op_sample_frames'
+    stride math byte-for-byte (stride = max(1, round(1000/fps)); len(range(start, end+1, stride)))
+    so the validator's cumulative count is identical to what the interpreter would build. O(1):
+    len() on a range never iterates, so even a 60M-frame bomb is counted, never built.
+
+    When a clip is supplied, end is clamped to the clip duration before counting — the per-step
+    duration bound (_sample_frames_bounds) already rejects end > duration, so this only matters
+    for a clip-less direct call where the count IS the OOM-relevant invariant. Returns 0 for
+    malformed/out-of-order windows (those are rejected by _sample_frames_bounds with their own
+    error; counting them as 0 just keeps this helper from raising)."""
+    start, end, fps = args.get("start_ms"), args.get("end_ms"), args.get("fps")
+    if not all(isinstance(v, int) for v in (start, end, fps)):
+        return 0
+    if fps < FPS_MIN or end <= start or start < 0:
+        return 0
+    if clip is not None:
+        dur = clip.get("duration_ms")
+        if isinstance(dur, int):
+            end = min(end, dur)
+            if end <= start:
+                return 0
+    stride = max(1, round(1000 / fps))
+    return len(range(start, end + 1, stride))
+
+
+def _arg_domain_errors(i: int, sid: str, op: str, args: dict) -> list[str]:
+    """Per-op arg-domain checks beyond what the JSON Schema can express under strict:false.
+    Bounds the abuse-relevant args (detect.classes count + element types/length, filter string
+    lengths). Harmless free strings (answer.question, the filter value's *meaning*) are left
+    unconstrained beyond length — the default 'defensive depth' from the plan's DESIGN-ROOM knob:
+    close the resource/abuse vectors, do NOT overfit the validator to today's four question
+    shapes via field whitelisting."""
+    out: list[str] = []
+    if op == "detect":
+        cls = args.get("classes")
+        if isinstance(cls, list):
+            if not cls:
+                out.append(f"step[{i}] '{sid}' (detect): classes is empty")
+            if len(cls) > MAX_DETECT_CLASSES:
+                out.append(
+                    f"step[{i}] '{sid}' (detect): {len(cls)} classes; max is {MAX_DETECT_CLASSES}"
+                )
+            for c in cls:
+                if not isinstance(c, str):
+                    out.append(f"step[{i}] '{sid}' (detect): a class is not a string")
+                elif len(c) > MAX_STR_ARG_LEN:
+                    out.append(
+                        f"step[{i}] '{sid}' (detect): a class is {len(c)} chars; "
+                        f"max is {MAX_STR_ARG_LEN}"
+                    )
+    elif op == "filter":
+        where = args.get("where")
+        if isinstance(where, dict):
+            for f in ("field", "equals"):
+                v = where.get(f)
+                if isinstance(v, str) and len(v) > MAX_STR_ARG_LEN:
+                    out.append(
+                        f"step[{i}] '{sid}' (filter): where.{f} is {len(v)} chars; "
+                        f"max is {MAX_STR_ARG_LEN}"
+                    )
+    return out
+
+
 def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
-    """The checks the JSON Schema cannot express: ref existence/order, kind flow,
-    unique ids, answer-is-last, and numeric arg bounds (trust boundary)."""
+    """The checks the JSON Schema cannot express: ref existence/order, kind flow, unique ids,
+    answer-is-last, numeric arg bounds, and the trust-boundary resource caps (max steps,
+    cumulative sampled frames, per-op arg domains). These are the reject-before-execute gate —
+    every program that fails here resolves to an `_ungrounded` run-doc and NEVER reaches
+    Interpreter.run."""
     errors: list[str] = []
     produced: dict[str, str] = {}  # id -> output kind, in declaration order
+    total_frames = 0  # SUM across all sample_frames ops (cumulative-frame cap)
+
+    # Whole-program step cap (trust boundary): reject an oversized program before walking it.
+    if len(program) > MAX_STEPS:
+        errors.append(f"program has {len(program)} steps; max is {MAX_STEPS}")
 
     for i, step in enumerate(program):
         sid = step.get("id")
@@ -171,6 +284,10 @@ def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
         # interpreter, so enforce 0 <= start < end <= duration_ms and 1 <= fps <= 30.
         if op == "sample_frames":
             errors.extend(_sample_frames_bounds(i, sid, args, clip))
+            total_frames += _sampled_frame_count(args, clip)
+
+        # Per-op arg-domain checks (detect.classes, filter string lengths).
+        errors.extend(_arg_domain_errors(i, sid, op, args))
 
         # Resolve this step's output kind (filter/temporal_order pass input through).
         if op in PRODUCES:
@@ -181,6 +298,13 @@ def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
             produced[sid] = produced.get(args.get("events"), "unknown")
         else:
             produced[sid] = "unknown"
+
+    # Cumulative-frame cap (trust boundary): the SUM of frames across all sample_frames ops. This
+    # is duration-independent, so it closes the no-clip OOM gap _sample_frames_bounds cannot (it
+    # only bounds end <= duration_ms when a clip is supplied). The count uses the SAME stride math
+    # as op_sample_frames so the validator and the runtime pre-materialization cap never disagree.
+    if total_frames > MAX_SAMPLED_FRAMES:
+        errors.append(f"program samples {total_frames} frames; max is {MAX_SAMPLED_FRAMES}")
 
     if not program:
         errors.append("program is empty")
