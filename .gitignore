@@ -37,6 +37,10 @@ venv/
 .pytest_cache/
 .mypy_cache/
 
+# Run-doc cache (api/run_cache.py FileRunStore) — content-addressed run-docs persisted at
+# runtime to skip re-billing identical free-text questions. Runtime-only, never committed.
+api/.run_cache/
+
 # Coverage (pytest-cov / vitest v8 — measured in CI, never committed)
 .coverage
 coverage/

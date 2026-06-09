@@ -128,13 +128,13 @@ async def test_info_leak_guard_sends_fixed_message_no_secret(monkeypatch):
     and the secret never reaches the body."""
     real = server._doc_for_request
 
-    def fake(query, query_text, clip):
+    def fake(query, query_text, clip, run=None):
         doc = real("hero-10-first-goal", None, None)
         doc["trace"] = _RaisingTrace()  # len() ok, iteration raises with a secret path
         return doc
     monkeypatch.setattr(server, "_doc_for_request", fake)
 
-    resp = await server.run(query="hero-10-first-goal", query_text=None, clip=None, pace_ms=0)
+    resp = await server.run(query="hero-10-first-goal", query_text=None, clip=None, run=None, pace_ms=0)
     body = await drain(resp.body_iterator)
     evs = events(body)
     names = [n for n, _ in evs]
@@ -156,8 +156,8 @@ async def test_cancel_reraises_not_swallowed_into_error():
     rather than swallowing it into an `error` event. Drives the nested gen() via server.run and
     throws CancelledError into its body_iterator."""
     # pass every param explicitly as a plain value — calling the route handler directly bypasses
-    # FastAPI's Query() default resolution, so query_text/clip must be real None, not Query(None).
-    resp = await server.run(query="hero-10-first-goal", query_text=None, clip=None, pace_ms=0)
+    # FastAPI's Query() default resolution, so query_text/clip/run must be real None, not Query(None).
+    resp = await server.run(query="hero-10-first-goal", query_text=None, clip=None, run=None, pace_ms=0)
     it = resp.body_iterator
     # advance past meta so we're inside the generator.
     first = await it.__anext__()

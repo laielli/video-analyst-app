@@ -27,6 +27,11 @@ RD_SCHEMA = json.loads((API_DIR / "schema" / "run_doc.schema.json").read_text())
 
 def _schema_errors(doc):
     import jsonschema
+    # `_serve` is the transient out-of-band channel (run_id/cached) build_free_text_run_doc /
+    # replay_permalink_doc attach for the route to lift into the meta event / response envelope;
+    # the route strips it (_pop_serve_meta) so the streamed/stored doc body stays schema-pure.
+    # Mirror that here: validate the doc as the route serves it, not the in-memory carrier.
+    doc = {k: v for k, v in doc.items() if k != "_serve"}
     return list(jsonschema.Draft202012Validator(RD_SCHEMA).iter_errors(doc))
 
 
