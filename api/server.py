@@ -238,7 +238,11 @@ def build_free_text_run_doc(query_text: str, clip_id: str, serve_meta: dict | No
 
     try:
         doc = Interpreter(cache).run(program, query=query_text)
-    except Exception:  # noqa: BLE001 — e.g. sampled window misses cached frames
+    except Exception:  # noqa: BLE001 — sampled window misses cached frames, OR the interpreter's
+        # runtime guard fires (ProgramLimitExceeded, a ValueError subclass). Both map to the fixed
+        # `execution-error` reason here — the exception text is NEVER interpolated into the doc
+        # (info-leak guard). Validation already rejects these as `invalid-program` BEFORE this
+        # point on the normal path; the runtime cap is the backstop for an unvalidated call.
         return _ungrounded(clip, query_text, "execution-error", program=program)
 
     f = doc.get("findings", {})

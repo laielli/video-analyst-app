@@ -17,6 +17,8 @@ Binding kinds and item shapes:
 """
 from __future__ import annotations
 
+from limits import MAX_SAMPLED_FRAMES, ProgramLimitExceeded
+
 
 def _evi(frame_ts_ms, overlays):
     return {"frame_ts_ms": int(frame_ts_ms), "overlays": overlays}
@@ -26,6 +28,16 @@ def op_sample_frames(step, env, cache):
     a = step["args"]
     start, end, fps = a["start_ms"], a["end_ms"], a["fps"]
     stride = max(1, round(1000 / fps))
+    # THE load-bearing runtime check: count how many frames this op WOULD materialize and reject
+    # BEFORE building the list. `len(range(...))` is O(1) (no list is built), so a 60M-frame bomb
+    # is caught here in constant time — a post-hoc `len(items)` counter would fire only after the
+    # OOM has already happened. Mirrors validate_program._sampled_frame_count exactly, so the
+    # validation-time cap and this runtime cap can never disagree.
+    would_build = len(range(start, end + 1, stride))
+    if would_build > MAX_SAMPLED_FRAMES:
+        raise ProgramLimitExceeded(
+            f"sample_frames would materialize {would_build} frames; max is {MAX_SAMPLED_FRAMES}"
+        )
     ts = list(range(start, end + 1, stride))
     binding = {"kind": "frames", "items": [{"frame_ts_ms": t} for t in ts]}
     result = {

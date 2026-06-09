@@ -2,8 +2,17 @@
 Tree-walking interpreter: executes a (pre-validated) DSL program against a Cache and
 emits a run-doc (run_doc.schema.json). Maintains a binding environment id -> value;
 each op also produces its run-doc trace entry. Replay mode = zero live calls.
+
+Runtime guard (trust boundary, second line of defense): every server path validates a program
+BEFORE Interpreter.run, but the interpreter independently enforces the two caps that bound work
+— a `MAX_STEPS` check here, and a pre-materialization frame cap inside `op_sample_frames` — so a
+future entry point that calls `run` WITHOUT validating still can't OOM. Both raise
+`ProgramLimitExceeded` (a ValueError subclass), which the server's existing `except Exception`
+maps to the fixed `execution-error` reason (the exception text is never leaked to the client).
 """
 from __future__ import annotations
+
+from limits import MAX_STEPS, ProgramLimitExceeded
 
 from .primitives import OPS
 
@@ -13,6 +22,13 @@ class Interpreter:
         self.cache = cache
 
     def run(self, program: list[dict], query: str | None = None) -> dict:
+        # Runtime guard #1: a step-count cap BEFORE the loop, so an unvalidated program with an
+        # absurd step count is rejected without executing a single op. (Guard #2 — the per-call
+        # frame cap — lives inside op_sample_frames, BEFORE its list(range(...)); a post-hoc
+        # counter could not stop that materialization.)
+        if len(program) > MAX_STEPS:
+            raise ProgramLimitExceeded(f"program has {len(program)} steps; max is {MAX_STEPS}")
+
         env: dict[str, dict] = {}
         trace: list[dict] = []
         answer_binding: dict | None = None
