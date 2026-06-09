@@ -5,7 +5,14 @@ each op also produces its run-doc trace entry. Replay mode = zero live calls.
 """
 from __future__ import annotations
 
+from limits import MAX_STEPS, ProgramLimitExceeded
+
 from .primitives import OPS
+
+# Re-export so callers can `from interpreter import ProgramLimitExceeded` / catch it without
+# reaching into limits.py directly. The server's broad `except Exception` already catches it; this
+# keeps the runtime-guard type co-located with the interpreter that raises it.
+__all__ = ["Interpreter", "ProgramLimitExceeded"]
 
 
 class Interpreter:
@@ -13,6 +20,12 @@ class Interpreter:
         self.cache = cache
 
     def run(self, program: list[dict], query: str | None = None) -> dict:
+        # Runtime guard (check 1 of 2; check 2 is the pre-materialization frame cap inside
+        # op_sample_frames). A validated program is already under MAX_STEPS, so this fires only for
+        # a future/unvalidated caller — it makes Interpreter.run safe to invoke without the gate.
+        if len(program) > MAX_STEPS:
+            raise ProgramLimitExceeded(f"program has {len(program)} steps (max {MAX_STEPS})")
+
         env: dict[str, dict] = {}
         trace: list[dict] = []
         answer_binding: dict | None = None

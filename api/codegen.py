@@ -18,8 +18,17 @@ import json
 import os
 from pathlib import Path
 
+from limits import MAX_PROGRAM_BYTES
+
 API_DIR = Path(__file__).resolve().parent
 SCHEMA_PATH = API_DIR / "schema" / "dsl.schema.json"
+
+# Ceiling on the completion's token count: a coarse upstream bound so the model cannot stream back
+# an unbounded blob that the byte check (and the validator's size gate) must then reject. ~4 chars/
+# token puts this comfortably above MAX_PROGRAM_BYTES so a legitimate program is never truncated,
+# while still capping a runaway generation. Kept loose on purpose — the byte check is the precise
+# gate; this just stops the API from billing/returning megabytes.
+MAX_COMPLETION_TOKENS = 4_096
 
 SYSTEM_PROMPT = """\
 You are the program-generation layer of a ViperGPT-style video analyst. Compile the user's
@@ -126,6 +135,10 @@ class AzureCodegen:
         resp = self._client.chat.completions.create(
             model=self._deployment,
             temperature=0,
+            # Bound the completion size at the source so an over-long generation is capped by the
+            # API rather than streamed back in full and rejected downstream. The byte check below
+            # is the precise gate (MAX_PROGRAM_BYTES); this is a coarse upstream ceiling.
+            max_tokens=MAX_COMPLETION_TOKENS,
             response_format={
                 "type": "json_schema",
                 # strict=False on purpose. Our program is a discriminated union (8 op objects in
@@ -141,7 +154,14 @@ class AzureCodegen:
                 {"role": "user", "content": question},
             ],
         )
-        doc = json.loads(resp.choices[0].message.content or "{}")
+        content = resp.choices[0].message.content or "{}"
+        # Byte cap BEFORE json.loads — the raw completion is untrusted output of an LLM; an
+        # oversized blob must be rejected by size before the (superlinear-on-hostile-input) JSON
+        # parse + downstream schema walk ever touch it. The validator re-checks the same cap on
+        # the structured doc (defense in depth); this is the first byte gate, at the source.
+        if len(content.encode("utf-8")) > MAX_PROGRAM_BYTES:
+            raise ValueError(f"codegen output exceeds {MAX_PROGRAM_BYTES} bytes")
+        doc = json.loads(content)
         program = doc.get("program")
         if not isinstance(program, list):
             raise ValueError("codegen output missing 'program' array")

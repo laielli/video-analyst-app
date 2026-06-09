@@ -17,6 +17,8 @@ Binding kinds and item shapes:
 """
 from __future__ import annotations
 
+from limits import MAX_SAMPLED_FRAMES, ProgramLimitExceeded
+
 
 def _evi(frame_ts_ms, overlays):
     return {"frame_ts_ms": int(frame_ts_ms), "overlays": overlays}
@@ -26,6 +28,16 @@ def op_sample_frames(step, env, cache):
     a = step["args"]
     start, end, fps = a["start_ms"], a["end_ms"], a["fps"]
     stride = max(1, round(1000 / fps))
+    # Pre-materialization cap: this is the ONE runtime check that actually stops the documented
+    # OOM. range(...) is lazy, so len(range(...)) is O(1) and builds NOTHING — we can size the
+    # would-be frame list before list() materializes it. A program reaching this with an
+    # over-cap window bypassed the validator (validate_program rejects it first on the served
+    # paths); the guard makes Interpreter.run safe for any future caller that runs unvalidated.
+    would_build = len(range(start, end + 1, stride))
+    if would_build > MAX_SAMPLED_FRAMES:
+        raise ProgramLimitExceeded(
+            f"sample_frames would materialize {would_build} frames (max {MAX_SAMPLED_FRAMES})"
+        )
     ts = list(range(start, end + 1, stride))
     binding = {"kind": "frames", "items": [{"frame_ts_ms": t} for t in ts]}
     result = {
