@@ -92,6 +92,30 @@ def _reset_spies():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _reset_codegen_budget(monkeypatch):
+    """`server._codegen_calls` is a module-global set at import that NOTHING else resets — a test
+    that mutates the budget counter would poison every later free-text test via ordering. Reset it
+    to 0 per test via monkeypatch (auto-restored). Imported lazily so non-server tests don't pay
+    the server import cost / a hard dependency."""
+    import server
+    monkeypatch.setattr(server, "_codegen_calls", 0)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _isolated_run_store(tmp_path, monkeypatch):
+    """Redirect the process-wide run cache to a per-test tmp_path-rooted FileRunStore so the
+    free-text cache / permalink tests never read or write the real api/.run_cache/ (which would
+    make codegen-call-count + poisoning assertions order-dependent across runs). Monkeypatched so
+    it auto-restores."""
+    import server
+    import run_cache
+    store = run_cache.FileRunStore(tmp_path / "run_cache", max_entries=1000)
+    monkeypatch.setattr(server, "_run_store", store)
+    yield store
+
+
 @pytest.fixture
 def manifest():
     """The real hero manifest (comment-stripped), with `source` neutralized so no .mov is needed."""

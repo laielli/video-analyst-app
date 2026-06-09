@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -39,6 +40,7 @@ from validate_program import strip_comments, validation_errors  # noqa: E402
 from ocr_probe import load_dotenv  # noqa: E402
 import canned  # noqa: E402
 import codegen  # noqa: E402
+import run_cache  # noqa: E402
 
 # Load api/.env so `uvicorn server:app` picks up AZURE_OPENAI_* (codegen) without extra flags.
 # No-op if the file is absent — codegen then stays disabled and runs fall back to pinned.
@@ -54,6 +56,36 @@ _codegen_calls = 0
 
 def _codegen_budget_left() -> bool:
     return _codegen_calls < MAX_CODEGEN_CALLS
+
+
+# Content-addressed run cache (cost win + shareable permalinks). ONE store is constructed at
+# startup from env; `build_free_text_run_doc` reads it before codegen and writes it only on a
+# grounded run, and the `?run=<id>` permalink path replays a stored run by its content address.
+# Exposed as a module-global so tests can monkeypatch it to a tmp_path-rooted FileRunStore
+# (do NOT freeze it in a closure / default-arg — see api/run_cache.py + the test fixtures).
+RUN_CACHE_DIR = os.environ.get("RUN_CACHE_DIR") or str(API_DIR / ".run_cache")
+RUN_CACHE_MAX_ENTRIES = int(os.environ.get("RUN_CACHE_MAX_ENTRIES", "1000"))
+_run_store: run_cache.RunStore = run_cache.FileRunStore(
+    RUN_CACHE_DIR, max_entries=RUN_CACHE_MAX_ENTRIES
+)
+
+
+def get_store() -> run_cache.RunStore:
+    """Accessor for the process-wide run store (tests monkeypatch `server._run_store`)."""
+    return _run_store
+
+
+# The run-doc schema is additionalProperties:false at the root, so run_id + cached can NOT live
+# inside the doc — they ride a SEPARATE serve-meta dict (the SSE `meta` event / run_doc `_meta`
+# envelope), built at serve time by the route. The builders return a SCHEMA-PURE doc and OPTIONALLY
+# populate a caller-supplied `serve_meta` out-dict with {cached, run_id?}; a direct caller (e.g.
+# the existing build_free_text_run_doc tests) gets the pure doc and ignores the out-param.
+def _set_serve_meta(serve_meta: dict | None, *, cached: bool, run_id: str | None = None) -> None:
+    if serve_meta is None:
+        return
+    serve_meta["cached"] = cached
+    if run_id is not None:
+        serve_meta["run_id"] = run_id
 
 
 app = FastAPI(title="Glass-Box Video Analyst API", version="0.1.0")
@@ -155,17 +187,36 @@ def _ungrounded(clip: dict, query_text: str, reason: str, program: list[dict] | 
     }
 
 
-def build_free_text_run_doc(query_text: str, clip_id: str) -> dict:
+def build_free_text_run_doc(query_text: str, clip_id: str, serve_meta: dict | None = None) -> dict:
     """ViperGPT loop for a TYPED question, with the safety net removed: codegen -> validate ->
     execute over the clip's replay cache. There is NO pinned fallback, so every failure mode
     (no creds, codegen error, invalid program, execution error, no grounded answer) resolves to
     an explicit `_ungrounded` run-doc — never a hero-program substitution, never a 500. The clip
-    is resolved by the caller (404 on unknown); here it is assumed valid."""
+    is resolved by the caller (404 on unknown); here it is assumed valid.
+
+    Returns a SCHEMA-PURE run-doc. If `serve_meta` is given it is populated with {cached, run_id?}
+    for the route's SSE meta / run_doc envelope: `cached` true on a store hit; `run_id` present
+    ONLY on the grounded path (a store hit, or a freshly grounded run) — never on the four
+    non-grounded exits, so the UI never offers a share link to a run that was not stored."""
     global _codegen_calls
+    _set_serve_meta(serve_meta, cached=False)  # default; the grounded/hit paths refine it below
     clip = canned.clip_by_id(clip_id)  # caller raises 404 if None; defensive guard below
     if clip is None:
         return _ungrounded({"id": clip_id, "width": 0, "height": 0, "duration_ms": 0},
                            query_text, "execution-error")
+
+    # Content-addressed cache lookup — BEFORE codegen.enabled() and the budget check, so an
+    # identical repeat question is served for FREE (no billed call, no budget burn). Only
+    # validated + grounded runs are ever stored, so a hit is always a trustworthy run-doc;
+    # store.get re-validates it against the schema and treats any bad entry as a miss.
+    key = run_cache.cache_key(query_text, clip_id)
+    hit = get_store().get(key)
+    if hit is not None:
+        # A hit is a previously validated + grounded run-doc — served free, no codegen, no budget
+        # burn. The doc stays schema-pure; run_id + cached ride the serve_meta out-dict.
+        _set_serve_meta(serve_meta, cached=True, run_id=key)
+        return hit
+
     cache = Cache.load(clip["cache"])
 
     if not codegen.enabled():
@@ -193,22 +244,55 @@ def build_free_text_run_doc(query_text: str, clip_id: str) -> dict:
     f = doc.get("findings", {})
     if not f.get("grounded"):
         # Validated program ran but didn't ground: stream its trace so the failure is legible.
+        # NOT cached (caching a failure would make a transient miss permanent + let an attacker
+        # poison the cache with a cheap ungrounded question) and carries NO run_id.
         return _ungrounded(clip, query_text, f.get("reason") or "no-grounded-answer",
                            program=doc["program"], trace=doc["trace"])
 
     doc["program_source"] = "live"
+    # Trust boundary: ONLY validated + grounded runs are cached. Store the schema-pure doc, then
+    # surface run_id on the serve_meta (this run was freshly computed -> cached stays False).
+    get_store().put(key, doc)
+    _set_serve_meta(serve_meta, cached=False, run_id=key)
     return doc
 
 
-def _resolve_run_request(query: str | None, query_text: str | None, clip_id: str | None):
+def build_permalink_run_doc(run_id: str, serve_meta: dict | None = None) -> dict:
+    """Replay a stored run by its content-addressed id (the permalink path). This BYPASSES
+    build_free_text_run_doc entirely — no codegen.enabled() / budget / generate — so a shared
+    link replays on a credential-less deploy (exactly the cold-fetch case permalinks exist for).
+    The id is assumed format-validated by the caller; a store MISS raises HTTPException(404) in
+    the SYNC route body (before any StreamingResponse) so a missing/expired id is a real 404,
+    not a 200 with a broken stream. The replayed doc is schema-pure; run_id + cached=True ride
+    the serve_meta out-dict."""
+    doc = get_store().get(run_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="unknown or expired run id")
+    _set_serve_meta(serve_meta, cached=True, run_id=run_id)
+    return doc
+
+
+def _resolve_run_request(query: str | None, query_text: str | None, clip_id: str | None,
+                         run: str | None = None):
     """Param validation shared by /api/run and /api/run_doc, factored into a plain helper so it
-    is unit-testable without a TestClient. Returns ("canned", entry) or ("free", (text, clip)).
-    Raises HTTPException(400) unless EXACTLY ONE of query/query_text is given (and the free-text
-    cap holds), and HTTPException(404) for an unknown query or clip."""
+    is unit-testable without a TestClient. Returns ("canned", entry), ("free", (text, clip)), or
+    ("permalink", run_id). Raises HTTPException(400) unless EXACTLY ONE of run/query/query_text is
+    given (and the free-text cap / run-id format hold), and HTTPException(404) for an unknown
+    query or clip. (A missing permalink id is a 404 raised later, in build_permalink_run_doc.)"""
+    has_run = bool(run)
     has_query = bool(query)
     has_text = query_text is not None and query_text.strip() != ""
-    if has_query == has_text:  # neither, or both
-        raise HTTPException(status_code=400, detail="provide exactly one of 'query' or 'query_text'")
+    # Exactly-one-of-three (rewritten from the prior two-way XOR so a bare ?run=<id> is accepted).
+    if (has_run + has_query + has_text) != 1:
+        raise HTTPException(status_code=400,
+                            detail="provide exactly one of 'run', 'query', or 'query_text'")
+    if has_run:
+        # The run param is attacker-controlled and becomes a file-store lookup key — reject any
+        # id that is not exactly a sha256 hex digest BEFORE touching the store (path-traversal /
+        # info-leak guard: `run=../../etc/passwd` must 400 here, never reach the filesystem).
+        if not run_cache.is_valid_key(run):
+            raise HTTPException(status_code=400, detail="malformed run id")
+        return "permalink", run
     if has_query:
         entry = canned.by_id(query)
         if not entry:
@@ -223,12 +307,24 @@ def _resolve_run_request(query: str | None, query_text: str | None, clip_id: str
     return "free", (query_text, cid)
 
 
-def _doc_for_request(query: str | None, query_text: str | None, clip_id: str | None) -> dict:
-    kind, payload = _resolve_run_request(query, query_text, clip_id)
+def _doc_for_request(query: str | None, query_text: str | None, clip_id: str | None,
+                     run: str | None = None, serve_meta: dict | None = None) -> dict:
+    """Dispatch to the canned / free-text / permalink builder. Returns a SCHEMA-PURE run-doc; the
+    optional `serve_meta` out-dict is populated with {cached, run_id?} for the route's SSE meta /
+    run_doc envelope (canned runs leave it at the default cached=False, no run_id)."""
+    # Calling the async route handler directly in tests (test_sse_stream's cancel/info-leak
+    # tests) leaves any un-passed Query()-defaulted param as a FieldInfo sentinel, not None.
+    # Coerce non-str values back to None so the exactly-one-of-three check stays correct.
+    if not isinstance(run, str):
+        run = None
+    _set_serve_meta(serve_meta, cached=False)  # canned default; the builders refine it
+    kind, payload = _resolve_run_request(query, query_text, clip_id, run)
     if kind == "canned":
         return build_run_doc(payload)
+    if kind == "permalink":
+        return build_permalink_run_doc(payload, serve_meta)
     text, cid = payload
-    return build_free_text_run_doc(text, cid)
+    return build_free_text_run_doc(text, cid, serve_meta)
 
 
 def _sse(event: str, data: dict) -> str:
@@ -256,8 +352,15 @@ def run_doc(
     query: str | None = Query(None),
     query_text: str | None = Query(None),
     clip: str | None = Query(None),
+    run: str | None = Query(None),
 ):
-    return _doc_for_request(query, query_text, clip)
+    # A permalink miss must 404 HERE (sync body), before any response is built. _doc_for_request
+    # -> build_permalink_run_doc raises HTTPException(404) which FastAPI surfaces as a 404.
+    serve_meta: dict = {}
+    doc = _doc_for_request(query, query_text, clip, run, serve_meta)
+    # The doc stays schema-pure (run_doc.schema.json is additionalProperties:false); run_id /
+    # cached ride alongside under `_meta`, never mixed into the doc keys the schema validates.
+    return {**doc, "_meta": serve_meta}
 
 
 @app.get("/api/run")
@@ -265,9 +368,14 @@ async def run(
     query: str | None = Query(None),
     query_text: str | None = Query(None),
     clip: str | None = Query(None),
+    run: str | None = Query(None),
     pace_ms: int = Query(1200, ge=0, le=10000),
 ):
-    doc = _doc_for_request(query, query_text, clip)
+    # Resolve + (for a permalink) 404-on-miss SYNCHRONOUSLY, before the StreamingResponse is
+    # constructed — the SSE generator deliberately never errors mid-stream, so a 404 raised
+    # inside gen() would be a 200 with a broken stream. _doc_for_request raises here on a miss.
+    serve_meta: dict = {}
+    doc = _doc_for_request(query, query_text, clip, run, serve_meta)
 
     async def gen():
         try:
@@ -275,6 +383,8 @@ async def run(
                 "query": doc["query"], "clip": doc["clip"],
                 "program": doc["program"], "total_steps": len(doc["trace"]), "pace_ms": pace_ms,
                 "program_source": doc.get("program_source", "pinned"),
+                "cached": serve_meta.get("cached", False),
+                **({"run_id": serve_meta["run_id"]} if "run_id" in serve_meta else {}),
             })
             for step in doc["trace"]:
                 await asyncio.sleep(pace_ms / 1000)
