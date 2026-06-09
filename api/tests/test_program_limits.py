@@ -273,14 +273,29 @@ def test_runtime_cap_fires_when_validation_bypassed():
 
 
 def test_runtime_frame_cap_does_not_materialize(monkeypatch):
-    # Prove the pre-materialization cap is O(1): if it built the list first, this would OOM. We
-    # assert it raises without ever calling list(range(...)) by trapping `range` would be fragile;
-    # instead we use a window so large that materialization would be catastrophic and rely on the
-    # raise happening near-instantly. end=2e9 @ fps30 -> ~60M; the cap must reject before list().
+    # Prove the pre-materialization cap rejects WITHOUT building list(range(...)): shadow `list`
+    # in the primitives module with a tripwire that records any call materializing an over-cap
+    # range. The bomb is just over the cap so a regression materializes 2001 ints (harmless) and
+    # the tripwire catches it, rather than 60M ints OOMing CI.
+    import interpreter.primitives as prims
+
     cache = Cache.load(canned.clip_by_id(CLIP_ID)["cache"])
-    step = {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 2_000_000_000, "fps": 30}}
+    stride = max(1, round(1000 / 30))
+    over_end = (MAX_SAMPLED_FRAMES) * stride  # count = end//stride + 1 = cap + 1
+
+    real_list = list
+    tripped = {"hit": False}
+
+    def tripwire(x=()):
+        if isinstance(x, range) and len(x) > MAX_SAMPLED_FRAMES:
+            tripped["hit"] = True
+        return real_list(x)
+
+    monkeypatch.setattr(prims, "list", tripwire, raising=False)
+    step = {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": over_end, "fps": 30}}
     with pytest.raises(ProgramLimitExceeded):
         op_sample_frames(step, {}, cache)
+    assert tripped["hit"] is False, "over-cap range must never be materialized"
 
 
 def test_oversized_codegen_output_rejected_before_parse(monkeypatch):
