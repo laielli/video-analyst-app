@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useRun, API_BASE, fetchCatalog } from "@/lib/useRun";
+import { useRun, API_BASE, fetchCatalog, permalinkFor } from "@/lib/useRun";
 import { MockEventSource } from "@/vitest.setup";
 
 // useRun connects to GET /api/run over SSE via the global EventSource (mocked in vitest.setup.ts)
@@ -90,6 +90,21 @@ describe("useRun", () => {
     expect(es().url).toBe(
       `${API_BASE}/api/run?pace_ms=0&query_text=how%20many%20players%3F&clip=single-goal`,
     );
+  });
+
+  it("permalink request URL carries the run param (pace_ms first, then run)", () => {
+    const { result } = renderHook(() => useRun(null, 0));
+    act(() => result.current.run({ kind: "permalink", runId: "abc" }));
+    // match runUrl's actual ordering: pace_ms first, then the request param.
+    expect(es().url).toBe(`${API_BASE}/api/run?pace_ms=0&run=abc`);
+  });
+
+  it("captures meta.run_id into state (the share-link source)", () => {
+    const { result } = renderHook(() => useRun("hero-10-first-goal", 0));
+    act(() => result.current.run());
+    act(() => es().emit("meta", { query: "q", total_steps: 0, program: [], run_id: "deadbeef", cached: false }));
+    expect(result.current.meta?.run_id).toBe("deadbeef");
+    expect(result.current.meta?.cached).toBe(false);
   });
 
   it("empty/whitespace free text is a no-op (no EventSource constructed)", () => {

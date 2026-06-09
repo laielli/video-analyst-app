@@ -63,6 +63,12 @@ export type Meta = {
   // validated; "pinned" = the known-good fallback (no creds, or live failed — D-DR6);
   // "ungrounded" = a free-text query that couldn't be grounded (no pinned fallback).
   program_source?: ProgramSource;
+  // Permalink id for this run — present only for a grounded free-text run (and a permalink
+  // replay). It IS the content-address cache key; share `${origin}/?run=<run_id>`. Absent for
+  // canned / ungrounded runs (those have no stored, shareable run).
+  run_id?: string | null;
+  // True when this run was served from the cache (a free-text repeat, or a permalink replay).
+  cached?: boolean;
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };

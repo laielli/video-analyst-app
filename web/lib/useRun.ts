@@ -9,13 +9,15 @@ export const API_BASE =
 export type RunStatus = "idle" | "running" | "done" | "error";
 
 /**
- * A run request: either a canned query (by id) or a free-text query (typed `text` against a
- * `clip`). `useRun.run` accepts either; a bare `run()` with no arg replays the hook's default
- * canned query (the auto-play URL — D-DR7).
+ * A run request: a canned query (by id), a free-text query (typed `text` against a `clip`), or a
+ * permalink replay (a stored run by `runId`). `useRun.run` accepts any; a bare `run()` with no arg
+ * replays the hook's default canned query (the auto-play URL — D-DR7). A permalink replay is just
+ * another SSE stream — the accumulate logic is identical.
  */
 export type RunRequest =
   | { kind: "canned"; queryId: string }
-  | { kind: "free"; text: string; clip?: string };
+  | { kind: "free"; text: string; clip?: string }
+  | { kind: "permalink"; runId: string };
 
 export type RunState = {
   status: RunStatus;
@@ -30,8 +32,17 @@ export type RunState = {
 function runUrl(req: RunRequest, paceMs: number): string {
   const base = `${API_BASE}/api/run?pace_ms=${paceMs}`;
   if (req.kind === "canned") return `${base}&query=${encodeURIComponent(req.queryId)}`;
+  if (req.kind === "permalink") return `${base}&run=${encodeURIComponent(req.runId)}`;
   const clip = req.clip ? `&clip=${encodeURIComponent(req.clip)}` : "";
   return `${base}&query_text=${encodeURIComponent(req.text)}${clip}`;
+}
+
+/**
+ * Build the shareable permalink for a grounded free-text run: `${origin}/?run=<run_id>`. Pure
+ * (no clipboard / no `window`) so it is unit-testable; the caller writes it via navigator.clipboard.
+ */
+export function permalinkFor(origin: string, runId: string): string {
+  return `${origin}/?run=${encodeURIComponent(runId)}`;
 }
 
 /**
