@@ -43,6 +43,9 @@ coverage/
 htmlcov/
 coverage.xml
 
+# Free-text run cache (content-addressed run-docs + permalinks; runtime-only, never committed)
+api/.run_cache/
+
 # Azure
 .azure/
 local.settings.json
