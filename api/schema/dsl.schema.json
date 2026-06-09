@@ -9,7 +9,8 @@
   "properties": {
     "program": {
       "type": "array",
-      "description": "Ordered execution steps. Step N may reference the `id` of any step < N.",
+      "maxItems": 32,
+      "description": "Ordered execution steps. Step N may reference the `id` of any step < N. maxItems mirrors limits.MAX_STEPS (the local validator re-checks it under strict:false; the schema gate keeps the CLI/canned loaders honest). Kept in sync by test_program_limits.test_limit_constants_match_schema.",
       "items": {
         "anyOf": [
           { "$ref": "#/$defs/sample_frames" },
@@ -27,7 +28,8 @@
   "$defs": {
     "binding": {
       "type": "string",
-      "description": "The `id` of a prior step whose output this argument consumes (a named binding). The interpreter checks the referenced step exists, precedes this one, and produces a compatible kind."
+      "maxLength": 256,
+      "description": "The `id` of a prior step whose output this argument consumes (a named binding). maxLength mirrors limits.MAX_STR_ARG_LEN. The interpreter checks the referenced step exists, precedes this one, and produces a compatible kind."
     },
     "sample_frames": {
       "type": "object",
@@ -35,16 +37,16 @@
       "required": ["id", "op", "args"],
       "description": "Sample frames from the clip over a time window. Output kind: frames.",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 256 },
         "op": { "type": "string", "enum": ["sample_frames"] },
         "args": {
           "type": "object",
           "additionalProperties": false,
           "required": ["start_ms", "end_ms", "fps"],
           "properties": {
-            "start_ms": { "type": "integer", "description": "Window start in ms. Interpreter range: 0..clip_duration_ms." },
-            "end_ms": { "type": "integer", "description": "Window end in ms, > start_ms." },
-            "fps": { "type": "integer", "description": "Sampling rate. Interpreter range: 1..30." }
+            "start_ms": { "type": "integer", "minimum": 0, "description": "Window start in ms. Interpreter range: 0..clip_duration_ms." },
+            "end_ms": { "type": "integer", "minimum": 0, "description": "Window end in ms, > start_ms." },
+            "fps": { "type": "integer", "minimum": 1, "maximum": 30, "description": "Sampling rate. Interpreter range: 1..30." }
           }
         }
       }
@@ -55,7 +57,7 @@
       "required": ["id", "op", "args"],
       "description": "Run Azure AI Vision object detection per frame. Output kind: detections (boxes with class + confidence, per frame).",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 256 },
         "op": { "type": "string", "enum": ["detect"] },
         "args": {
           "type": "object",
@@ -65,8 +67,10 @@
             "frames": { "$ref": "#/$defs/binding" },
             "classes": {
               "type": "array",
-              "description": "Object classes to keep, e.g. [\"person\",\"ball\"]. Azure tags are matched case-insensitively.",
-              "items": { "type": "string" }
+              "minItems": 1,
+              "maxItems": 16,
+              "description": "Object classes to keep, e.g. [\"person\",\"ball\"]. Azure tags are matched case-insensitively. minItems/maxItems/maxLength mirror limits.MAX_DETECT_CLASSES/MAX_STR_ARG_LEN.",
+              "items": { "type": "string", "maxLength": 256 }
             }
           }
         }
@@ -78,7 +82,7 @@
       "required": ["id", "op", "args"],
       "description": "Crop a sub-region from each detection box (the load-bearing detect->crop->read_text association chain). Output kind: crops.",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 256 },
         "op": { "type": "string", "enum": ["crop"] },
         "args": {
           "type": "object",
@@ -101,7 +105,7 @@
       "required": ["id", "op", "args"],
       "description": "Run Azure AI Vision Read (OCR) on each crop. Output kind: texts (string + confidence + source box, per crop).",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 256 },
         "op": { "type": "string", "enum": ["read_text"] },
         "args": {
           "type": "object",
@@ -119,7 +123,7 @@
       "required": ["id", "op", "args"],
       "description": "Keep only items whose `field` equals `equals`. Output kind: same kind as the input items.",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 256 },
         "op": { "type": "string", "enum": ["filter"] },
         "args": {
           "type": "object",
@@ -132,8 +136,8 @@
               "additionalProperties": false,
               "required": ["field", "equals"],
               "properties": {
-                "field": { "type": "string", "description": "Field on each item, e.g. \"text\" or \"class\"." },
-                "equals": { "type": "string", "description": "Value to match (string compare)." }
+                "field": { "type": "string", "maxLength": 256, "description": "Field on each item, e.g. \"text\" or \"class\". maxLength mirrors limits.MAX_STR_ARG_LEN." },
+                "equals": { "type": "string", "maxLength": 256, "description": "Value to match (string compare). maxLength mirrors limits.MAX_STR_ARG_LEN." }
               }
             }
           }
@@ -146,7 +150,7 @@
       "required": ["id", "op", "args"],
       "description": "Count the items in a collection. Output kind: number.",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 256 },
         "op": { "type": "string", "enum": ["count"] },
         "args": {
           "type": "object",
@@ -164,7 +168,7 @@
       "required": ["id", "op", "args"],
       "description": "Order events in time to reason about sequence (e.g. is this the FIRST goal). Output kind: ordered events.",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 256 },
         "op": { "type": "string", "enum": ["temporal_order"] },
         "args": {
           "type": "object",
@@ -183,7 +187,7 @@
       "required": ["id", "op", "args"],
       "description": "Produce the final evidence-grounded answer to the canned question. Output kind: answer (verdict + supporting bindings). Must be the last step.",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 256 },
         "op": { "type": "string", "enum": ["answer"] },
         "args": {
           "type": "object",
