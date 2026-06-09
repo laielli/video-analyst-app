@@ -1,0 +1,47 @@
+{
+  "fixture_format": 1,
+  "case_id": "hero-oos-finalscore",
+  "clip_id": "single-goal",
+  "question": "What was the final score of this game?",
+  "prompt_version": "3aefdf60232f9d4f",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 100,
+        "end_ms": 200,
+        "fps": 1
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "n",
+      "op": "count",
+      "args": {
+        "items": "people"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "n",
+        "question": "What was the final score of this game?"
+      }
+    }
+  ],
+  "error": null,
+  "model": "seed",
+  "captured_at": "seed",
+  "usage": null
+}

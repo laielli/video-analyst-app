@@ -1,0 +1,47 @@
+{
+  "fixture_format": 1,
+  "case_id": "bernabeu-count-paraphrase-1",
+  "clip_id": "bernabeu-counter",
+  "question": "How many players can you see?",
+  "prompt_version": "7dd70c3354541f33",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 10000,
+        "end_ms": 10001,
+        "fps": 1
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "n",
+      "op": "count",
+      "args": {
+        "items": "people"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "n",
+        "question": "How many players can you see?"
+      }
+    }
+  ],
+  "error": null,
+  "model": "seed",
+  "captured_at": "seed",
+  "usage": null
+}

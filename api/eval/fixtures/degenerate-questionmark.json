@@ -1,0 +1,12 @@
+{
+  "fixture_format": 1,
+  "case_id": "degenerate-questionmark",
+  "clip_id": "bernabeu-counter",
+  "question": "?",
+  "prompt_version": "7dd70c3354541f33",
+  "raw_program": null,
+  "error": "generation-failed",
+  "model": "seed",
+  "captured_at": "seed",
+  "usage": null
+}

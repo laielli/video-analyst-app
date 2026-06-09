@@ -1,0 +1,47 @@
+{
+  "fixture_format": 1,
+  "case_id": "bernabeu-firstgoal23-canonical",
+  "clip_id": "bernabeu-counter",
+  "question": "Does #23 score the first goal?",
+  "prompt_version": "7dd70c3354541f33",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 100,
+        "end_ms": 200,
+        "fps": 1
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "n",
+      "op": "count",
+      "args": {
+        "items": "people"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "n",
+        "question": "Does #23 score the first goal?"
+      }
+    }
+  ],
+  "error": null,
+  "model": "seed",
+  "captured_at": "seed",
+  "usage": null
+}

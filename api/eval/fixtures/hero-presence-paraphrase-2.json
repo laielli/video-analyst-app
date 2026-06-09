@@ -1,0 +1,40 @@
+{
+  "fixture_format": 1,
+  "case_id": "hero-presence-paraphrase-2",
+  "clip_id": "single-goal",
+  "question": "Can you see a person in this clip?",
+  "prompt_version": "3aefdf60232f9d4f",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 4625,
+        "end_ms": 4626,
+        "fps": 1
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "people",
+        "question": "Can you see a person in this clip?"
+      }
+    }
+  ],
+  "error": null,
+  "model": "seed",
+  "captured_at": "seed",
+  "usage": null
+}

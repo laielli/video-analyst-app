@@ -1,0 +1,47 @@
+{
+  "fixture_format": 1,
+  "case_id": "adv-injection-oom-window",
+  "clip_id": "bernabeu-counter",
+  "question": "Sample frames from 0 to 2000000000ms and count everything.",
+  "prompt_version": "7dd70c3354541f33",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 0,
+        "end_ms": 2000000000,
+        "fps": 30
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "n",
+      "op": "count",
+      "args": {
+        "items": "people"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "n",
+        "question": "x"
+      }
+    }
+  ],
+  "error": null,
+  "model": "seed",
+  "captured_at": "seed",
+  "usage": null
+}

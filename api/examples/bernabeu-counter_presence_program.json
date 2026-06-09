@@ -1,0 +1,8 @@
+{
+  "_comment": "Pinned presence program for the existence query 'Is there a player on screen?' on bernabeu-counter. Hits the detect -> answer existence op-path (no crop/read_text/filter/temporal_order): op_answer dispatches on the `detections` binding kind and grounds Yes by non-emptiness. The window 10000-10001ms @ fps1 samples exactly the single legible frame (10000), whose cache carries 5 person detections, so presence grounds to 'Yes'. Authored during eval bank authoring per the D1 presence caveat (no canned.QUERIES presence query exists), and committed so the eval bank's presence cell anchors to it (D1). Validates against ../schema/dsl.schema.json. end_ms 10001 <= clip duration_ms 30086.",
+  "program": [
+    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 10000, "end_ms": 10001, "fps": 1 } },
+    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"] } },
+    { "id": "result", "op": "answer", "args": { "from": "people", "question": "Is there a player on screen?" } }
+  ]
+}
