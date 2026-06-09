@@ -63,6 +63,12 @@ export type Meta = {
   // validated; "pinned" = the known-good fallback (no creds, or live failed — D-DR6);
   // "ungrounded" = a free-text query that couldn't be grounded (no pinned fallback).
   program_source?: ProgramSource;
+  // Content-addressed permalink id, present ONLY on a grounded free-text run (fresh or replayed).
+  // Its presence gates the "Copy run link" affordance; `${origin}/?run=<run_id>` is the share URL.
+  run_id?: string;
+  // True when this run-doc was served from the run cache (a free-text cache hit OR a permalink
+  // replay) rather than freshly computed. Derived by the route at serve time, never persisted.
+  cached?: boolean;
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };

@@ -1,33 +1,58 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRun, fetchCatalog } from "@/lib/useRun";
+import { useRun, fetchCatalog, shareLink } from "@/lib/useRun";
 import type { CatalogQuery } from "@/lib/types";
 import ProgramPanel from "@/components/ProgramPanel";
 import EvidencePanel from "@/components/EvidencePanel";
 import StepTracker from "@/components/StepTracker";
 import Findings from "@/components/Findings";
 
+/** Read `?run=<id>` and `?query=<id>` from the current URL (empty strings -> null). SSR-safe. */
+function urlParams(): { run: string | null; query: string | null } {
+  if (typeof window === "undefined") return { run: null, query: null };
+  const p = new URLSearchParams(window.location.search);
+  return { run: p.get("run") || null, query: p.get("query") || null };
+}
+
 export default function Page() {
   const [queries, setQueries] = useState<CatalogQuery[]>([]);
   const [queryId, setQueryId] = useState<string | null>(null);
   const [text, setText] = useState(""); // the typed free-text question
   const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const run = useRun(queryId, 1200);
 
   useEffect(() => {
     fetchCatalog()
       .then((c) => {
         setQueries(c.queries);
-        if (c.queries[0]) setQueryId(c.queries[0].id);
+        // `?query=<id>` selects that canned query on load; else default to the first.
+        const { query: queryParam } = urlParams();
+        const wanted = queryParam && c.queries.some((q) => q.id === queryParam) ? queryParam : null;
+        const next = wanted ?? c.queries[0]?.id ?? null;
+        if (next) setQueryId(next);
       })
       .catch(() => setErr("Can't reach the API. Start it: cd api && uvicorn server:app --port 8000"));
   }, []);
 
+  // On mount, a `?run=<id>` permalink auto-replays the stored run (highest priority — the
+  // share-link entry point). It must run BEFORE/INSTEAD OF the canned auto-play, which is why the
+  // canned effect below is gated on the absence of a `?run=` param.
+  useEffect(() => {
+    const { run: runId } = urlParams();
+    if (runId) run.run({ kind: "permalink", runId });
+    return () => run.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-run on first load and whenever the canned query changes (the public URL self-plays —
-  // D-DR7). Free-text runs are explicit (the Ask button), never auto-run on keystroke.
+  // D-DR7). Free-text runs are explicit (the Ask button), never auto-run on keystroke. GATED so a
+  // `?run=<id>` permalink replay is not clobbered: this effect fires the moment fetchCatalog
+  // resolves, so without the guard it would race the permalink replay above.
   useEffect(() => {
     if (!queryId) return;
+    if (urlParams().run) return; // a permalink replay owns the first run — don't clobber it.
     run.run();
     return () => run.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -42,7 +67,21 @@ export default function Page() {
   const ask = () => {
     const t = text.trim();
     if (!t) return;
+    setCopied(false);
     run.run({ kind: "free", text: t, clip: clipId });
+  };
+
+  // "Copy run link": enabled only when the current run minted a run_id (a grounded free-text run
+  // OR a permalink replay). Writes `${origin}/?run=<id>` to the clipboard so the run is shareable.
+  const runId = run.meta?.run_id;
+  const copyRunLink = async () => {
+    if (!runId || typeof window === "undefined") return;
+    try {
+      await navigator.clipboard.writeText(shareLink(window.location.origin, runId));
+      setCopied(true);
+    } catch {
+      // clipboard blocked (e.g. insecure context) — leave the button label unchanged.
+    }
   };
 
   const program = run.meta?.program ?? [];
@@ -74,6 +113,16 @@ export default function Page() {
               <button className="btn btn-run" onClick={() => run.run()} disabled={run.status === "running"}>
                 {run.status === "running" ? "Running…" : run.status === "done" ? "Replay" : "Run"}
               </button>
+              {runId && (
+                <button
+                  className="btn btn-share"
+                  onClick={copyRunLink}
+                  aria-label="Copy a shareable link to this run"
+                  title="Copy a shareable link to this run"
+                >
+                  {copied ? "Link copied" : "Copy run link"}
+                </button>
+              )}
             </div>
           </div>
           {/* Free-text query: type a question, click Ask. The interpreter runs over this clip's

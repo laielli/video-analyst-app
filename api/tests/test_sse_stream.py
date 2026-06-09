@@ -128,8 +128,8 @@ async def test_info_leak_guard_sends_fixed_message_no_secret(monkeypatch):
     and the secret never reaches the body."""
     real = server._doc_for_request
 
-    def fake(query, query_text, clip):
-        doc = real("hero-10-first-goal", None, None)
+    def fake(query, query_text, clip, run=None, serve_meta=None):
+        doc = real("hero-10-first-goal", None, None, None, serve_meta)
         doc["trace"] = _RaisingTrace()  # len() ok, iteration raises with a secret path
         return doc
     monkeypatch.setattr(server, "_doc_for_request", fake)
@@ -266,6 +266,18 @@ def test_resolve_validation_branches():
     # happy paths
     assert server._resolve_run_request("hero-10-first-goal", None, None)[0] == "canned"
     assert server._resolve_run_request(None, "how many?", None)[0] == "free"
+
+
+def test_resolve_validation_is_exactly_one_of_three():
+    # The guard is now an exactly-one-of-three (run | query | query_text), not a two-way XOR:
+    # a bare ?run=<id> must be ACCEPTED (the old `has_query == has_text` check would 400 it).
+    valid_id = "a" * 64
+    assert server._resolve_run_request(None, None, None, valid_id)[0] == "permalink"
+    # run is mutually exclusive with query / query_text.
+    assert _status(lambda: server._resolve_run_request("hero-10-first-goal", None, None, valid_id)) == 400
+    assert _status(lambda: server._resolve_run_request(None, "how many?", None, valid_id)) == 400
+    # a malformed run id -> 400 at the format guard (before any store touch / path compose).
+    assert _status(lambda: server._resolve_run_request(None, None, None, "../../etc/passwd")) == 400
 
 
 # ---------------------------------------------------------------------------------------
