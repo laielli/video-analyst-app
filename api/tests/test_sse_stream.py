@@ -128,13 +128,13 @@ async def test_info_leak_guard_sends_fixed_message_no_secret(monkeypatch):
     and the secret never reaches the body."""
     real = server._doc_for_request
 
-    def fake(query, query_text, clip):
-        doc = real("hero-10-first-goal", None, None)
+    def fake(query, query_text, clip, run=None):
+        doc, cached = real("hero-10-first-goal", None, None)
         doc["trace"] = _RaisingTrace()  # len() ok, iteration raises with a secret path
-        return doc
+        return doc, cached
     monkeypatch.setattr(server, "_doc_for_request", fake)
 
-    resp = await server.run(query="hero-10-first-goal", query_text=None, clip=None, pace_ms=0)
+    resp = await server.run(query="hero-10-first-goal", query_text=None, clip=None, run=None, pace_ms=0)
     body = await drain(resp.body_iterator)
     evs = events(body)
     names = [n for n, _ in evs]
@@ -157,7 +157,7 @@ async def test_cancel_reraises_not_swallowed_into_error():
     throws CancelledError into its body_iterator."""
     # pass every param explicitly as a plain value — calling the route handler directly bypasses
     # FastAPI's Query() default resolution, so query_text/clip must be real None, not Query(None).
-    resp = await server.run(query="hero-10-first-goal", query_text=None, clip=None, pace_ms=0)
+    resp = await server.run(query="hero-10-first-goal", query_text=None, clip=None, run=None, pace_ms=0)
     it = resp.body_iterator
     # advance past meta so we're inside the generator.
     first = await it.__anext__()
@@ -266,6 +266,16 @@ def test_resolve_validation_branches():
     # happy paths
     assert server._resolve_run_request("hero-10-first-goal", None, None)[0] == "canned"
     assert server._resolve_run_request(None, "how many?", None)[0] == "free"
+
+    # --- three-way exactly-one-of: run | query | query_text (rewritten from the two-way XOR) ---
+    valid_run = "a" * 64
+    # a bare ?run=<id> is now ACCEPTED (the old two-way XOR at server.py:210 would have 400'd it).
+    assert server._resolve_run_request(None, None, None, valid_run) == ("permalink", valid_run)
+    # run is mutually exclusive with query / query_text.
+    assert _status(lambda: server._resolve_run_request("hero-10-first-goal", None, None, valid_run)) == 400
+    assert _status(lambda: server._resolve_run_request(None, "how many?", None, valid_run)) == 400
+    # a malformed run id -> 400 (format guard, before any store touch).
+    assert _status(lambda: server._resolve_run_request(None, None, None, "deadbeef")) == 400
 
 
 # ---------------------------------------------------------------------------------------

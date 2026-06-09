@@ -37,6 +37,11 @@ venv/
 .pytest_cache/
 .mypy_cache/
 
+# Free-text run cache (content-addressed run-docs + shareable-permalink store).
+# Runtime-only + gitignored, never committed (Phase 2). The top-level `.cache/` rule above
+# does NOT match this path, so it needs its own entry.
+api/.run_cache/
+
 # Coverage (pytest-cov / vitest v8 — measured in CI, never committed)
 .coverage
 coverage/

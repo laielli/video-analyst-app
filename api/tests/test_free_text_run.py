@@ -17,6 +17,7 @@ import pytest
 import server
 import canned
 import codegen
+import run_cache
 from interpreter import Cache, Interpreter
 from validate_program import validation_errors
 from conftest import FakeCodegen
@@ -40,7 +41,12 @@ def test_free_text_grounded_returns_live_source(mock_codegen, hero_program):
     assert doc["program_source"] == "live"
     assert doc["findings"]["grounded"] is True
     assert doc["findings"]["answer"]  # non-empty
-    assert not _schema_errors(doc)
+    # A grounded free-text run now carries a permalink `run_id` (the content-address). It is a
+    # meta-level field the routes surface in the envelope/meta and strip from the streamed doc,
+    # so the run-doc body stays schema-pure once run_id is removed.
+    assert run_cache.is_valid_key(doc["run_id"])
+    body = {k: v for k, v in doc.items() if k != "run_id"}
+    assert not _schema_errors(body)
 
 
 # --------------------------------------------------------------------------------------
