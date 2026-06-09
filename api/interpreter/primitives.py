@@ -17,6 +17,8 @@ Binding kinds and item shapes:
 """
 from __future__ import annotations
 
+from limits import MAX_SAMPLED_FRAMES, ProgramLimitExceeded, sampled_frame_count
+
 
 def _evi(frame_ts_ms, overlays):
     return {"frame_ts_ms": int(frame_ts_ms), "overlays": overlays}
@@ -26,6 +28,15 @@ def op_sample_frames(step, env, cache):
     a = step["args"]
     start, end, fps = a["start_ms"], a["end_ms"], a["fps"]
     stride = max(1, round(1000 / fps))
+    # Load-bearing runtime guard (trust boundary): bound the would-be length of
+    # range(start, end+1, stride) BEFORE materializing it. A post-hoc len() on the built list
+    # fires only after a 60M-frame bomb has already OOM'd the process, so the cap MUST sit here.
+    # The count uses the same stride math (shared helper) so the validator and this guard agree.
+    would_build = sampled_frame_count(start, end, fps)
+    if would_build > MAX_SAMPLED_FRAMES:
+        raise ProgramLimitExceeded(
+            f"sample_frames would materialize {would_build} frames; max is {MAX_SAMPLED_FRAMES}"
+        )
     ts = list(range(start, end + 1, stride))
     binding = {"kind": "frames", "items": [{"frame_ts_ms": t} for t in ts]}
     result = {

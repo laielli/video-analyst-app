@@ -18,8 +18,16 @@ import json
 import os
 from pathlib import Path
 
+from limits import MAX_PROGRAM_BYTES
+
 API_DIR = Path(__file__).resolve().parent
 SCHEMA_PATH = API_DIR / "schema" / "dsl.schema.json"
+
+# Cap the completion length so the model can never be steered into emitting an unbounded blob (a
+# DoS vector for the downstream jsonschema walk). One token is >= 1 byte for ASCII JSON, so
+# MAX_PROGRAM_BYTES // 3 keeps the worst-case raw size comfortably under MAX_PROGRAM_BYTES while
+# leaving ample room for the largest legitimate program (the hero/bernabeu chains are ~1-2 KB).
+MAX_PROGRAM_TOKENS = MAX_PROGRAM_BYTES // 3
 
 SYSTEM_PROMPT = """\
 You are the program-generation layer of a ViperGPT-style video analyst. Compile the user's
@@ -126,6 +134,9 @@ class AzureCodegen:
         resp = self._client.chat.completions.create(
             model=self._deployment,
             temperature=0,
+            # Bound the output so a hostile/confused prompt can't make the model emit a giant blob
+            # that DoS-es the downstream jsonschema walk (trust boundary; mirrors MAX_PROGRAM_BYTES).
+            max_tokens=MAX_PROGRAM_TOKENS,
             response_format={
                 "type": "json_schema",
                 # strict=False on purpose. Our program is a discriminated union (8 op objects in
@@ -141,7 +152,14 @@ class AzureCodegen:
                 {"role": "user", "content": question},
             ],
         )
-        doc = json.loads(resp.choices[0].message.content or "{}")
+        content = resp.choices[0].message.content or "{}"
+        # Raw-size cap BEFORE json.loads (trust boundary): max_tokens bounds the API output, but
+        # belt-and-suspenders against a misconfigured deployment or a multibyte blow-up. Reject the
+        # raw bytes here so the unbounded string never reaches the json parser / validator. The
+        # caller maps any generate() error to the fixed `codegen-error` reason (no text leak).
+        if len(content.encode("utf-8")) > MAX_PROGRAM_BYTES:
+            raise ValueError(f"codegen output exceeds {MAX_PROGRAM_BYTES} bytes")
+        doc = json.loads(content)
         program = doc.get("program")
         if not isinstance(program, list):
             raise ValueError("codegen output missing 'program' array")

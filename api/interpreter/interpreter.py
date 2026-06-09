@@ -5,6 +5,8 @@ each op also produces its run-doc trace entry. Replay mode = zero live calls.
 """
 from __future__ import annotations
 
+from limits import MAX_STEPS, ProgramLimitExceeded
+
 from .primitives import OPS
 
 
@@ -13,6 +15,13 @@ class Interpreter:
         self.cache = cache
 
     def run(self, program: list[dict], query: str | None = None) -> dict:
+        # Runtime step cap (trust boundary): the residual guard for any caller that reaches the
+        # interpreter without going through validation_errors first (the server path validates
+        # before calling run, but a future/direct caller might not). Cheap len() comparison —
+        # no per-step instrumentation, since steps<=32 and frames<=2000/call bound the work.
+        if len(program) > MAX_STEPS:
+            raise ProgramLimitExceeded(f"program has {len(program)} steps; max is {MAX_STEPS}")
+
         env: dict[str, dict] = {}
         trace: list[dict] = []
         answer_binding: dict | None = None
