@@ -22,6 +22,22 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+# Ensure api/ is importable when this file is run directly as `python scripts/validate_program.py`
+# (Python only auto-adds scripts/ to sys.path[0] in that case). The trust-boundary limit constants
+# live in the top-level api/limits.py so the interpreter package can import them cycle-free; the
+# server/CLI entry points already insert API_DIR, but the direct-CLI invocation does not.
+if str(HERE.parent) not in sys.path:
+    sys.path.insert(0, str(HERE.parent))
+
+from limits import (  # noqa: E402
+    MAX_DETECT_CLASSES,
+    MAX_PROGRAM_BYTES,
+    MAX_SAMPLED_FRAMES,
+    MAX_STEPS,
+    MAX_STR_ARG_LEN,
+    sampled_frame_count,
+)
+
 SCHEMA_PATH = HERE.parent / "schema" / "dsl.schema.json"
 DEFAULT_PROGRAM = HERE.parent / "examples" / "hero_program.json"
 
@@ -88,6 +104,13 @@ def validation_errors(program_doc: dict, schema: dict | None = None, clip: dict 
     are stripped here so callers can pass raw codegen/authoring output. Semantic checks are
     skipped when structure fails (malformed refs make them meaningless). `clip` (with
     `duration_ms`) bounds numeric args so a *validated* program can't OOM the interpreter."""
+    # Raw-size cap FIRST — before json/jsonschema ever touches the doc. The structural pass is an
+    # 8-way anyOf per program item, superlinear on hostile input, so the validator itself is a DoS
+    # vector on an unbounded blob. Measure the serialized size and reject oversized docs before the
+    # schema walk (codegen.generate also caps the raw string before it gets here). This is the
+    # belt-and-suspenders second enforcement of MAX_PROGRAM_BYTES (the first is in codegen).
+    if _program_doc_byte_size(program_doc) > MAX_PROGRAM_BYTES:
+        return [f"size: program exceeds {MAX_PROGRAM_BYTES} bytes (rejected before schema walk)"]
     if schema is None:
         schema = json.loads(SCHEMA_PATH.read_text())
     doc = strip_comments(program_doc)
@@ -95,6 +118,16 @@ def validation_errors(program_doc: dict, schema: dict | None = None, clip: dict 
     if struct:
         return [f"structural: {m}" for m in struct]
     return [f"semantic: {m}" for m in semantic_errors(doc["program"], clip=clip)]
+
+
+def _program_doc_byte_size(program_doc: dict) -> int:
+    """Serialized UTF-8 byte size of the program doc, used for the MAX_PROGRAM_BYTES gate. A doc
+    that is not even json-serializable is treated as oversized (rejected) rather than crashing the
+    validator — the trust boundary fails closed."""
+    try:
+        return len(json.dumps(program_doc).encode("utf-8"))
+    except (TypeError, ValueError):
+        return MAX_PROGRAM_BYTES + 1
 
 
 def _sample_frames_bounds(i: int, sid: str, args: dict, clip: dict | None) -> list[str]:
@@ -119,11 +152,63 @@ def _sample_frames_bounds(i: int, sid: str, args: dict, clip: dict | None) -> li
     return out
 
 
+def _arg_domain_errors(i: int, sid: str, op: str, args: dict) -> list[str]:
+    """Per-op arg-domain checks (trust boundary): bound the abuse-relevant arg shapes the JSON
+    Schema's static limits back up, but the local validator is the real gate (strict:false on the
+    codegen call makes the schema advisory). We bound the OOM/abuse vectors — detect.classes count
+    + element type/length, and free-string length on filter.where.field/equals — and leave the
+    semantically-harmless free-string VALUES otherwise unconstrained (length-closed only). See the
+    note below on why answer.question is deliberately exempt from a per-field length cap."""
+    out: list[str] = []
+    if op == "detect":
+        cls = args.get("classes")
+        if isinstance(cls, list):
+            if not cls:
+                out.append(f"step[{i}] '{sid}' (detect): classes is empty")
+            if len(cls) > MAX_DETECT_CLASSES:
+                out.append(
+                    f"step[{i}] '{sid}' (detect): classes has {len(cls)} entries; "
+                    f"max is {MAX_DETECT_CLASSES}"
+                )
+            for c in cls:
+                if not isinstance(c, str):
+                    out.append(f"step[{i}] '{sid}' (detect): classes element is not a string")
+                elif len(c) > MAX_STR_ARG_LEN:
+                    out.append(
+                        f"step[{i}] '{sid}' (detect): a classes element is {len(c)} chars; "
+                        f"max is {MAX_STR_ARG_LEN}"
+                    )
+    elif op == "filter":
+        where = args.get("where", {})
+        if isinstance(where, dict):
+            for f in ("field", "equals"):
+                v = where.get(f)
+                if isinstance(v, str) and len(v) > MAX_STR_ARG_LEN:
+                    out.append(
+                        f"step[{i}] '{sid}' (filter): where.{f} is {len(v)} chars; "
+                        f"max is {MAX_STR_ARG_LEN}"
+                    )
+    # answer.question is deliberately NOT length-capped here: it is the user's query passed
+    # through verbatim, already bounded by MAX_QUERY_TEXT_LEN (500) at the route AND by
+    # MAX_PROGRAM_BYTES on the whole doc. A 256-char cap here would falsely reject legitimate
+    # long questions (the plan's default depth leaves harmless free strings length-closed at the
+    # doc level, not per-field). See PR body / Deferred notes (answer.question whitelisting).
+    return out
+
+
 def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
-    """The checks the JSON Schema cannot express: ref existence/order, kind flow,
-    unique ids, answer-is-last, and numeric arg bounds (trust boundary)."""
+    """The checks the JSON Schema cannot express: ref existence/order, kind flow, unique ids,
+    answer-is-last, numeric arg bounds, per-op arg-domain limits, and the program-wide resource
+    caps (max steps, max cumulative sampled frames) — the trust boundary the interpreter relies on
+    having been enforced before Interpreter.run."""
     errors: list[str] = []
     produced: dict[str, str] = {}  # id -> output kind, in declaration order
+    total_frames = 0  # cumulative across all sample_frames ops (OOM-relevant resource cap)
+
+    # Program-wide step cap (trust boundary): reject before any per-step work so an oversized
+    # program never reaches Interpreter.run. The static schema maxItems backs this up.
+    if len(program) > MAX_STEPS:
+        errors.append(f"program has {len(program)} steps; max is {MAX_STEPS}")
 
     for i, step in enumerate(program):
         sid = step.get("id")
@@ -171,6 +256,16 @@ def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
         # interpreter, so enforce 0 <= start < end <= duration_ms and 1 <= fps <= 30.
         if op == "sample_frames":
             errors.extend(_sample_frames_bounds(i, sid, args, clip))
+            # Accumulate the would-be materialized frame count using the SAME stride math the
+            # interpreter uses (shared helper), so the validator's cumulative cap agrees with the
+            # per-call runtime cap. Only count a sane (ints, end>start) window — out-of-order/
+            # non-int windows are already flagged above; counting them would double up the noise.
+            s, e, f = args.get("start_ms"), args.get("end_ms"), args.get("fps")
+            if all(isinstance(v, int) for v in (s, e, f)) and e > s and f >= 1:
+                total_frames += sampled_frame_count(s, e, f)
+
+        # Per-op arg-domain limits (detect.classes, free-string lengths) — trust boundary.
+        errors.extend(_arg_domain_errors(i, sid, op, args))
 
         # Resolve this step's output kind (filter/temporal_order pass input through).
         if op in PRODUCES:
@@ -181,6 +276,13 @@ def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
             produced[sid] = produced.get(args.get("events"), "unknown")
         else:
             produced[sid] = "unknown"
+
+    # Cumulative sampled-frame cap (trust boundary, OOM-relevant): the SUM of frames across every
+    # sample_frames op. This is bounded by frame COUNT regardless of clip duration, so it closes the
+    # no-clip gap (the per-op duration bound is skipped when clip=None) AND the many-small-windows
+    # vector (each window in range, summing over the cap).
+    if total_frames > MAX_SAMPLED_FRAMES:
+        errors.append(f"program samples {total_frames} frames; max is {MAX_SAMPLED_FRAMES}")
 
     if not program:
         errors.append("program is empty")
