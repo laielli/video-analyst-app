@@ -19,6 +19,15 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "text-summary"],
       include: ["lib/**", "components/**"],
+      // Calibrated floors: ~5pp below the natural numbers (lines/statements 99.03%,
+      // functions 100%, branches 91.9%), floored to a multiple of 5. `npm run test:cov`
+      // (and the web CI job) fails if coverage drops below these.
+      thresholds: {
+        lines: 95,
+        statements: 95,
+        functions: 95,
+        branches: 85,
+      },
     },
   },
 });

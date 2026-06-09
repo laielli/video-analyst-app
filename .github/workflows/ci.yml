@@ -1,8 +1,10 @@
 name: CI
 
 # First CI gate: a two-job matrix (independent python + web jobs) on push + PR to main.
-# Coverage is measured but NEVER gating (no --cov-fail-under). The web job runs a flat-config
-# ESLint gate (eslint-config-next, ESLint 9) + next build + tsc --noEmit + vitest.
+# Coverage is now gated against calibrated floors (~5pp below the natural numbers, floored to a
+# multiple of 5): python via `pytest --cov-fail-under=85`, web via vitest coverage.thresholds in
+# web/vitest.config.ts. Local `python -m pytest -q` stays un-gated for red-green cycles. The web
+# job runs a flat-config ESLint gate (eslint-config-next, ESLint 9) + next build + tsc --noEmit.
 on:
   push:
     branches: [main]
@@ -24,9 +26,9 @@ jobs:
           cache-dependency-path: api/requirements.txt
       - name: Install deps
         run: pip install -r api/requirements.txt
-      - name: Run tests (coverage non-gating)
+      - name: Run tests (coverage gated at floor)
         working-directory: api
-        run: python -m pytest -q --cov=. --cov-report=term-missing
+        run: python -m pytest -q --cov=. --cov-report=term-missing --cov-fail-under=85
 
   web:
     name: Web (build + tsc + vitest)
@@ -51,5 +53,5 @@ jobs:
         run: npm run build
       - name: Type-check
         run: npx tsc --noEmit
-      - name: Run tests (coverage non-gating)
+      - name: Run tests (coverage gated at thresholds)
         run: npm run test:cov
