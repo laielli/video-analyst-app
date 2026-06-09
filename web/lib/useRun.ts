@@ -15,7 +15,10 @@ export type RunStatus = "idle" | "running" | "done" | "error";
  */
 export type RunRequest =
   | { kind: "canned"; queryId: string }
-  | { kind: "free"; text: string; clip?: string };
+  | { kind: "free"; text: string; clip?: string }
+  // A shareable permalink replay: stream a STORED run by its run_id (?run=<id>). The id is the
+  // backend content-address, so a permalink is stable across processes (replays even cold).
+  | { kind: "permalink"; runId: string };
 
 export type RunState = {
   status: RunStatus;
@@ -30,6 +33,7 @@ export type RunState = {
 function runUrl(req: RunRequest, paceMs: number): string {
   const base = `${API_BASE}/api/run?pace_ms=${paceMs}`;
   if (req.kind === "canned") return `${base}&query=${encodeURIComponent(req.queryId)}`;
+  if (req.kind === "permalink") return `${base}&run=${encodeURIComponent(req.runId)}`;
   const clip = req.clip ? `&clip=${encodeURIComponent(req.clip)}` : "";
   return `${base}&query_text=${encodeURIComponent(req.text)}${clip}`;
 }
@@ -60,6 +64,7 @@ export function useRun(defaultQueryId: string | null, paceMs = 1200) {
       req ?? (defaultQueryId ? { kind: "canned", queryId: defaultQueryId } : null);
     if (!request) return;
     if (request.kind === "free" && !request.text.trim()) return; // empty/whitespace -> no-op
+    if (request.kind === "permalink" && !request.runId.trim()) return; // no id -> no-op
     stop();
     userPinnedRef.current = false;
     setState({ status: "running", meta: null, steps: [], findings: null, error: null, current: -1 });
