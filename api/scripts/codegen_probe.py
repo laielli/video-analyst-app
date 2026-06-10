@@ -6,6 +6,10 @@ This is the server-independent gate for ViperGPT Layer 1 (program generation), t
 vlm_probe.py for vision. It calls Azure OpenAI with the DSL schema as a strict structured-output
 constraint, then runs the same validate_program gate the server uses.
 
+For systematic measurement across a question bank (phrasing variants x shapes x clips, plus
+adversarial/out-of-scope cases), with tiered scoring and a CI regression gate, see `api/eval/`
+(the codegen eval harness). This probe stays the fast one-question gut-check.
+
     python scripts/codegen_probe.py                                  # default hero question
     python scripts/codegen_probe.py --question "Does #10 score the first goal?"
     python scripts/codegen_probe.py --run                            # also replay it over the hero cache

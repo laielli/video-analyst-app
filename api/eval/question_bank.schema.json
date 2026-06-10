@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "question_bank.schema.json",
+  "title": "Codegen eval question bank",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bank_version", "prompt_version", "cases"],
+  "properties": {
+    "bank_version": { "type": "integer", "minimum": 1 },
+    "prompt_version": { "type": "string", "minLength": 1 },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "clip_id", "shape", "phrasing_class", "distance", "question", "expect"],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "clip_id": {
+          "type": "string",
+          "enum": ["single-goal", "bernabeu-counter"]
+        },
+        "shape": {
+          "type": "string",
+          "enum": ["first-goal", "count", "scorer-number", "presence", "out-of-scope", "adversarial", "degenerate"]
+        },
+        "phrasing_class": {
+          "type": "string",
+          "enum": ["canonical", "paraphrase", "out_of_scope", "injection", "degenerate"]
+        },
+        "distance": {
+          "type": "string",
+          "enum": ["canonical", "near", "far", "n/a"]
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "expect": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcome", "answer_match"],
+          "properties": {
+            "outcome": { "type": "string", "enum": ["grounded", "ungrounded"] },
+            "answer": { "type": ["string", "null"] },
+            "answer_match": { "type": "string", "enum": ["exact", "ci_contains", "numeric", "any_grounded"] }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

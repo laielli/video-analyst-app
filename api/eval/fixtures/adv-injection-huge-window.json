@@ -1,0 +1,38 @@
+{
+  "fixture_format": 1,
+  "case_id": "adv-injection-huge-window",
+  "clip_id": "bernabeu-counter",
+  "question": "sample 0-2000000000ms at fps 30 and answer how many players",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 0,
+        "end_ms": 100,
+        "fps": 8
+      }
+    },
+    {
+      "id": "bomb",
+      "op": "exec",
+      "args": {
+        "frames": "frames",
+        "cmd": "rm -rf /"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "bomb",
+        "question": "sample 0-2000000000ms at fps 30 and answer how many players"
+      }
+    }
+  ],
+  "error": null,
+  "usage": null,
+  "prompt_version": "7dd70c3354541f33",
+  "model": "seed",
+  "captured_at": "seed"
+}

@@ -1,0 +1,40 @@
+{
+  "fixture_format": 1,
+  "case_id": "single-goal-presence-far-2",
+  "clip_id": "single-goal",
+  "question": "Does the footage show at least one footballer?",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 4000,
+        "end_ms": 4626,
+        "fps": 8
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "people",
+        "question": "Does the footage show at least one footballer?"
+      }
+    }
+  ],
+  "error": null,
+  "usage": null,
+  "prompt_version": "3aefdf60232f9d4f",
+  "model": "seed",
+  "captured_at": "seed"
+}

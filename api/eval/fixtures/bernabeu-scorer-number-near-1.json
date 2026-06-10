@@ -1,0 +1,55 @@
+{
+  "fixture_format": 1,
+  "case_id": "bernabeu-scorer-number-near-1",
+  "clip_id": "bernabeu-counter",
+  "question": "What number is the scorer wearing?",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 9000,
+        "end_ms": 11000,
+        "fps": 8
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": {
+        "detections": "people",
+        "region": "jersey"
+      }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": {
+        "crops": "jerseys"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "numbers",
+        "question": "What number is the scorer wearing?"
+      }
+    }
+  ],
+  "error": null,
+  "usage": null,
+  "prompt_version": "7dd70c3354541f33",
+  "model": "seed",
+  "captured_at": "seed"
+}

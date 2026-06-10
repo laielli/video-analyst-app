@@ -1,0 +1,8 @@
+{
+  "_comment": "Committed CI floors for the replay-mode regression gate (D6). Initially set so the generated seed fixtures pass; the human recalibrates them ~5pp under the measured rates from the first real report.json (runbook step 5), the same calibration move the coverage floor used in #36. Keys: in-scope tier rates (over in-scope cases that are not stale/missing), the out-of-scope honest-refusal rate, min_fixtures (catches deletion), max_stale (partial-staleness tolerance; uniform all-stale downgrades to advisory).",
+  "T2_semantic_valid": 1.0,
+  "T4_answer_correct": 0.85,
+  "out_of_scope_honest": 0.9,
+  "min_fixtures": 60,
+  "max_stale": 0
+}

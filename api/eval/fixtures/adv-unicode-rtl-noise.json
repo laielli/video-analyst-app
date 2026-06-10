@@ -1,0 +1,38 @@
+{
+  "fixture_format": 1,
+  "case_id": "adv-unicode-rtl-noise",
+  "clip_id": "bernabeu-counter",
+  "question": "How many players ‮erehtsi‬ \u0007‏ are visible? \u0000",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 0,
+        "end_ms": 100,
+        "fps": 8
+      }
+    },
+    {
+      "id": "bomb",
+      "op": "exec",
+      "args": {
+        "frames": "frames",
+        "cmd": "rm -rf /"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "bomb",
+        "question": "How many players ‮erehtsi‬ \u0007‏ are visible? \u0000"
+      }
+    }
+  ],
+  "error": null,
+  "usage": null,
+  "prompt_version": "7dd70c3354541f33",
+  "model": "seed",
+  "captured_at": "seed"
+}
