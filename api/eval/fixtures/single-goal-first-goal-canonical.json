@@ -5,7 +5,7 @@
   "question": "Does #10 score the first goal?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 3500,
@@ -14,35 +14,35 @@
       }
     },
     {
-      "id": "people",
+      "id": "detected_people",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "jerseys",
+      "id": "cropped_jerseys",
       "op": "crop",
       "args": {
-        "detections": "people",
+        "detections": "detected_people",
         "region": "jersey"
       }
     },
     {
-      "id": "numbers",
+      "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "jerseys"
+        "crops": "cropped_jerseys"
       }
     },
     {
-      "id": "tens",
+      "id": "filtered_number_10",
       "op": "filter",
       "args": {
-        "items": "numbers",
+        "items": "read_jersey_numbers",
         "where": {
           "field": "text",
           "equals": "10"
@@ -50,18 +50,18 @@
       }
     },
     {
-      "id": "ordered",
+      "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "tens",
+        "events": "filtered_number_10",
         "by": "timestamp"
       }
     },
     {
-      "id": "result",
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "ordered",
+        "from": "ordered_events",
         "question": "Does #10 score the first goal?"
       }
     }
@@ -69,6 +69,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "3aefdf60232f9d4f",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:32:40Z"
 }

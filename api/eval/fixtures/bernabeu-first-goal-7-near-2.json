@@ -5,7 +5,7 @@
   "question": "Is #7 the first scorer?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,35 +14,35 @@
       }
     },
     {
-      "id": "people",
+      "id": "detected_people",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "people",
+        "detections": "detected_people",
         "region": "jersey"
       }
     },
     {
-      "id": "numbers",
+      "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "sevens",
+      "id": "filter_number_7",
       "op": "filter",
       "args": {
-        "items": "numbers",
+        "items": "read_jersey_numbers",
         "where": {
           "field": "text",
           "equals": "7"
@@ -50,18 +50,18 @@
       }
     },
     {
-      "id": "ordered",
+      "id": "temporal_order_number_7",
       "op": "temporal_order",
       "args": {
-        "events": "sevens",
+        "events": "filter_number_7",
         "by": "timestamp"
       }
     },
     {
-      "id": "result",
+      "id": "answer_first_scorer",
       "op": "answer",
       "args": {
-        "from": "ordered",
+        "from": "temporal_order_number_7",
         "question": "Is #7 the first scorer?"
       }
     }
@@ -69,6 +69,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "7dd70c3354541f33",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:33:53Z"
 }

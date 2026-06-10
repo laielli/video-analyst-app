@@ -5,36 +5,36 @@
   "question": "Could you tell me how many people are on the pitch in this frame?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sample_frame",
       "op": "sample_frames",
       "args": {
-        "start_ms": 10000,
-        "end_ms": 10001,
+        "start_ms": 9000,
+        "end_ms": 11000,
         "fps": 1
       }
     },
     {
-      "id": "people",
+      "id": "detect_people",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sample_frame",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "n",
+      "id": "count_people",
       "op": "count",
       "args": {
-        "items": "people"
+        "items": "detect_people"
       }
     },
     {
-      "id": "result",
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "n",
+        "from": "count_people",
         "question": "Could you tell me how many people are on the pitch in this frame?"
       }
     }
@@ -42,6 +42,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "7dd70c3354541f33",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:33:22Z"
 }
