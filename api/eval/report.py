@@ -248,6 +248,7 @@ def _atomic_write(path: Path, body: str) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(body)
+        os.chmod(tmp, 0o644)  # mkstemp defaults to 0600; these are long-lived committed artifacts
         os.replace(tmp, path)
     finally:
         if os.path.exists(tmp):

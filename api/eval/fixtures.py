@@ -96,6 +96,7 @@ def write_fixture(fixture: Fixture, fixtures_dir: Path | None = None) -> Path:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(body)
+        os.chmod(tmp, 0o644)  # mkstemp defaults to 0600; these are long-lived committed artifacts
         os.replace(tmp, p)
     finally:
         if os.path.exists(tmp):
