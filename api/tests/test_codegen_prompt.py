@@ -92,3 +92,53 @@ def test_build_system_message_pure_helper():
     withclip = codegen.build_system_message(CLIPS["single-goal"])
     assert withclip.startswith(codegen.SYSTEM_PROMPT)
     assert "hint:" in withclip and CLIPS["single-goal"]["hint"] in withclip
+
+
+# --------------------------------------------------------------------------------------
+# Phase 1 count-shape grounding rule + Phase 2 capability-scope / honest-grounding rule
+# --------------------------------------------------------------------------------------
+
+def test_codegen_prompt_has_counting_rule():
+    """The single-frame counting rule is present: it names the multi-frame summation failure and
+    prescribes a deterministic single-frame (fps 1) sample. It must NOT hardcode a clip timestamp
+    literal — the timestamp is derived from the injected `hint` (mirrors the `3500`-literal guard
+    above)."""
+    sp = codegen.SYSTEM_PROMPT.lower()
+    # prescribes the single-representative-frame pattern at fps 1
+    assert "single" in sp and "fps 1" in sp
+    assert "one representative frame" in sp or "exactly one" in sp
+    # names the count summation failure mode so the rule is self-explaining
+    assert "count" in sp and "sum" in sp
+    # deterministic timestamp choice (midpoint of the hint's event window), not "a representative t"
+    assert "midpoint" in sp
+    # no hardcoded clip timestamp literal — the hint supplies it (same negative-literal pattern as
+    # the de-hardcoded hero timing).
+    assert "3500" not in codegen.SYSTEM_PROMPT
+    assert "4250" not in codegen.SYSTEM_PROMPT
+
+
+def test_codegen_prompt_has_capability_scope_rule():
+    """The capability-scope rule lists the observable surface and instructs honest grounding-out
+    for out-of-scope questions rather than a fabricated grounded answer."""
+    sp = codegen.SYSTEM_PROMPT.lower()
+    # names the observable surface (person/presence/count + jersey number + first-scorer timing)
+    assert "person" in sp and "jersey" in sp
+    # names at least a few of the out-of-scope attributes the report flagged
+    for attr in ("color", "emotion", "formation", "crowd"):
+        assert attr in sp, f"capability rule should name '{attr}' as out of scope"
+    # instructs honest grounding-out (the grounded:false discriminator), not fabrication
+    assert "ground" in sp
+    assert "fabricate" in sp or "invent" in sp
+
+
+def test_codegen_prompt_refusal_rule_is_scoped():
+    """Negative-wording guard on the over-refusal regression: the refusal rule must scope by
+    CAPABILITY ('outside the listed capabilities' or equivalent), never by blanket uncertainty.
+    A 'when unsure / when in doubt, refuse' rule would push borderline in-scope paraphrases to
+    ground out, silently regressing presence/scorer-number — invisible to seeds, only surfaced at
+    the human's re-capture. This is the only agent-side, creds-free guard on that risk."""
+    sp = codegen.SYSTEM_PROMPT.lower()
+    assert "outside the listed capabilities" in sp
+    assert "when unsure" not in sp
+    assert "when in doubt" not in sp
+    assert "if unsure" not in sp

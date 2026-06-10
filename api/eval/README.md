@@ -19,7 +19,7 @@ eval/
   seed_fixtures.py            # generates the committed creds-free seed fixtures
   run_eval.py                 # the CLI: capture (live, billed) | replay (free, CI-safe)
   thresholds.json             # committed CI floors for the replay gate
-  fixtures/*.json             # committed fixtures (seeds today; real gpt-4o output after capture)
+  fixtures/*.json             # committed fixtures — real gpt-4o captures (seed_fixtures.py regenerates seeds only into scratch dirs)
   report.{md,json}            # committed latest report snapshot
 ```
 
@@ -66,31 +66,57 @@ score on the same safety axis: the trust boundary must hold and no fabricated an
 cd api
 source .venv/bin/activate
 
-# 0) Smoke creds + the harness on ONE case (sub-cent):
+# 0) Smoke creds on ONE call (sub-cent) — do NOT `replay` here when the committed fixtures are
+#    STALE (after a prompt edit): capturing 1 case leaves 59 stale -> PARTIAL staleness -> the
+#    gate (and test_replay_over_committed_fixtures_scores) FAIL. Replay only after step 2 finishes.
 python scripts/codegen_probe.py --question "How many players are visible?"   # exit 0 = creds good; 2 = fix .env
-python eval/run_eval.py capture --limit 1
-python eval/run_eval.py replay            # confirm it scores + reports
 
-# 1) Dry preview of cost (no calls):
-python eval/run_eval.py capture --dry-run
+# 1) Dry preview of cost (no calls). Match step 2's flags so the planned count is accurate
+#    (with stale fixtures both forms plan the full re-capture; --force keeps them in lockstep):
+python eval/run_eval.py capture --force --dry-run
 
-# 2) Full capture (BILLS real tokens; overwrites seed fixtures with real gpt-4o output; resume-safe):
-python eval/run_eval.py capture           # ~60 calls, budget-capped; a re-run skips done cases
+# 2) Full capture (BILLS real tokens; re-captures all ~60 cases under the new prompt; resume-safe):
+python eval/run_eval.py capture --force   # ~60 calls, budget-capped; --force re-captures even
+                                          # fixtures fresh at the current prompt_version (e.g.
+                                          # seed-stamped ones); without it those are silently
+                                          # resume-skipped. STALE fixtures are re-called regardless.
 
-# 3) Score the real fixtures + regenerate the committed report:
+# 3) Score the real fixtures + regenerate the committed report (only after the FULL re-capture):
 python eval/run_eval.py replay --report eval/report.md --json eval/report.json
 
 # 4) Review eval/report.md, then commit the baseline:
-git add eval/fixtures eval/report.md eval/report.json
+git add eval/fixtures eval/report.md eval/report.json eval/question_bank.json
 git commit -m "eval: capture gpt-4o codegen fixtures + baseline report"
 
-# 5) (optional) Ratchet eval/thresholds.json to ~5pp under the measured rates, then commit.
+# 5) Ratchet eval/thresholds.json + grow the bank (see "Floor ratchet + bank growth" below).
 ```
 
-`--only <case_id|shape|clip>` narrows the run; `--force` re-captures even fresh fixtures (resume
-is the default); `--limit N` caps live calls this invocation. A per-invocation `MAX_CAPTURE_CALLS`
-ceiling (default 64) bounds spend; `--force` does **not** bypass it. A full capture costs roughly
-**$0.35–$0.50** (verify current gpt-4o pricing first).
+`--only <case_id|shape|clip>` narrows the run; `--force` re-captures even fixtures that are fresh
+at the *current* `prompt_version` (e.g. seed-stamped ones, or a same-prompt re-capture) — without
+it those are silently resume-skipped (`run_eval.py:262-270`). Note: STALE fixtures (the state
+after a prompt edit) are re-called even **without** `--force`, so `--force` is the safe default
+but only strictly required for the fresh-at-current-pv case. `--limit N` caps live calls this
+invocation. A per-invocation `MAX_CAPTURE_CALLS` ceiling (default 64) bounds spend; `--force` does
+**not** bypass it. A full capture costs roughly **$0.35–$0.50** (verify current gpt-4o pricing first).
+
+## Floor ratchet + bank growth (step 5 — human, post-merge, creds required)
+
+This is the ONLY step the parallel-implementer agents do NOT do (it needs the live re-capture).
+After a prompt edit lands and you have re-captured + replayed (steps 2–4 above):
+
+1. **Ratchet the floors.** Read the new measured rates off `eval/report.md` (the in-scope
+   `T4_answer_correct` tier rate and the `out-of-scope honest-refusal rate`). Set the matching
+   `eval/thresholds.json` floors **~5pp under** the measured rate (the existing calibration
+   convention, documented in the thresholds.json `_comment`; 1 in-scope case ≈ 2.8pp, so leave
+   temperature=0 re-capture headroom). Update the `_comment`'s measured-baseline line. Commit.
+2. **Grow the bank** in the SAME sitting so new cases are captured live immediately (no MISSING
+   limbo): add count paraphrases (answers via `bank.derive_ground_truth`, never hand-typed) and
+   out-of-scope honesty cases (`expect.outcome: ungrounded`, `answer_match: any_grounded`); bump
+   `bank_version` 1→2. Any new `(clip, shape)` cell needs a pinned program in `examples/` + a
+   `seed_fixtures._PINNED` entry + a `LIVE_CELLS` row + anchor/paraphrase guards in
+   `test_eval_bank.py` (≥1 anchor AND ≥3 paraphrases per live cell → a new live cell costs ≥4
+   cases). Keep the `degenerate-all-caps` → count routing special-case intact. Re-capture the new
+   cases, replay, commit.
 
 ## Determinism
 

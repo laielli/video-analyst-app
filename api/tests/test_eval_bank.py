@@ -105,6 +105,19 @@ def test_presence_ground_truth_derived_from_pinned():
         assert anchor["expect"]["answer"] == derived == "Yes"
 
 
+def test_bank_prompt_version_field_is_current():
+    """The bank's top-level `prompt_version` field is provenance-only (replay compares fixtures
+    against the live per-clip hash, not this field), but `_build_meta` copies it verbatim into
+    every report — so it must not lie. Assert it equals the live `bank.prompt_version(None)`.
+    This guard is UNCONDITIONAL (not contingent on bank growth) and forces the field update to
+    land in the same commit as any SYSTEM_PROMPT edit."""
+    doc = json.loads((EVAL_DIR / "question_bank.json").read_text())
+    assert doc["prompt_version"] == bank.prompt_version(None), (
+        "bank.json prompt_version field is stale — recompute via bank.prompt_version(None) "
+        "after the SYSTEM_PROMPT edit and update the field (never hand-copy a hash)"
+    )
+
+
 def test_prompt_version_changes_on_prompt_edit(monkeypatch):
     import codegen
 

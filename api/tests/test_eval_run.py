@@ -28,14 +28,22 @@ import seed_fixtures  # noqa: E402
 
 def test_replay_over_committed_fixtures_scores():
     """Structural invariants over the COMMITTED fixtures in whichever phase the repo is in
-    (generated seeds pre-capture; real gpt-4o captures after the runbook): every bank case has a
-    fresh fixture and replay scores them all. Quality floors over real output are the threshold
-    gate's job (thresholds.json), not this test's."""
+    (generated seeds / real captures at the current pv; or uniformly STALE real captures right
+    after an honest prompt edit, before the human re-captures). Every bank case has a committed
+    fixture and replay scores them all. Staleness is ALL-OR-NOTHING — mirroring apply_gate's
+    advisory rule (run_eval.py:163-167): zero stale (fresh phase) OR every result stale
+    (mid-change phase). Partial staleness or any MISSING still fails (an editor cannot re-stamp
+    or delete a subset of fixtures to dodge the gate). Quality floors over real output are the
+    threshold gate's job (thresholds.json), not this test's."""
     cases = bank.load_bank()
     results = run_eval.replay(cases)
     assert len(results) == len(cases)
     assert not any(r.missing for r in results), "a bank case lacks a committed fixture"
-    assert not any(r.stale for r in results), "a committed fixture is stale (re-capture/re-seed)"
+    n_stale = sum(1 for r in results if r.stale)
+    assert n_stale == 0 or n_stale == len(results), (
+        f"committed fixtures are PARTIALLY stale ({n_stale}/{len(results)}); staleness must be "
+        "uniform (all-fresh or all-stale) — never re-stamp/delete a subset to dodge the gate"
+    )
 
 
 def test_replay_over_regenerated_seeds_reaches_targets(tmp_path):
@@ -159,11 +167,20 @@ def test_cli_replay_no_gate_and_filters(tmp_path, capsys):
 
 
 def test_cli_replay_fail_under_override(tmp_path):
-    # An impossible T4 floor forces a gate failure even on passing seeds.
+    """An impossible T4 floor forces a gate failure — but ONLY when the committed fixtures are
+    fresh. After an honest prompt edit they go uniformly STALE, and apply_gate's advisory branch
+    returns exit 0 BEFORE any tier floor (even an impossible override) is evaluated — the
+    documented mid-change behavior (run_eval.py:163-167). So the assertion is phase-aware: fresh
+    phase -> FAIL on the impossible floor; all-stale phase -> advisory exit 0."""
+    results = run_eval.replay(bank.load_bank())
+    all_stale = all(r.stale for r in results) and len(results) > 0
     code = run_eval.main(["replay", "--report", str(tmp_path / "r.md"),
                           "--json", str(tmp_path / "r.json"),
                           "--fail-under", "T4_answer_correct=2.0"])
-    assert code == 1
+    if all_stale:
+        assert code == 0  # advisory downgrade returns before the impossible floor is checked
+    else:
+        assert code == 1  # fresh fixtures: the impossible floor forces a gate failure
 
 
 def test_fail_under_parse_rejects_bad_format():

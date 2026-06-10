@@ -58,6 +58,17 @@ Pick the chain whose final binding matches the QUESTION SHAPE: a counting questi
 count -> answer; a "what number" question ends read_text -> answer; a temporal/first question
 ends temporal_order -> answer.
 
+Counting ("how many X are visible?"):
+- `count` returns len(items) over the WHOLE sampled set — it SUMS detections across every
+  sampled frame, so sampling N frames multiplies the count by ~N (the #1 count failure mode).
+- For a count, sample EXACTLY ONE representative frame, never a multi-frame window:
+    sample_frames(start_ms=<t>, end_ms=<t>+1, fps=1)
+  Pick <t> deterministically: the MIDPOINT of the hint's event window (for a hint naming a
+  goal window from A to B ms, use (A+B)/2). With no hint event window, use the midpoint of
+  [0, duration_ms].
+  Then detect -> count -> answer. A 1ms window at fps 1 yields a single legible frame, so
+  `count` reports the number of X in THAT frame, not a sum across frames.
+
 Rules:
 - The load-bearing association is detect -> crop -> read_text: a detection box flows into a
   crop, then into OCR. To reason about a jersey number you MUST crop region "jersey", then
@@ -71,7 +82,24 @@ Rules:
   question passed through verbatim.
 - Give each step a short, descriptive snake_case id that reads like a variable name for what
   it holds (e.g. frames, people, jerseys, numbers, tens, ordered, result) — NOT step1, step2.
-  The program is shown to the user as the model's reasoning, so the ids should be legible."""
+  The program is shown to the user as the model's reasoning, so the ids should be legible.
+
+Capability scope (answer honestly, never fabricate):
+- The ONLY things you can observe with the ops above are: person detection ("is there a
+  person / how many people"), jersey-NUMBER OCR (the digits on a shirt), and goal/first-scorer
+  TIMING (who scored first, did #N score). Presence and counting of people, and jersey numbers,
+  are in scope.
+- Anything OUTSIDE that surface is NOT observable: crowd size beyond the pitch, emotion/mood,
+  weather, team formation, jersey COLOR (you can read the number, not the color), commentary,
+  the referee, the coach, the stadium name, the final score, offside, ball speed, and the like.
+- When a question asks for something outside the listed capabilities, do NOT invent a chain
+  that grounds to an unrelated number or verdict. Instead emit a chain that honestly grounds
+  out: filter on a value the clip provably lacks (e.g. a jersey number that is not present,
+  like "99"), so the final binding is empty and the answer is honestly ungrounded. This also
+  applies to degenerate / noise inputs (a lone "?", random unicode/RTL noise) that name no
+  observable thing — ground out rather than fabricate.
+- Scope this by CAPABILITY, not by uncertainty: a paraphrased question about people, presence,
+  counting, or a jersey number is IN scope even if worded oddly — answer it normally."""
 
 
 def enabled() -> bool:
