@@ -72,8 +72,9 @@ source .venv/bin/activate
 #    then do the FULL re-capture in step 2 before any replay.
 python scripts/codegen_probe.py --question "How many players are visible?"   # exit 0 = creds good; 2 = fix .env
 
-# 1) Dry preview of cost (no calls):
-python eval/run_eval.py capture --dry-run
+# 1) Dry preview of cost (no calls). Match step 2's flags so the planned count is accurate
+#    (with stale fixtures both forms plan the full re-capture; --force keeps them in lockstep):
+python eval/run_eval.py capture --force --dry-run
 
 # 2) Full capture (BILLS real tokens; re-captures ALL cases under the current prompt; resume-safe):
 #    `--force` re-captures even fixtures that are fresh at the current prompt_version (e.g.

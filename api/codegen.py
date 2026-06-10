@@ -65,6 +65,7 @@ Counting questions ("how many X are visible?"):
 - So for a count, sample exactly ONE representative frame: a 1ms window at fps 1
   (sample_frames(start_ms=t, end_ms=t+1, fps=1)), where `t` is the MIDPOINT of the clip's
   event window (from the Clip context `hint` — e.g. a "goal ~A-Bms" hint -> t=(A+B)/2).
+  If the hint names no event window, use the midpoint of the whole clip: t = duration_ms / 2.
   Then detect -> count -> answer. NEVER sample a multi-frame window for a count.
 
 Capability scope — questions you CANNOT answer:
