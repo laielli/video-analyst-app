@@ -92,3 +92,59 @@ def test_build_system_message_pure_helper():
     withclip = codegen.build_system_message(CLIPS["single-goal"])
     assert withclip.startswith(codegen.SYSTEM_PROMPT)
     assert "hint:" in withclip and CLIPS["single-goal"]["hint"] in withclip
+
+
+# --------------------------------------------------------------------------------------
+# Count-shape grounding rule (Phase 1): single-frame sampling for counting questions.
+# --------------------------------------------------------------------------------------
+
+def test_codegen_prompt_has_counting_rule():
+    """The prompt names the count-window failure (count sums across all sampled frames) and
+    prescribes the single-representative-frame pattern (fps 1, a 1ms window). It must steer the
+    sampling without hardcoding a clip-specific timestamp literal — the t comes from the injected
+    hint, mirroring the existing 'no 3500 literal' guard."""
+    p = codegen.SYSTEM_PROMPT
+    low = p.lower()
+    # the failure mode is named explicitly so the model understands *why* one frame.
+    assert "count" in low and ("sums" in low or "summed" in low or "multiplies" in low)
+    # the single-frame remedy is prescribed concretely.
+    assert "one" in low or "single" in low
+    assert "fps=1" in low or "fps 1" in low or "fps1" in low
+    # deterministic timestamp choice, not "a representative frame" hand-waving.
+    assert "midpoint" in low or "event window" in low
+    # clip-agnostic: no hardcoded clip timestamp literals in the counting rule (the t is data).
+    assert "10000" not in p and "10001" not in p
+
+
+# --------------------------------------------------------------------------------------
+# Capability-scope / honest-grounding rule (Phase 2).
+# --------------------------------------------------------------------------------------
+
+def test_codegen_prompt_has_capability_scope_rule():
+    """The prompt enumerates the observable capability surface and instructs honest grounding-out
+    for questions outside it, rather than fabricating an unrelated grounded answer."""
+    p = codegen.SYSTEM_PROMPT
+    low = p.lower()
+    # the observable surface is listed.
+    assert "jersey" in low and "number" in low and "presence" in low
+    # at least some of the canonical out-of-scope attributes are named so the model can map novel Qs.
+    assert "color" in low or "colour" in low
+    assert "emotion" in low or "formation" in low or "weather" in low
+    # the honest-grounding instruction is present (ground out / cannot answer, don't fabricate).
+    assert "ground out" in low or "grounds out" in low or "not grounded" in low
+    assert "cannot" in low or "fabricate" in low
+
+
+def test_codegen_prompt_refusal_rule_is_scoped():
+    """Negative-wording guard on the over-refusal regression risk: the refusal must be scoped by
+    CAPABILITY ('outside the listed capabilities' / 'outside ... surface'), never triggered by
+    blanket uncertainty. A 'when unsure / when in doubt, refuse' rule would push borderline
+    in-scope paraphrases to ground out and regress presence/scorer cells, invisible to seeds."""
+    p = codegen.SYSTEM_PROMPT
+    low = p.lower()
+    # scoped to capability, not uncertainty.
+    assert "outside" in low and ("capabilit" in low or "surface" in low)
+    # explicit anti-uncertainty triggers must be absent.
+    assert "when unsure" not in low
+    assert "when in doubt" not in low
+    assert "if unsure" not in low
