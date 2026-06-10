@@ -1,0 +1,12 @@
+{
+  "fixture_format": 1,
+  "case_id": "oos-ball-speed",
+  "clip_id": "bernabeu-counter",
+  "question": "Track the ball's speed in km/h across the counterattack.",
+  "prompt_version": "7dd70c3354541f33",
+  "raw_program": [],
+  "usage": null,
+  "error": null,
+  "model": "seed",
+  "captured_at": "1970-01-01T00:00:00Z"
+}

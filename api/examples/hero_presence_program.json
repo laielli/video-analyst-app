@@ -1,0 +1,8 @@
+{
+  "_comment": "Pinned presence program for 'Is there a player on the field?' on single-goal. Hits the detect -> answer existence op-path (no crop/read_text/filter): op_answer dispatches on the `detections` binding kind and grounds Yes by non-emptiness. Authored during eval-bank authoring per the D1 presence caveat (no pinned presence anchor existed before this entry); executed over the committed hero cache to derive its ground-truth answer ('Yes'). Window 3500-5000ms @ fps8 reuses the hero goal window so the sampled frames carry person detections. Validates against ../schema/dsl.schema.json. end_ms 5000 <= clip duration_ms 5067.",
+  "program": [
+    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 3500, "end_ms": 5000, "fps": 8 } },
+    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"] } },
+    { "id": "result", "op": "answer", "args": { "from": "people", "question": "Is there a player on the field?" } }
+  ]
+}

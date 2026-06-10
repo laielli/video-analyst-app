@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://video-analyst.local/eval/question_bank.schema.json",
+  "title": "Codegen eval question bank",
+  "description": "A versioned bank of typed codegen-eval cases (D1). additionalProperties:false mirrors the repo's schema discipline.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bank_version", "prompt_version", "cases"],
+  "properties": {
+    "bank_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Bump when the case set grows/changes; provenance for the report."
+    },
+    "prompt_version": {
+      "type": "string",
+      "description": "Provenance: the codegen prompt version (clip-agnostic / clip=None hash) the bank was authored against. Informational; per-fixture prompt_version is the real staleness signal."
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "clip_id", "shape", "phrasing_class", "question", "expect"],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Stable slug clip-shape-class-N; the fixture key."
+        },
+        "clip_id": {
+          "type": "string",
+          "enum": ["single-goal", "bernabeu-counter"],
+          "description": "Must be a key of canned.CLIPS (enforced by test_question_bank_conforms_to_schema)."
+        },
+        "shape": {
+          "type": "string",
+          "enum": ["first-goal", "count", "scorer-number", "presence"]
+        },
+        "phrasing_class": {
+          "type": "string",
+          "enum": ["canonical", "paraphrase", "out_of_scope", "injection", "degenerate"]
+        },
+        "distance": {
+          "type": "string",
+          "enum": ["canonical", "near", "far", "n/a"],
+          "description": "Paraphrase distance for the per-distance report cut (D5). Optional; defaults n/a."
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Mirrors the route's MAX_QUERY_TEXT_LEN (500). A static JSON Schema cannot import server.MAX_QUERY_TEXT_LEN; a pytest asserts this literal equals it (the drift guard)."
+        },
+        "expect": { "$ref": "#/$defs/expect" },
+        "notes": { "type": "string" }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "answer_match"],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": ["grounded", "ungrounded"]
+        },
+        "answer": {
+          "type": ["string", "null"],
+          "description": "Ground truth for grounded cases; null for ungrounded."
+        },
+        "answer_match": {
+          "type": "string",
+          "enum": ["exact", "ci_contains", "numeric", "any_grounded"]
+        }
+      }
+    }
+  }
+}

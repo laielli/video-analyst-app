@@ -1,0 +1,12 @@
+{
+  "fixture_format": 1,
+  "case_id": "oos-offside",
+  "clip_id": "bernabeu-counter",
+  "question": "Was the goal offside?",
+  "prompt_version": "7dd70c3354541f33",
+  "raw_program": [],
+  "usage": null,
+  "error": null,
+  "model": "seed",
+  "captured_at": "1970-01-01T00:00:00Z"
+}

@@ -1,0 +1,12 @@
+{
+  "fixture_format": 1,
+  "case_id": "oos-emotion",
+  "clip_id": "single-goal",
+  "question": "How do the players feel about conceding?",
+  "prompt_version": "3aefdf60232f9d4f",
+  "raw_program": [],
+  "usage": null,
+  "error": null,
+  "model": "seed",
+  "captured_at": "1970-01-01T00:00:00Z"
+}

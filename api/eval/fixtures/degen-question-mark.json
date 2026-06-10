@@ -1,0 +1,12 @@
+{
+  "fixture_format": 1,
+  "case_id": "degen-question-mark",
+  "clip_id": "single-goal",
+  "question": "?",
+  "prompt_version": "3aefdf60232f9d4f",
+  "raw_program": null,
+  "usage": null,
+  "error": "generation-failed",
+  "model": "seed",
+  "captured_at": "1970-01-01T00:00:00Z"
+}

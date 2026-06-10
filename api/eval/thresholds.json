@@ -1,0 +1,9 @@
+{
+  "_comment": "Committed CI floors for the replay-mode regression gate (D6). Initially set so the GENERATED SEED fixtures pass (the seeds reproduce the pinned programs, so in-scope tiers are 1.00). Recalibrate to ~5pp under the measured rates after the first live capture (runbook step 5) — the same calibration move as the coverage floor in #36. Each floor is a one-line diff to ratchet.",
+  "T2_semantic_valid": 1.0,
+  "T4_answer_correct": 0.85,
+  "out_of_scope_honest": 0.9,
+  "adversarial_safe": 1.0,
+  "min_fixtures": 50,
+  "max_stale": 0
+}
