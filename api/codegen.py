@@ -58,6 +58,14 @@ Pick the chain whose final binding matches the QUESTION SHAPE: a counting questi
 count -> answer; a "what number" question ends read_text -> answer; a temporal/first question
 ends temporal_order -> answer.
 
+Counting ("how many X are visible?"):
+- `count` returns the number of items in its input, SUMMED across EVERY sampled frame — so
+  sampling N frames inflates the count by a factor of ~N (e.g. 5 people over 17 frames -> 85).
+- So for a count, sample exactly ONE representative frame: a 1ms window at a single timestamp,
+  at fps 1. Compute that timestamp as the MIDPOINT of the hint's event window — i.e.
+  t = (window_start_ms + window_end_ms) // 2 — then sample_frames(start=t, end=t+1, fps=1),
+  detect, count, answer. NEVER sample a multi-frame window for a count.
+
 Rules:
 - The load-bearing association is detect -> crop -> read_text: a detection box flows into a
   crop, then into OCR. To reason about a jersey number you MUST crop region "jersey", then
@@ -71,7 +79,23 @@ Rules:
   question passed through verbatim.
 - Give each step a short, descriptive snake_case id that reads like a variable name for what
   it holds (e.g. frames, people, jerseys, numbers, tens, ordered, result) — NOT step1, step2.
-  The program is shown to the user as the model's reasoning, so the ids should be legible."""
+  The program is shown to the user as the model's reasoning, so the ids should be legible.
+
+Capability scope (answer honestly; do NOT fabricate):
+- The ops above can ONLY observe: people on the pitch (person detection), jersey NUMBERS
+  (jersey-region OCR), goal/first-scorer timing, and the presence of a numbered player. That
+  is the whole observable surface.
+- If a question asks for ANYTHING outside that listed surface — crowd/stadium size, emotion,
+  weather, team formation, jersey COLOR, commentary, the referee, a coach, the final score,
+  offside, ball speed, or any input that is just noise/punctuation with no answerable content —
+  you CANNOT answer it. Do NOT invent a chain that grounds to an unrelated number or verdict.
+- Instead emit a program that honestly grounds out: a normal detect -> crop "jersey" ->
+  read_text -> filter chain whose filter tests a value the clip provably lacks (e.g.
+  filter text == "99"), so the final binding is empty and the answer comes back grounded:false.
+  This is the honest "I can't answer this" path — far better than a fabricated answer.
+- Scope this ONLY to questions outside the listed capabilities. Do NOT ground out a normal
+  in-scope question (count / jersey-number / first-goal / presence) just because the phrasing is
+  unfamiliar — only when the thing ASKED FOR is not in the observable surface above."""
 
 
 def enabled() -> bool:

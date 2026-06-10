@@ -27,15 +27,26 @@ import seed_fixtures  # noqa: E402
 # ---- replay over committed seeds ---------------------------------------------------------
 
 def test_replay_over_committed_fixtures_scores():
-    """Structural invariants over the COMMITTED fixtures in whichever phase the repo is in
-    (generated seeds pre-capture; real gpt-4o captures after the runbook): every bank case has a
-    fresh fixture and replay scores them all. Quality floors over real output are the threshold
-    gate's job (thresholds.json), not this test's."""
+    """Structural invariants over the COMMITTED fixtures, PHASE-AWARE. Two honest phases exist:
+    (a) fresh — every fixture carries the current prompt_version (the seed-stamped or
+    just-re-captured state); (b) uniform-stale — a prompt edit has staled EVERY committed
+    real-capture fixture at once (the mid-change state this plan creates), which the advisory
+    gate (run_eval.apply_gate, the all-stale branch) treats as exit 0 by design.
+
+    The contract this test enforces: every bank case has a committed fixture (no MISSING ever),
+    and staleness is ALL-OR-NOTHING — either zero stale (fresh phase) or every present fixture
+    stale (uniform-stale phase). PARTIAL staleness still FAILS: it means someone re-seeded or
+    re-captured some cases but not others (or mistyped a prompt_version), which the advisory gate
+    refuses to bypass. Quality floors over real output stay the threshold gate's job."""
     cases = bank.load_bank()
     results = run_eval.replay(cases)
     assert len(results) == len(cases)
     assert not any(r.missing for r in results), "a bank case lacks a committed fixture"
-    assert not any(r.stale for r in results), "a committed fixture is stale (re-capture/re-seed)"
+    n_stale = sum(1 for r in results if r.stale)
+    assert n_stale == 0 or n_stale == len(results), (
+        f"committed fixtures are PARTIALLY stale ({n_stale}/{len(results)}) — staleness must be "
+        "all-or-nothing (uniform staleness is the advisory-gate phase; partial is suspicious)"
+    )
 
 
 def test_replay_over_regenerated_seeds_reaches_targets(tmp_path):
@@ -158,8 +169,14 @@ def test_cli_replay_no_gate_and_filters(tmp_path, capsys):
     assert all(c["shape"] == "count" for c in j["cases"])
 
 
-def test_cli_replay_fail_under_override(tmp_path):
-    # An impossible T4 floor forces a gate failure even on passing seeds.
+def test_cli_replay_fail_under_override(monkeypatch, tmp_path):
+    # An impossible T4 floor forces a gate failure over FRESH fixtures. We seed a scratch dir and
+    # point fixture loading at it so the fixtures carry the current prompt_version — otherwise, in
+    # the post-prompt-edit uniform-stale phase, the advisory branch returns exit 0 BEFORE any
+    # tier/`--fail-under` floor is evaluated, and this test (whose subject is the override
+    # mechanism, not the staleness phase) would vacuously pass with the wrong code.
+    seed_fixtures.generate_all(fixtures_dir=tmp_path)
+    monkeypatch.setattr(fx, "FIXTURES_DIR", tmp_path)
     code = run_eval.main(["replay", "--report", str(tmp_path / "r.md"),
                           "--json", str(tmp_path / "r.json"),
                           "--fail-under", "T4_answer_correct=2.0"])
