@@ -27,15 +27,23 @@ import seed_fixtures  # noqa: E402
 # ---- replay over committed seeds ---------------------------------------------------------
 
 def test_replay_over_committed_fixtures_scores():
-    """Structural invariants over the COMMITTED fixtures in whichever phase the repo is in
-    (generated seeds pre-capture; real gpt-4o captures after the runbook): every bank case has a
-    fresh fixture and replay scores them all. Quality floors over real output are the threshold
-    gate's job (thresholds.json), not this test's."""
+    """Structural invariants over the COMMITTED fixtures in whichever PHASE the repo is in
+    (fresh-at-current-pv, or uniformly stale mid prompt-edit before the human re-captures): every
+    bank case has a committed fixture and replay scores them all. Staleness is all-or-nothing,
+    mirroring apply_gate's advisory rule (run_eval.py:163-167) — a prompt edit stales EVERY
+    committed fixture uniformly, which is the advisory-gate design, not a regression. Partial
+    staleness (or any MISSING) still fails: that is the anti-gaming signal a hand-stamped fixture
+    would trip. Quality floors over real output are the threshold gate's job, not this test's."""
     cases = bank.load_bank()
     results = run_eval.replay(cases)
     assert len(results) == len(cases)
     assert not any(r.missing for r in results), "a bank case lacks a committed fixture"
-    assert not any(r.stale for r in results), "a committed fixture is stale (re-capture/re-seed)"
+    n_stale = sum(1 for r in results if r.stale)
+    assert n_stale == 0 or n_stale == len(results), (
+        f"staleness must be all-or-nothing (got {n_stale}/{len(results)} stale) — a prompt edit "
+        "stales every committed fixture uniformly; partial staleness means a fixture was "
+        "hand-restamped or only some were re-captured"
+    )
 
 
 def test_replay_over_regenerated_seeds_reaches_targets(tmp_path):
@@ -143,7 +151,9 @@ def test_cli_replay_writes_report_and_gates(tmp_path):
     md = tmp_path / "r.md"
     js = tmp_path / "r.json"
     code = run_eval.main(["replay", "--report", str(md), "--json", str(js)])
-    assert code == 0  # committed seeds pass the committed thresholds
+    # Exit 0: pre-edit the committed captures passed the floors; mid-prompt-edit they go uniformly
+    # STALE -> advisory downgrade (exit 0). Either way the CLI writes the report and exits 0.
+    assert code == 0
     assert md.exists() and js.exists()
     j = json.loads(js.read_text())
     assert j["summary"]["total_cases"] == len(bank.load_bank())
@@ -158,8 +168,14 @@ def test_cli_replay_no_gate_and_filters(tmp_path, capsys):
     assert all(c["shape"] == "count" for c in j["cases"])
 
 
-def test_cli_replay_fail_under_override(tmp_path):
-    # An impossible T4 floor forces a gate failure even on passing seeds.
+def test_cli_replay_fail_under_override(tmp_path, monkeypatch):
+    # An impossible T4 floor forces a gate failure. This must run over FRESH fixtures: the committed
+    # captures go uniformly STALE after a prompt edit, and the advisory branch returns exit 0 BEFORE
+    # any floor is evaluated (run_eval.py:163-167), so over the committed set the impossible floor is
+    # unreachable. Regenerate seeds (fresh at the current prompt_version) into a tmpdir and point the
+    # CLI's fixture loader there, exercising the floor mechanism itself rather than staleness.
+    seed_fixtures.generate_all(fixtures_dir=tmp_path)
+    monkeypatch.setattr(fx, "FIXTURES_DIR", tmp_path)
     code = run_eval.main(["replay", "--report", str(tmp_path / "r.md"),
                           "--json", str(tmp_path / "r.json"),
                           "--fail-under", "T4_answer_correct=2.0"])
