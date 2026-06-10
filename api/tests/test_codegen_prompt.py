@@ -92,3 +92,52 @@ def test_build_system_message_pure_helper():
     withclip = codegen.build_system_message(CLIPS["single-goal"])
     assert withclip.startswith(codegen.SYSTEM_PROMPT)
     assert "hint:" in withclip and CLIPS["single-goal"]["hint"] in withclip
+
+
+# --------------------------------------------------------------------------------------
+# Count-shape grounding rule (Phase 1) — single representative frame, clip-agnostic
+# --------------------------------------------------------------------------------------
+
+def test_codegen_prompt_has_counting_rule():
+    """The prompt instructs a SINGLE-frame sampling pattern for counts (count sums detections
+    across all sampled frames, so a multi-frame window overcounts). It must name the single-frame
+    pattern (`fps 1`, one representative frame) and must NOT hardcode any clip-specific timestamp
+    literal — the timestamp is derived from the injected `hint` (mirrors the existing
+    `assert "3500" not in SYSTEM_PROMPT` negative-literal guard)."""
+    prompt = codegen.SYSTEM_PROMPT
+    low = prompt.lower()
+    assert "count" in low
+    assert "fps=1" in prompt or "fps 1" in low
+    assert "single" in low or "one frame" in low or "one representative frame" in low
+    # The rule is clip-agnostic: the timestamp comes from the hint, not a literal in the prompt.
+    assert "10000" not in prompt and "9000" not in prompt and "11000" not in prompt
+
+
+# --------------------------------------------------------------------------------------
+# Capability-scope / honest-grounding rule (Phase 2)
+# --------------------------------------------------------------------------------------
+
+def test_codegen_prompt_has_capability_scope_rule():
+    """The prompt lists the observable capability surface and instructs honest grounding-out for
+    out-of-scope questions instead of fabricating an unrelated grounded answer."""
+    prompt = codegen.SYSTEM_PROMPT
+    low = prompt.lower()
+    # Lists the observable surface (the things the ops CAN see).
+    assert "jersey" in low and "presence" in low
+    # Names representative out-of-scope attributes the failing rows hit.
+    assert "color" in low and "emotion" in low and "formation" in low
+    # Instructs honest grounding-out rather than fabrication.
+    assert "ground out" in low or "grounds out" in low or "ground" in low
+    assert "cannot" in low or "fabricate" in low
+
+
+def test_codegen_prompt_refusal_rule_is_scoped():
+    """Negative-wording guard on the over-refusal regression risk: the refusal rule must scope by
+    CAPABILITY ("outside the listed capabilities" / equivalent), never by blanket uncertainty —
+    an "answer only what you're sure of" rule would push in-scope paraphrases to ground out,
+    regressing presence/scorer-number (invisible to the agent, only surfaced at re-capture)."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    assert "outside the listed capabilities" in low or "outside the capabilit" in low
+    assert "when unsure" not in low
+    assert "when in doubt" not in low
+    assert "if you are unsure" not in low

@@ -58,6 +58,28 @@ Pick the chain whose final binding matches the QUESTION SHAPE: a counting questi
 count -> answer; a "what number" question ends read_text -> answer; a temporal/first question
 ends temporal_order -> answer.
 
+Counting ("how many X are visible?"):
+- `count` returns the number of items in its input, SUMMED across ALL sampled frames — sampling
+  N frames over a window multiplies the count by ~N (e.g. 17 frames x 5 people -> 85, not 5).
+- So for a count, sample a SINGLE representative frame, never a multi-frame window:
+    sample_frames(start_ms=t, end_ms=t+1, fps=1) -> detect -> count -> answer,
+  where t is the MIDPOINT of the clip's event window (the goal/event timestamps in the Clip
+  context `hint` below; use their midpoint deterministically, do not guess a wider span).
+  One frame in, one count out.
+
+Capability scope (answer only what the API surface can observe):
+- The ops above can observe ONLY: people (person detection), jersey NUMBERS (crop jersey +
+  OCR), goal/first-scorer timing, and presence of the above. Nothing else is observable.
+- A question OUTSIDE the listed capabilities — e.g. jersey COLOR, emotion, weather, team
+  formation, crowd size beyond the pitch, commentary, the referee/coach, the stadium, the
+  final score, offside, or ball speed — CANNOT be answered. Do NOT fabricate a chain that
+  grounds to an unrelated number or verdict.
+- For such a question, emit a chain that honestly grounds out: run the detect -> crop ->
+  read_text -> filter chain but filter on a jersey value the clip provably lacks (e.g.
+  text == "99"), so the final collection is empty and the answer grounds out instead of
+  inventing one. Apply this ONLY when the question is outside the listed capabilities — never
+  for an in-scope question merely because you are unsure of the exact answer.
+
 Rules:
 - The load-bearing association is detect -> crop -> read_text: a detection box flows into a
   crop, then into OCR. To reason about a jersey number you MUST crop region "jersey", then
