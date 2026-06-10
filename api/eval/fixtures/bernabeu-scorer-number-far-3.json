@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "people",
+      "id": "detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,25 +24,25 @@
       }
     },
     {
-      "id": "jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "people",
+        "detections": "detections",
         "region": "jersey"
       }
     },
     {
-      "id": "numbers",
+      "id": "jersey_texts",
       "op": "read_text",
       "args": {
-        "crops": "jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "numbers",
+        "from": "jersey_texts",
         "question": "What's the number on the scorer's jersey?"
       }
     }
@@ -50,6 +50,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "7dd70c3354541f33",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:33:44Z"
 }

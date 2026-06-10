@@ -26,40 +26,63 @@ import seed_fixtures  # noqa: E402
 
 # ---- replay over committed seeds ---------------------------------------------------------
 
-def test_replay_over_committed_seeds_scores():
+def test_replay_over_committed_fixtures_scores():
+    """Structural invariants over the COMMITTED fixtures in whichever phase the repo is in
+    (generated seeds pre-capture; real gpt-4o captures after the runbook): every bank case has a
+    fresh fixture and replay scores them all. Quality floors over real output are the threshold
+    gate's job (thresholds.json), not this test's."""
     cases = bank.load_bank()
     results = run_eval.replay(cases)
-    by_id = {r.case_id: r for r in results}
     assert len(results) == len(cases)
-    # No MISSING / STALE seeds (every bank case has a fresh committed seed).
-    assert not any(r.missing for r in results), "a bank case lacks a committed seed"
-    assert not any(r.stale for r in results), "a committed seed is stale (re-seed)"
-    # Every in-scope groundable seed reaches its target tier.
+    assert not any(r.missing for r in results), "a bank case lacks a committed fixture"
+    assert not any(r.stale for r in results), "a committed fixture is stale (re-capture/re-seed)"
+
+
+def test_replay_over_regenerated_seeds_reaches_targets(tmp_path):
+    """The seed-machinery proof, phase-independent: regenerate seeds into a tmpdir and replay
+    against THEM — every in-scope groundable seed reaches its target tier and the pinned answers
+    ground. (Pre-capture this also held over the committed fixtures; post-capture the committed
+    set is real model output, whose tier rates are the gate's concern.)"""
+    seed_fixtures.generate_all(fixtures_dir=tmp_path)
+    cases = bank.load_bank()
+    results = run_eval.replay(cases, fixtures_dir=tmp_path)
+    by_id = {r.case_id: r for r in results}
+    assert not any(r.missing or r.stale for r in results)
     for r in results:
         if r.out_of_scope or r.safety_axis:
             continue
         assert scoring.TIER_RANK[r.reached_tier] >= scoring.TIER_RANK[r.target_tier], \
             f"{r.case_id} reached {r.reached_tier}, target {r.target_tier}"
-    # Spot-check the four pinned answers.
+    # Spot-check the pinned answers over the regenerated seeds.
     assert by_id["bernabeu-count-canonical"].answer == "5"
     assert by_id["single-goal-first-goal-canonical"].answer == "Yes"
     assert by_id["bernabeu-scorer-number-canonical"].answer == "7"
 
 
 def test_seed_fixtures_regenerate_match(tmp_path):
-    """Regenerate all seeds into a tmpdir; assert byte-for-byte match with the committed seeds
-    modulo the captured_at/model sentinels (which are fixed, so they match too). A bank edit
-    without re-seeding fails here."""
+    """Seed regeneration stays coherent with the bank and deterministic in both phases. The
+    name set must match the committed fixtures (a bank edit without re-seed/re-capture fails
+    here); byte-for-byte equality applies only to committed fixtures that are still seeds
+    (captured_at == the seed sentinel) — after the live-capture runbook the committed set is
+    real gpt-4o output and intentionally differs."""
     seed_fixtures.generate_all(fixtures_dir=tmp_path)
     committed_dir = EVAL_DIR / "fixtures"
     regenerated = sorted(tmp_path.glob("*.json"))
     committed = sorted(committed_dir.glob("*.json"))
     assert {p.name for p in regenerated} == {p.name for p in committed}, \
-        "regenerated seed set differs from committed (re-run seed_fixtures.generate_all and commit)"
+        "regenerated seed set differs from committed (bank edited without re-seed/re-capture?)"
+    # Regeneration is deterministic (keeps seed_fixtures.py meaningfully covered post-capture).
+    second = tmp_path / "second"
+    seed_fixtures.generate_all(fixtures_dir=second)
     for p in regenerated:
-        a = json.loads(p.read_text())
+        assert json.loads(p.read_text()) == json.loads((second / p.name).read_text()), \
+            f"seed regeneration is nondeterministic for {p.name}"
+    # Byte-equality against committed files only while they are seeds.
+    for p in regenerated:
         b = json.loads((committed_dir / p.name).read_text())
-        assert a == b, f"committed seed {p.name} differs from regeneration"
+        if b.get("captured_at") == seed_fixtures.SEED_CAPTURED_AT:
+            assert json.loads(p.read_text()) == b, \
+                f"committed seed {p.name} differs from regeneration"
 
 
 # ---- threshold gate ----------------------------------------------------------------------

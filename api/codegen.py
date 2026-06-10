@@ -27,7 +27,10 @@ SCHEMA_PATH = API_DIR / "schema" / "dsl.schema.json"
 # DoS vector for the downstream jsonschema walk). One token is >= 1 byte for ASCII JSON, so
 # MAX_PROGRAM_BYTES // 3 keeps the worst-case raw size comfortably under MAX_PROGRAM_BYTES while
 # leaving ample room for the largest legitimate program (the hero/bernabeu chains are ~1-2 KB).
-MAX_PROGRAM_TOKENS = MAX_PROGRAM_BYTES // 3
+# Clamped to gpt-4o's 16,384 completion-token ceiling: a larger value is a 400 invalid_request on
+# every live call (the byte-cap below still bounds the worst case independently).
+MODEL_MAX_COMPLETION_TOKENS = 16_384
+MAX_PROGRAM_TOKENS = min(MAX_PROGRAM_BYTES // 3, MODEL_MAX_COMPLETION_TOKENS)
 
 SYSTEM_PROMPT = """\
 You are the program-generation layer of a ViperGPT-style video analyst. Compile the user's

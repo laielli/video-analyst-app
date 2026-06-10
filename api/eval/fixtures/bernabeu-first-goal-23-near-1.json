@@ -8,13 +8,13 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 9000,
-        "end_ms": 11000,
+        "start_ms": 0,
+        "end_ms": 30086,
         "fps": 8
       }
     },
     {
-      "id": "people",
+      "id": "people_detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,25 +24,25 @@
       }
     },
     {
-      "id": "jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "people",
+        "detections": "people_detections",
         "region": "jersey"
       }
     },
     {
-      "id": "numbers",
+      "id": "jersey_texts",
       "op": "read_text",
       "args": {
-        "crops": "jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "absent",
+      "id": "number_23",
       "op": "filter",
       "args": {
-        "items": "numbers",
+        "items": "jersey_texts",
         "where": {
           "field": "text",
           "equals": "23"
@@ -50,10 +50,10 @@
       }
     },
     {
-      "id": "ordered",
+      "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "absent",
+        "events": "number_23",
         "by": "timestamp"
       }
     },
@@ -61,7 +61,7 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "ordered",
+        "from": "ordered_events",
         "question": "Does number 23 score the first goal?"
       }
     }
@@ -69,6 +69,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "7dd70c3354541f33",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:34:17Z"
 }

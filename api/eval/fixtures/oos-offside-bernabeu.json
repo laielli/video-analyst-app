@@ -24,36 +24,36 @@
       }
     },
     {
-      "id": "jerseys",
-      "op": "crop",
+      "id": "ball",
+      "op": "detect",
       "args": {
-        "detections": "people",
-        "region": "jersey"
+        "frames": "frames",
+        "classes": [
+          "ball"
+        ]
       }
     },
     {
-      "id": "numbers",
-      "op": "read_text",
+      "id": "ordered_people",
+      "op": "temporal_order",
       "args": {
-        "crops": "jerseys"
+        "events": "people",
+        "by": "timestamp"
       }
     },
     {
-      "id": "absent",
-      "op": "filter",
+      "id": "ordered_ball",
+      "op": "temporal_order",
       "args": {
-        "items": "numbers",
-        "where": {
-          "field": "text",
-          "equals": "99"
-        }
+        "events": "ball",
+        "by": "timestamp"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "absent",
+        "from": "ordered_people",
         "question": "Was the goal offside?"
       }
     }
@@ -61,6 +61,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "7dd70c3354541f33",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:34:48Z"
 }

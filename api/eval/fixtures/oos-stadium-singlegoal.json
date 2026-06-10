@@ -8,52 +8,41 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 4000,
-        "end_ms": 4626,
+        "start_ms": 0,
+        "end_ms": 5067,
         "fps": 8
       }
     },
     {
-      "id": "people",
+      "id": "stadium_detections",
       "op": "detect",
       "args": {
         "frames": "frames",
         "classes": [
-          "person"
+          "stadium"
         ]
       }
     },
     {
-      "id": "jerseys",
+      "id": "stadium_crops",
       "op": "crop",
       "args": {
-        "detections": "people",
-        "region": "jersey"
+        "detections": "stadium_detections",
+        "region": "full"
       }
     },
     {
-      "id": "numbers",
+      "id": "stadium_texts",
       "op": "read_text",
       "args": {
-        "crops": "jerseys"
-      }
-    },
-    {
-      "id": "absent",
-      "op": "filter",
-      "args": {
-        "items": "numbers",
-        "where": {
-          "field": "text",
-          "equals": "99"
-        }
+        "crops": "stadium_crops"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "absent",
+        "from": "stadium_texts",
         "question": "Which stadium is this match played in?"
       }
     }
@@ -61,6 +50,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "3aefdf60232f9d4f",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:34:45Z"
 }

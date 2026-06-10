@@ -5,29 +5,36 @@
   "question": "Does this frame contain at least one footballer?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 10000,
-        "end_ms": 10001,
+        "start_ms": 0,
+        "end_ms": 30086,
         "fps": 1
       }
     },
     {
-      "id": "people",
+      "id": "detected_objects",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
+      "id": "counted_footballers",
+      "op": "count",
+      "args": {
+        "items": "detected_objects"
+      }
+    },
+    {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "people",
+        "from": "counted_footballers",
         "question": "Does this frame contain at least one footballer?"
       }
     }
@@ -35,6 +42,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "7dd70c3354541f33",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:34:13Z"
 }

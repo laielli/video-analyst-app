@@ -8,13 +8,13 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 10000,
-        "end_ms": 10001,
-        "fps": 1
+        "start_ms": 0,
+        "end_ms": 30086,
+        "fps": 8
       }
     },
     {
-      "id": "people",
+      "id": "detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,17 +24,17 @@
       }
     },
     {
-      "id": "n",
+      "id": "count_players",
       "op": "count",
       "args": {
-        "items": "people"
+        "items": "detections"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "n",
+        "from": "count_players",
         "question": "Count the players on screen."
       }
     }
@@ -42,6 +42,6 @@
   "error": null,
   "usage": null,
   "prompt_version": "7dd70c3354541f33",
-  "model": "seed",
-  "captured_at": "seed"
+  "model": "gpt-4o",
+  "captured_at": "2026-06-10T16:33:17Z"
 }
