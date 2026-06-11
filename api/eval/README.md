@@ -19,7 +19,7 @@ eval/
   seed_fixtures.py            # generates the committed creds-free seed fixtures
   run_eval.py                 # the CLI: capture (live, billed) | replay (free, CI-safe)
   thresholds.json             # committed CI floors for the replay gate
-  fixtures/*.json             # committed fixtures (seeds today; real gpt-4o output after capture)
+  fixtures/*.json             # committed fixtures: real gpt-4o captures (model: gpt-4o, ISO captured_at)
   report.{md,json}            # committed latest report snapshot
 ```
 
@@ -66,16 +66,23 @@ score on the same safety axis: the trust boundary must hold and no fabricated an
 cd api
 source .venv/bin/activate
 
-# 0) Smoke creds + the harness on ONE case (sub-cent):
+# 0) Smoke creds only (sub-cent) — do NOT `capture --limit 1` then `replay` after a prompt edit:
+#    capturing 1 case makes it fresh while the other 59 stay stale -> partial staleness -> gate
+#    FAILs (and the phase-aware committed-fixtures test fails too). Smoke creds with the probe,
+#    then do the FULL re-capture in step 2 before any replay.
 python scripts/codegen_probe.py --question "How many players are visible?"   # exit 0 = creds good; 2 = fix .env
-python eval/run_eval.py capture --limit 1
-python eval/run_eval.py replay            # confirm it scores + reports
 
-# 1) Dry preview of cost (no calls):
-python eval/run_eval.py capture --dry-run
+# 1) Dry preview of cost (no calls). Match step 2's flags so the planned count is accurate
+#    (with stale fixtures both forms plan the full re-capture; --force keeps them in lockstep):
+python eval/run_eval.py capture --force --dry-run
 
-# 2) Full capture (BILLS real tokens; overwrites seed fixtures with real gpt-4o output; resume-safe):
-python eval/run_eval.py capture           # ~60 calls, budget-capped; a re-run skips done cases
+# 2) Full capture (BILLS real tokens; re-captures ALL cases under the current prompt; resume-safe):
+#    `--force` re-captures even fixtures that are fresh at the current prompt_version (e.g.
+#    seed-stamped ones, or a same-prompt re-run); without it those are silently resume-skipped.
+#    After a prompt edit the committed fixtures are STALE, so capture would re-call them even
+#    without --force — but --force is the safe default that also covers the seed-stamped/same-prompt
+#    cases (verified against run_eval.py:262-270).
+python eval/run_eval.py capture --force   # ~60 calls, budget-capped; a re-run skips fresh cases
 
 # 3) Score the real fixtures + regenerate the committed report:
 python eval/run_eval.py replay --report eval/report.md --json eval/report.json
@@ -84,11 +91,25 @@ python eval/run_eval.py replay --report eval/report.md --json eval/report.json
 git add eval/fixtures eval/report.md eval/report.json
 git commit -m "eval: capture gpt-4o codegen fixtures + baseline report"
 
-# 5) (optional) Ratchet eval/thresholds.json to ~5pp under the measured rates, then commit.
+# 5) Ratchet eval/thresholds.json (creds-NOT-required, but pairs with this re-capture):
+#    - read the new measured T4_answer_correct / out_of_scope_honest rates from eval/report.md,
+#    - set each thresholds.json floor ~5pp UNDER the measured rate (the calibration convention in
+#      the thresholds.json _comment; ~2.8pp == 1 in-scope case, so leave temperature=0 jitter room),
+#    - commit. This is the ONLY step the implementer agents do NOT do (they have no creds to
+#      re-capture, so they cannot measure the lifted rates).
+
+# 6) Bank-growth follow-up (pair with this same sitting so new cases are captured live now,
+#    no MISSING limbo): grow question_bank.json for newly-exposed failure modes — count
+#    paraphrases via bank.derive_ground_truth (never hand-typed), out-of-scope honesty cases with
+#    expect.outcome "ungrounded" / answer_match "any_grounded"; bump bank_version 1->2; any new
+#    (clip, shape) cell needs a pinned program in examples/ + a seed_fixtures._PINNED entry +
+#    LIVE_CELLS + anchor/paraphrase guards (>=1 anchor AND >=3 paraphrases per live cell, so a new
+#    cell costs >=4 cases); keep the degenerate-all-caps -> count routing special-case intact.
 ```
 
-`--only <case_id|shape|clip>` narrows the run; `--force` re-captures even fresh fixtures (resume
-is the default); `--limit N` caps live calls this invocation. A per-invocation `MAX_CAPTURE_CALLS`
+`--only <case_id|shape|clip>` narrows the run; `--force` re-captures even fixtures that are fresh
+at the current prompt_version (resume is the default — fresh fixtures are silently skipped without
+it); `--limit N` caps live calls this invocation. A per-invocation `MAX_CAPTURE_CALLS`
 ceiling (default 64) bounds spend; `--force` does **not** bypass it. A full capture costs roughly
 **$0.35–$0.50** (verify current gpt-4o pricing first).
 
@@ -115,11 +136,17 @@ re-capture:
 
 ## Seed fixtures
 
-Until the first live capture, the committed `fixtures/*.json` are a **generated** seed set
-(`seed_fixtures.py`), derived from the pinned `examples/*_program.json` templates (the final
-`answer` step's `question` is retargeted per case). They carry the **current** `prompt_version` so
-the gate exercises the real ladder, and `test_seed_fixtures_regenerate_match` keeps them honest.
-Seeds prove the harness *works*; capture measures the *prompt*.
+The committed `fixtures/*.json` are now **real gpt-4o captures** (since the first live capture);
+the **seed** set (`seed_fixtures.py`) is the creds-free stand-in that proves the harness *works*
+before any capture. Seeds are derived from the pinned `examples/*_program.json` templates (the
+final `answer` step's `question` is retargeted per case) and carry the **current** `prompt_version`
+so the gate exercises the real ladder.
+
+Seeds are regenerated ONLY into scratch dirs — `seed_fixtures.generate_all(fixtures_dir=tmp)`,
+which is exactly what `test_replay_over_regenerated_seeds_reaches_targets` and
+`test_seed_fixtures_regenerate_match` do. **Never run bare `generate_all()`**: its default
+`fixtures_dir` is the committed dir, so it would clobber the real captures with seeds (an
+anti-gaming violation). Capture measures the *prompt*; seeds prove the *machinery*.
 
 ## Escape discipline / fixtures are review-trusted
 

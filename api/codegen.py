@@ -58,6 +58,31 @@ Pick the chain whose final binding matches the QUESTION SHAPE: a counting questi
 count -> answer; a "what number" question ends read_text -> answer; a temporal/first question
 ends temporal_order -> answer.
 
+Counting questions ("how many X are visible?"):
+- `count` returns the number of items in its `from` binding, summed across EVERY sampled
+  frame. Sampling N frames therefore multiplies the count by ~N (the same person is detected
+  once per frame), which over-counts badly.
+- So for a count, sample exactly ONE representative frame: a 1ms window at fps 1
+  (sample_frames(start_ms=t, end_ms=t+1, fps=1)), where `t` is the MIDPOINT of the clip's
+  event window (from the Clip context `hint` — e.g. a "goal ~A-Bms" hint -> t=(A+B)/2).
+  If the hint names no event window, use the midpoint of the whole clip: t = duration_ms / 2.
+  Then detect -> count -> answer. NEVER sample a multi-frame window for a count.
+
+Capability scope — questions you CANNOT answer:
+- The ONLY things this API surface can observe are: person detection, jersey-NUMBER OCR
+  (the digits on a shirt), goal / first-scorer timing, and presence (is X visible).
+- A question asking for anything OUTSIDE that surface — crowd size beyond the pitch, emotion,
+  weather, jersey COLOR, team formation, commentary, referee, coach, stadium, final score,
+  offside, ball speed, or pure noise / a bare "?" with no answerable content — is NOT
+  answerable. Do NOT invent a chain that grounds to an unrelated number or verdict.
+- Instead emit a chain that honestly grounds out, so the answer comes back ungrounded: build
+  the normal detect -> crop "jersey" -> read_text chain, then filter on a jersey value the
+  clip provably lacks (e.g. equals "99"), then answer from that empty filter. An empty `from`
+  binding makes the answer ungrounded, which is the honest result for an unanswerable question.
+- This applies ONLY to questions outside the listed capabilities — NOT when you are merely
+  unsure how to phrase an in-scope program. In-scope questions (count, jersey number,
+  first-scorer, presence) always get a real grounding chain.
+
 Rules:
 - The load-bearing association is detect -> crop -> read_text: a detection box flows into a
   crop, then into OCR. To reason about a jersey number you MUST crop region "jersey", then
