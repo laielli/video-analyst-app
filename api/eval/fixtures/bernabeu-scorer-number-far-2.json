@@ -5,7 +5,7 @@
   "question": "Can you identify the digit on the back of the goalscorer's shirt?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "goal_event_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,42 +14,61 @@
       }
     },
     {
-      "id": "people_detections",
+      "id": "goal_event_detections",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "goal_event_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "goal_event_jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "people_detections",
+        "detections": "goal_event_detections",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "goal_event_jersey_texts",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "goal_event_jersey_crops"
       }
     },
     {
-      "id": "result",
+      "id": "filtered_goal_scorer",
+      "op": "filter",
+      "args": {
+        "items": "goal_event_jersey_texts",
+        "where": {
+          "field": "text",
+          "equals": "7"
+        }
+      }
+    },
+    {
+      "id": "goal_scorer_order",
+      "op": "temporal_order",
+      "args": {
+        "events": "filtered_goal_scorer",
+        "by": "timestamp"
+      }
+    },
+    {
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "jersey_texts",
+        "from": "goal_scorer_order",
         "question": "Can you identify the digit on the back of the goalscorer's shirt?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:33:42Z"
+  "captured_at": "2026-06-11T02:21:51Z"
 }

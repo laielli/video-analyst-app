@@ -5,7 +5,7 @@
   "question": "What number is the scorer wearing?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "goal_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,10 +14,10 @@
       }
     },
     {
-      "id": "detections",
+      "id": "detected_people",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "goal_frames",
         "classes": [
           "person"
         ]
@@ -27,29 +27,48 @@
       "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "detected_people",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
         "crops": "jersey_crops"
       }
     },
     {
-      "id": "result",
+      "id": "filter_scorer_number",
+      "op": "filter",
+      "args": {
+        "items": "read_jersey_numbers",
+        "where": {
+          "field": "text",
+          "equals": "7"
+        }
+      }
+    },
+    {
+      "id": "ordered_scorer_events",
+      "op": "temporal_order",
+      "args": {
+        "events": "filter_scorer_number",
+        "by": "timestamp"
+      }
+    },
+    {
+      "id": "scorer_number_answer",
       "op": "answer",
       "args": {
-        "from": "jersey_texts",
+        "from": "ordered_scorer_events",
         "question": "What number is the scorer wearing?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:33:36Z"
+  "captured_at": "2026-06-11T02:21:44Z"
 }

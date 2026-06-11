@@ -5,43 +5,43 @@
   "question": "What is the total number of footballers in the shot?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sample_frame",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 30086,
-        "fps": 8
+        "start_ms": 15043,
+        "end_ms": 15044,
+        "fps": 1
       }
     },
     {
-      "id": "detections",
+      "id": "detect_players",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sample_frame",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "count_footballers",
+      "id": "count_players",
       "op": "count",
       "args": {
-        "items": "detections"
+        "items": "detect_players"
       }
     },
     {
-      "id": "result",
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "count_footballers",
+        "from": "count_players",
         "question": "What is the total number of footballers in the shot?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:33:18Z"
+  "captured_at": "2026-06-11T02:21:32Z"
 }

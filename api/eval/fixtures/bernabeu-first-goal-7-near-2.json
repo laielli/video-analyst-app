@@ -50,7 +50,7 @@
       }
     },
     {
-      "id": "temporal_order_number_7",
+      "id": "temporal_ordering",
       "op": "temporal_order",
       "args": {
         "events": "filter_number_7",
@@ -58,17 +58,17 @@
       }
     },
     {
-      "id": "answer_first_scorer",
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "temporal_order_number_7",
+        "from": "temporal_ordering",
         "question": "Is #7 the first scorer?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:33:53Z"
+  "captured_at": "2026-06-11T02:21:59Z"
 }

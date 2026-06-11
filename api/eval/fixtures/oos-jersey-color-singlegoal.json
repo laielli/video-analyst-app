@@ -8,13 +8,13 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 5067,
-        "fps": 8
+        "start_ms": 2533,
+        "end_ms": 2534,
+        "fps": 1
       }
     },
     {
-      "id": "people_detections",
+      "id": "detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -27,7 +27,7 @@
       "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "people_detections",
+        "detections": "detections",
         "region": "jersey"
       }
     },
@@ -39,17 +39,28 @@
       }
     },
     {
+      "id": "filtered_texts",
+      "op": "filter",
+      "args": {
+        "items": "jersey_texts",
+        "where": {
+          "field": "text",
+          "equals": "99"
+        }
+      }
+    },
+    {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "jersey_texts",
+        "from": "filtered_texts",
         "question": "What color are the jerseys?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "3aefdf60232f9d4f",
+  "prompt_version": "5d6108fbf1fd90b0",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:34:40Z"
+  "captured_at": "2026-06-11T02:22:37Z"
 }

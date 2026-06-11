@@ -8,8 +8,8 @@
       "id": "sample_frame",
       "op": "sample_frames",
       "args": {
-        "start_ms": 9000,
-        "end_ms": 11000,
+        "start_ms": 15043,
+        "end_ms": 15044,
         "fps": 1
       }
     },
@@ -31,7 +31,7 @@
       }
     },
     {
-      "id": "final_answer",
+      "id": "answer_count",
       "op": "answer",
       "args": {
         "from": "count_people",
@@ -41,7 +41,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:33:22Z"
+  "captured_at": "2026-06-11T02:21:38Z"
 }

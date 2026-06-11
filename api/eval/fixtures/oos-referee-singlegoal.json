@@ -8,13 +8,13 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 5067,
-        "fps": 8
+        "start_ms": 2533,
+        "end_ms": 2534,
+        "fps": 1
       }
     },
     {
-      "id": "people_detections",
+      "id": "detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,28 +24,28 @@
       }
     },
     {
-      "id": "full_crops",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "people_detections",
-        "region": "full"
+        "detections": "detections",
+        "region": "jersey"
       }
     },
     {
-      "id": "text_readings",
+      "id": "jersey_texts",
       "op": "read_text",
       "args": {
-        "crops": "full_crops"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "referee_texts",
+      "id": "filtered_texts",
       "op": "filter",
       "args": {
-        "items": "text_readings",
+        "items": "jersey_texts",
         "where": {
           "field": "text",
-          "equals": "Referee"
+          "equals": "99"
         }
       }
     },
@@ -53,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "referee_texts",
+        "from": "filtered_texts",
         "question": "Who is the referee?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "3aefdf60232f9d4f",
+  "prompt_version": "5d6108fbf1fd90b0",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:34:28Z"
+  "captured_at": "2026-06-11T02:22:28Z"
 }

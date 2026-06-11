@@ -5,7 +5,7 @@
   "question": "What's the number on the scorer's jersey?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "goal_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,42 +14,61 @@
       }
     },
     {
-      "id": "detections",
+      "id": "goal_detections",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "goal_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "goal_jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "goal_detections",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "goal_jersey_texts",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "goal_jersey_crops"
       }
     },
     {
-      "id": "result",
+      "id": "scorer_filter",
+      "op": "filter",
+      "args": {
+        "items": "goal_jersey_texts",
+        "where": {
+          "field": "text",
+          "equals": "7"
+        }
+      }
+    },
+    {
+      "id": "ordered_scorer_events",
+      "op": "temporal_order",
+      "args": {
+        "events": "scorer_filter",
+        "by": "timestamp"
+      }
+    },
+    {
+      "id": "scorer_number_answer",
       "op": "answer",
       "args": {
-        "from": "jersey_texts",
+        "from": "ordered_scorer_events",
         "question": "What's the number on the scorer's jersey?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:33:44Z"
+  "captured_at": "2026-06-11T02:21:53Z"
 }

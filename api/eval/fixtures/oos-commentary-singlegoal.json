@@ -14,11 +14,38 @@
       }
     },
     {
-      "id": "commentary_text",
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ]
+      }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": {
+        "detections": "people",
+        "region": "jersey"
+      }
+    },
+    {
+      "id": "texts",
       "op": "read_text",
       "args": {
-        "crops": {
-          "$ref": "frames"
+        "crops": "jerseys"
+      }
+    },
+    {
+      "id": "filtered_texts",
+      "op": "filter",
+      "args": {
+        "items": "texts",
+        "where": {
+          "field": "text",
+          "equals": "99"
         }
       }
     },
@@ -26,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "commentary_text",
+        "from": "filtered_texts",
         "question": "What did the commentator say when the goal went in?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "3aefdf60232f9d4f",
+  "prompt_version": "5d6108fbf1fd90b0",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:34:54Z"
+  "captured_at": "2026-06-11T02:22:50Z"
 }

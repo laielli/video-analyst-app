@@ -5,43 +5,43 @@
   "question": "HOW MANY PLAYERS ARE VISIBLE???",
   "raw_program": [
     {
-      "id": "sampled_frames",
+      "id": "sample_mid_frame",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 30086,
-        "fps": 8
+        "start_ms": 15043,
+        "end_ms": 15044,
+        "fps": 1
       }
     },
     {
-      "id": "detected_people",
+      "id": "detect_players",
       "op": "detect",
       "args": {
-        "frames": "sampled_frames",
+        "frames": "sample_mid_frame",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "counted_players",
+      "id": "count_players",
       "op": "count",
       "args": {
-        "items": "detected_people"
+        "items": "detect_players"
       }
     },
     {
       "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "counted_players",
+        "from": "count_players",
         "question": "HOW MANY PLAYERS ARE VISIBLE???"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:35:05Z"
+  "captured_at": "2026-06-11T02:23:06Z"
 }

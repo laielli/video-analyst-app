@@ -5,7 +5,7 @@
   "question": "What number does the scorer wear?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sample_goal_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,42 +14,53 @@
       }
     },
     {
-      "id": "detections",
+      "id": "detect_people",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sample_goal_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "crop_jerseys",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "detect_people",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "crop_jerseys"
       }
     },
     {
-      "id": "result",
+      "id": "filter_scorer_number",
+      "op": "filter",
+      "args": {
+        "items": "read_jersey_numbers",
+        "where": {
+          "field": "text",
+          "equals": "7"
+        }
+      }
+    },
+    {
+      "id": "answer_scorer_number",
       "op": "answer",
       "args": {
-        "from": "jersey_texts",
+        "from": "filter_scorer_number",
         "question": "What number does the scorer wear?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:33:33Z"
+  "captured_at": "2026-06-11T02:21:42Z"
 }

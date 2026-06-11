@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "people",
+      "id": "detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,43 +24,43 @@
       }
     },
     {
-      "id": "ball",
-      "op": "detect",
+      "id": "jersey_crops",
+      "op": "crop",
       "args": {
-        "frames": "frames",
-        "classes": [
-          "ball"
-        ]
+        "detections": "detections",
+        "region": "jersey"
       }
     },
     {
-      "id": "ordered_people",
-      "op": "temporal_order",
+      "id": "jersey_texts",
+      "op": "read_text",
       "args": {
-        "events": "people",
-        "by": "timestamp"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "ordered_ball",
-      "op": "temporal_order",
+      "id": "filtered_jerseys",
+      "op": "filter",
       "args": {
-        "events": "ball",
-        "by": "timestamp"
+        "items": "jersey_texts",
+        "where": {
+          "field": "text",
+          "equals": "99"
+        }
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "ordered_people",
+        "from": "filtered_jerseys",
         "question": "Was the goal offside?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:34:48Z"
+  "captured_at": "2026-06-11T02:22:44Z"
 }

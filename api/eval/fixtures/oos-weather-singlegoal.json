@@ -8,33 +8,59 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 5067,
-        "fps": 8
+        "start_ms": 2533,
+        "end_ms": 2534,
+        "fps": 1
       }
     },
     {
-      "id": "weather_detections",
+      "id": "detections",
       "op": "detect",
       "args": {
         "frames": "frames",
         "classes": [
-          "weather"
+          "person"
         ]
+      }
+    },
+    {
+      "id": "jersey_crops",
+      "op": "crop",
+      "args": {
+        "detections": "detections",
+        "region": "jersey"
+      }
+    },
+    {
+      "id": "read_jersey_texts",
+      "op": "read_text",
+      "args": {
+        "crops": "jersey_crops"
+      }
+    },
+    {
+      "id": "filter_nonexistent",
+      "op": "filter",
+      "args": {
+        "items": "read_jersey_texts",
+        "where": {
+          "field": "text",
+          "equals": "99"
+        }
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "weather_detections",
+        "from": "filter_nonexistent",
         "question": "What's the weather like in this video?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "3aefdf60232f9d4f",
+  "prompt_version": "5d6108fbf1fd90b0",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:34:26Z"
+  "captured_at": "2026-06-11T02:22:26Z"
 }

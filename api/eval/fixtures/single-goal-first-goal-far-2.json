@@ -50,7 +50,7 @@
       }
     },
     {
-      "id": "ordered_events",
+      "id": "temporal_order_number_ten",
       "op": "temporal_order",
       "args": {
         "events": "filter_number_ten",
@@ -61,14 +61,14 @@
       "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "ordered_events",
+        "from": "temporal_order_number_ten",
         "question": "Could you tell me whether the number ten shirt got the first goal of the clip?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "3aefdf60232f9d4f",
+  "prompt_version": "5d6108fbf1fd90b0",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:32:52Z"
+  "captured_at": "2026-06-11T02:21:10Z"
 }

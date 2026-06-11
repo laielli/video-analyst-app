@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "cropped_jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
         "detections": "detected_people",
@@ -35,11 +35,11 @@
       "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "cropped_jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "filtered_number_23",
+      "id": "filter_23",
       "op": "filter",
       "args": {
         "items": "read_jersey_numbers",
@@ -50,25 +50,25 @@
       }
     },
     {
-      "id": "ordered_events",
+      "id": "temporal_order_23",
       "op": "temporal_order",
       "args": {
-        "events": "filtered_number_23",
+        "events": "filter_23",
         "by": "timestamp"
       }
     },
     {
-      "id": "final_answer",
+      "id": "answer_23_first_goal",
       "op": "answer",
       "args": {
-        "from": "ordered_events",
+        "from": "temporal_order_23",
         "question": "Does #23 score the first goal?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:34:15Z"
+  "captured_at": "2026-06-11T02:22:17Z"
 }

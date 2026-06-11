@@ -8,8 +8,8 @@
       "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 5067,
+        "start_ms": 3500,
+        "end_ms": 5000,
         "fps": 8
       }
     },
@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "cropped_jerseys",
       "op": "crop",
       "args": {
         "detections": "detected_people",
@@ -32,17 +32,17 @@
       }
     },
     {
-      "id": "read_jersey_numbers",
+      "id": "read_numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "cropped_jerseys"
       }
     },
     {
-      "id": "filter_number_10",
+      "id": "filtered_tens",
       "op": "filter",
       "args": {
-        "items": "read_jersey_numbers",
+        "items": "read_numbers",
         "where": {
           "field": "text",
           "equals": "10"
@@ -53,7 +53,7 @@
       "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "filter_number_10",
+        "events": "filtered_tens",
         "by": "timestamp"
       }
     },
@@ -68,7 +68,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "3aefdf60232f9d4f",
+  "prompt_version": "5d6108fbf1fd90b0",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:32:56Z"
+  "captured_at": "2026-06-11T02:21:12Z"
 }

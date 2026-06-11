@@ -8,9 +8,9 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 5067,
-        "fps": 8
+        "start_ms": 2533,
+        "end_ms": 2534,
+        "fps": 1
       }
     },
     {
@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "crops",
       "op": "crop",
       "args": {
         "detections": "detections",
@@ -32,24 +32,35 @@
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "texts",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "crops"
+      }
+    },
+    {
+      "id": "filtered_texts",
+      "op": "filter",
+      "args": {
+        "items": "texts",
+        "where": {
+          "field": "text",
+          "equals": "99"
+        }
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "jersey_texts",
+        "from": "filtered_texts",
         "question": "?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "3aefdf60232f9d4f",
+  "prompt_version": "5d6108fbf1fd90b0",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:35:03Z"
+  "captured_at": "2026-06-11T02:23:04Z"
 }

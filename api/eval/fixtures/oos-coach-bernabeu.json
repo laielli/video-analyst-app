@@ -8,9 +8,9 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 30086,
-        "fps": 8
+        "start_ms": 15043,
+        "end_ms": 15044,
+        "fps": 1
       }
     },
     {
@@ -32,20 +32,20 @@
       }
     },
     {
-      "id": "texts",
+      "id": "numbers",
       "op": "read_text",
       "args": {
         "crops": "jerseys"
       }
     },
     {
-      "id": "coach_filter",
+      "id": "filtered_numbers",
       "op": "filter",
       "args": {
-        "items": "texts",
+        "items": "numbers",
         "where": {
           "field": "text",
-          "equals": "Coach"
+          "equals": "99"
         }
       }
     },
@@ -53,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "coach_filter",
+        "from": "filtered_numbers",
         "question": "Who is the coach of the team?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "7dd70c3354541f33",
+  "prompt_version": "bec7d10d5b5f1f9a",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:34:42Z"
+  "captured_at": "2026-06-11T02:22:39Z"
 }

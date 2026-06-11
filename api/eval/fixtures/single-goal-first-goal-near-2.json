@@ -5,44 +5,44 @@
   "question": "Is #10 the first to score?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 5067,
+        "start_ms": 3500,
+        "end_ms": 5000,
         "fps": 8
       }
     },
     {
-      "id": "people_detections",
+      "id": "detected_people",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "cropped_jerseys",
       "op": "crop",
       "args": {
-        "detections": "people_detections",
+        "detections": "detected_people",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "read_numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "cropped_jerseys"
       }
     },
     {
-      "id": "number_10",
+      "id": "filtered_number_10",
       "op": "filter",
       "args": {
-        "items": "jersey_texts",
+        "items": "read_numbers",
         "where": {
           "field": "text",
           "equals": "10"
@@ -53,12 +53,12 @@
       "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "number_10",
+        "events": "filtered_number_10",
         "by": "timestamp"
       }
     },
     {
-      "id": "result",
+      "id": "final_answer",
       "op": "answer",
       "args": {
         "from": "ordered_events",
@@ -68,7 +68,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "3aefdf60232f9d4f",
+  "prompt_version": "5d6108fbf1fd90b0",
   "model": "gpt-4o",
-  "captured_at": "2026-06-10T16:32:46Z"
+  "captured_at": "2026-06-11T02:21:05Z"
 }
