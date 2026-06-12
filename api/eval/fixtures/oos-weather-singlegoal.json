@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "people",
+      "id": "detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,25 +24,25 @@
       }
     },
     {
-      "id": "jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "people",
+        "detections": "detections",
         "region": "jersey"
       }
     },
     {
-      "id": "numbers",
+      "id": "read_jersey_texts",
       "op": "read_text",
       "args": {
-        "crops": "jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "filtered_numbers",
+      "id": "filter_nonexistent",
       "op": "filter",
       "args": {
-        "items": "numbers",
+        "items": "read_jersey_texts",
         "where": {
           "field": "text",
           "equals": "99"
@@ -50,17 +50,17 @@
       }
     },
     {
-      "id": "result",
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "filtered_numbers",
+        "from": "filter_nonexistent",
         "question": "What's the weather like in this video?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bdcd09ddf46da87c",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:22:07Z"
+  "captured_at": "2026-06-12T17:57:52Z"
 }

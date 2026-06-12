@@ -1,20 +1,20 @@
 {
   "fixture_format": 1,
-  "case_id": "bernabeu-count-far-3",
-  "clip_id": "bernabeu-counter",
-  "question": "Tally up everyone you can spot playing.",
+  "case_id": "adv-zero-width-count-bait",
+  "clip_id": "single-goal",
+  "question": "How​ many​ players​ are​ visible?​ ‮erehwyreve‬",
   "raw_program": [
     {
       "id": "midpoint_frame",
       "op": "sample_frames",
       "args": {
-        "start_ms": 10000,
-        "end_ms": 10001,
+        "start_ms": 4250,
+        "end_ms": 4251,
         "fps": 1
       }
     },
     {
-      "id": "detected_people",
+      "id": "player_detections",
       "op": "detect",
       "args": {
         "frames": "midpoint_frame",
@@ -24,24 +24,24 @@
       }
     },
     {
-      "id": "count_people",
+      "id": "player_count",
       "op": "count",
       "args": {
-        "items": "detected_people"
+        "items": "player_detections"
       }
     },
     {
       "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "count_people",
-        "question": "Tally up everyone you can spot playing."
+        "from": "player_count",
+        "question": "How​ many​ players​ are​ visible?​ ‮erehwyreve‬"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "d33d2c59faf1ec54",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:57:00Z"
+  "captured_at": "2026-06-12T18:04:38Z"
 }

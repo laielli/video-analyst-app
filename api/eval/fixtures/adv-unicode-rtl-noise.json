@@ -5,7 +5,7 @@
   "question": "How many players ‮erehtsi‬ \u0007‏ are visible? \u0000",
   "raw_program": [
     {
-      "id": "mid_frame",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 10000,
@@ -14,34 +14,34 @@
       }
     },
     {
-      "id": "player_detections",
+      "id": "detections",
       "op": "detect",
       "args": {
-        "frames": "mid_frame",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "player_count",
+      "id": "count_players",
       "op": "count",
       "args": {
-        "items": "player_detections"
+        "items": "detections"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "player_count",
+        "from": "count_players",
         "question": "How many players are visible?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:22:47Z"
+  "captured_at": "2026-06-12T17:58:33Z"
 }

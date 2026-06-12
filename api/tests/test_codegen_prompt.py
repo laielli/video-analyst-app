@@ -179,3 +179,36 @@ def test_codegen_prompt_digit_identify_is_what_number_shape():
     assert "identify" in low
     assert "what number" in low
     assert "read_text -> answer" in low
+
+
+# --------------------------------------------------------------------------------------
+# 2026-06-12 re-capture fixes — noise precedence, midpoint exclusivity, hint-number filter
+# --------------------------------------------------------------------------------------
+
+def test_codegen_prompt_noise_precedence_rule():
+    """The 2026-06-12 capture showed adv-injection-huge-window and adv-unicode-rtl-noise getting
+    grounded '5' answers: the (now working) count chain claimed noise/injection inputs the refusal
+    rule should own. The ground-out rules must take explicit PRECEDENCE over the chain recipes,
+    covering instruction-embedding and control/RTL/zero-width corruption."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    assert "precedence" in low
+    assert "zero-width" in low and "rtl" in low
+    assert "embeds instructions" in low
+
+
+def test_codegen_prompt_midpoint_pattern_is_count_exclusive():
+    """The 2026-06-12 capture showed single-goal-presence-far-3 using the single-frame midpoint
+    count pattern for a presence question and grounding out empty. The midpoint pattern must be
+    scoped to counting questions only; presence/yes-no chains use the hint's full window + fps."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    assert "exclusively for counting" in low
+
+
+def test_codegen_prompt_forbids_hint_number_filter():
+    """The 2026-06-12 capture showed three scorer-number paraphrases answering 'Yes' via
+    filter(text == '7') with the 7 sourced from the HINT, ending temporal_order -> answer. The
+    shape rule must forbid hint-sourced number filters and temporal_order endings for
+    "what number" questions."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    assert "never filter on a number taken from the clip context hint" in low
+    assert "never end temporal_order -> answer" in low

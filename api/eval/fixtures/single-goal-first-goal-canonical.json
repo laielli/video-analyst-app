@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "cropped_jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
         "detections": "detected_people",
@@ -35,11 +35,11 @@
       "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "cropped_jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "filtered_number_10",
+      "id": "filter_number_10",
       "op": "filter",
       "args": {
         "items": "read_jersey_numbers",
@@ -53,7 +53,7 @@
       "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "filtered_number_10",
+        "events": "filter_number_10",
         "by": "timestamp"
       }
     },
@@ -68,7 +68,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bdcd09ddf46da87c",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:20:25Z"
+  "captured_at": "2026-06-12T17:56:25Z"
 }

@@ -138,3 +138,18 @@ def test_filter_cases_by_clip_shape_and_only():
     assert only_clip and all(c["clip_id"] == "single-goal" for c in only_clip)
     one = bank.filter_cases(cases, only="bernabeu-count-canonical")
     assert len(one) == 1 and one[0]["case_id"] == "bernabeu-count-canonical"
+
+
+def test_all_count_cases_match_derived_ground_truth():
+    """Every grounded count case in the bernabeu count cell carries the DERIVED answer (from the
+    pinned count program over the committed cache) — extends the canonical-only check to the whole
+    cell so bank growth can never hand-type a count answer that drifts from the cache."""
+    ber = canned.clip_by_id("bernabeu-counter")
+    derived = bank.derive_ground_truth(
+        API_DIR / "examples" / "bernabeu-counter_count_program.json", ber["cache"])
+    cell = [c for c in bank.load_bank()
+            if c["clip_id"] == "bernabeu-counter" and c["shape"] == "count"
+            and c["expect"]["outcome"] == "grounded"]
+    assert len(cell) >= 8  # 1 anchor + 7 paraphrases after the 2026-06-12 growth
+    for c in cell:
+        assert c["expect"]["answer"] == derived, c["case_id"]

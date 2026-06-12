@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "crops",
       "op": "crop",
       "args": {
         "detections": "detections",
@@ -32,17 +32,17 @@
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "texts",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "crops"
       }
     },
     {
       "id": "filtered_texts",
       "op": "filter",
       "args": {
-        "items": "jersey_texts",
+        "items": "texts",
         "where": {
           "field": "text",
           "equals": "99"
@@ -60,7 +60,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bdcd09ddf46da87c",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:22:10Z"
+  "captured_at": "2026-06-12T17:57:54Z"
 }

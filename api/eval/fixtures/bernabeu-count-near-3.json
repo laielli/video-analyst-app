@@ -1,11 +1,11 @@
 {
   "fixture_format": 1,
-  "case_id": "bernabeu-presence-far-2",
+  "case_id": "bernabeu-count-near-3",
   "clip_id": "bernabeu-counter",
-  "question": "Does this frame contain at least one footballer?",
+  "question": "Count the players in view.",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "mid_frame",
       "op": "sample_frames",
       "args": {
         "start_ms": 10000,
@@ -14,21 +14,28 @@
       }
     },
     {
-      "id": "detections",
+      "id": "player_detections",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "mid_frame",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "answer",
+      "id": "player_count",
+      "op": "count",
+      "args": {
+        "items": "player_detections"
+      }
+    },
+    {
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "detections",
-        "question": "Does this frame contain at least one footballer?"
+        "from": "player_count",
+        "question": "Count the players in view."
       }
     }
   ],
@@ -36,5 +43,5 @@
   "usage": null,
   "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:57:41Z"
+  "captured_at": "2026-06-12T17:58:41Z"
 }

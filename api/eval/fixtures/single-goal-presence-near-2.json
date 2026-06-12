@@ -5,7 +5,7 @@
   "question": "Are there any players on screen?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 3500,
@@ -14,10 +14,10 @@
       }
     },
     {
-      "id": "detections",
+      "id": "detected_objects",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
@@ -27,14 +27,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "detections",
+        "from": "detected_objects",
         "question": "Are there any players on screen?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bdcd09ddf46da87c",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:20:45Z"
+  "captured_at": "2026-06-12T17:56:44Z"
 }

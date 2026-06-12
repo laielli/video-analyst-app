@@ -5,7 +5,7 @@
   "question": "What's the number on the scorer's jersey?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,42 +14,61 @@
       }
     },
     {
-      "id": "detections",
+      "id": "detected_people",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "cropped_jerseys",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "detected_people",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "cropped_jerseys"
       }
     },
     {
-      "id": "result",
+      "id": "filtered_scorer_number",
+      "op": "filter",
+      "args": {
+        "items": "read_jersey_numbers",
+        "where": {
+          "field": "text",
+          "equals": "7"
+        }
+      }
+    },
+    {
+      "id": "ordered_events",
+      "op": "temporal_order",
+      "args": {
+        "events": "filtered_scorer_number",
+        "by": "timestamp"
+      }
+    },
+    {
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "jersey_texts",
+        "from": "ordered_events",
         "question": "What's the number on the scorer's jersey?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:21:20Z"
+  "captured_at": "2026-06-12T17:57:13Z"
 }

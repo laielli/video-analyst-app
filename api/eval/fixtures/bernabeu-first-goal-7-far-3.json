@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "cropped_jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
         "detections": "detected_people",
@@ -35,11 +35,11 @@
       "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "cropped_jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "filtered_number_7",
+      "id": "filter_number_7",
       "op": "filter",
       "args": {
         "items": "read_jersey_numbers",
@@ -50,10 +50,10 @@
       }
     },
     {
-      "id": "ordered_events",
+      "id": "temporal_ordering",
       "op": "temporal_order",
       "args": {
-        "events": "filtered_number_7",
+        "events": "filter_number_7",
         "by": "timestamp"
       }
     },
@@ -61,14 +61,14 @@
       "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "ordered_events",
+        "from": "temporal_ordering",
         "question": "Is the first to find the net wearing 7?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:21:37Z"
+  "captured_at": "2026-06-12T17:57:31Z"
 }

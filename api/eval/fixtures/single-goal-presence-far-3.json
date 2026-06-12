@@ -5,7 +5,7 @@
   "question": "Is anybody present in the frame?",
   "raw_program": [
     {
-      "id": "sample_frame",
+      "id": "sampled_frame",
       "op": "sample_frames",
       "args": {
         "start_ms": 4283,
@@ -14,34 +14,27 @@
       }
     },
     {
-      "id": "detect_people",
+      "id": "detected_objects",
       "op": "detect",
       "args": {
-        "frames": "sample_frame",
+        "frames": "sampled_frame",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "count_people",
-      "op": "count",
-      "args": {
-        "items": "detect_people"
-      }
-    },
-    {
-      "id": "answer_presence",
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "count_people",
+        "from": "detected_objects",
         "question": "Is anybody present in the frame?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bdcd09ddf46da87c",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:20:51Z"
+  "captured_at": "2026-06-12T17:56:49Z"
 }

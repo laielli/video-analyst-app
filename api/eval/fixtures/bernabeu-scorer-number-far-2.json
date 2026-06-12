@@ -39,36 +39,17 @@
       }
     },
     {
-      "id": "filtered_number",
-      "op": "filter",
-      "args": {
-        "items": "read_jersey_numbers",
-        "where": {
-          "field": "text",
-          "equals": "7"
-        }
-      }
-    },
-    {
-      "id": "ordered_events",
-      "op": "temporal_order",
-      "args": {
-        "events": "filtered_number",
-        "by": "timestamp"
-      }
-    },
-    {
-      "id": "final_answer",
+      "id": "answer_result",
       "op": "answer",
       "args": {
-        "from": "ordered_events",
+        "from": "read_jersey_numbers",
         "question": "Can you identify the digit on the back of the goalscorer's shirt?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:21:17Z"
+  "captured_at": "2026-06-12T17:57:11Z"
 }

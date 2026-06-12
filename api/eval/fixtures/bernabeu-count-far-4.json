@@ -1,8 +1,8 @@
 {
   "fixture_format": 1,
-  "case_id": "bernabeu-count-far-3",
+  "case_id": "bernabeu-count-far-4",
   "clip_id": "bernabeu-counter",
-  "question": "Tally up everyone you can spot playing.",
+  "question": "Give me a headcount of everyone you can see on the pitch.",
   "raw_program": [
     {
       "id": "midpoint_frame",
@@ -35,7 +35,7 @@
       "op": "answer",
       "args": {
         "from": "count_people",
-        "question": "Tally up everyone you can spot playing."
+        "question": "Give me a headcount of everyone you can see on the pitch."
       }
     }
   ],
@@ -43,5 +43,5 @@
   "usage": null,
   "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:57:00Z"
+  "captured_at": "2026-06-12T17:58:43Z"
 }
