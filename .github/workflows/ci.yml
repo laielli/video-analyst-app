@@ -29,9 +29,12 @@ jobs:
       - name: Run tests (coverage gated at floor)
         working-directory: api
         run: python -m pytest -q --cov=. --cov-report=term-missing --cov-fail-under=85
+      # No --fail-under overrides: the committed eval/thresholds.json floors ARE the gate.
+      # (The old T4=0.70 override predated thresholds.json and silently replaced the ratcheted
+      # floor in CI, making every ratchet commit inert where it mattered.)
       - name: Codegen eval (replay-mode regression gate)
         working-directory: api
-        run: python eval/run_eval.py replay --fail-under T2_semantic_valid=0.95 --fail-under T4_answer_correct=0.70
+        run: python eval/run_eval.py replay
 
   web:
     name: Web (build + tsc + vitest)
