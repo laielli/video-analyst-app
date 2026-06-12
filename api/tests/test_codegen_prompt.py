@@ -147,3 +147,35 @@ def test_codegen_prompt_refusal_rule_is_scoped():
     assert "if unsure" not in low
     # the rule IS scoped to capability, positively.
     assert "outside the listed capabilities" in low or "outside that surface" in low
+
+
+# --------------------------------------------------------------------------------------
+# Post-recapture regression fixes — analyzed-window law + digit-identify shape
+# --------------------------------------------------------------------------------------
+
+def test_codegen_prompt_has_analyzed_window_rule():
+    """The 2026-06-11 re-capture showed chains sampling outside the precomputed cache (whole-clip
+    midpoint 15043 on bernabeu; fps-1 grids missing single-goal's lone 4625 frame) ground out
+    empty — presence fell 11/11 -> 1/11 and count grounded out instead of overcounting. The prompt
+    must (a) state the analyzed-window law (analysis exists ONLY in the hint's window at the
+    hint's fps; copy both verbatim) and (b) NOT offer the whole-clip-midpoint fallback that
+    invited off-window sampling."""
+    p = codegen.SYSTEM_PROMPT
+    low = p.lower()
+    assert "analyzed" in low
+    assert "verbatim" in low
+    assert "grounds out" in low or "ground out" in low
+    # the landmine: a whole-clip-midpoint fallback for counts must never come back.
+    assert "duration_ms / 2" not in p
+    assert "midpoint of the whole clip" not in low
+
+
+def test_codegen_prompt_digit_identify_is_what_number_shape():
+    """Scorer-number paraphrases like "Can you identify the digit ..." regressed to yes/no chains
+    (filter(text == '7') -> temporal_order -> 'Yes') at the 2026-06-11 re-capture. The shape rule
+    must classify identify/name-the-digits phrasings as "what number" questions ending
+    read_text -> answer, and confine filter-on-a-number to questions that themselves name it."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    assert "identify" in low
+    assert "what number" in low
+    assert "read_text -> answer" in low

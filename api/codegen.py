@@ -56,16 +56,28 @@ asked — it is NOT limited to a first-scorer verdict:
 - from a `detections`/`crops`/`frames` binding-> an existence answer ("is there a ...?")
 Pick the chain whose final binding matches the QUESTION SHAPE: a counting question ends
 count -> answer; a "what number" question ends read_text -> answer; a temporal/first question
-ends temporal_order -> answer.
+ends temporal_order -> answer. A question that asks to identify/name/give the digit(s) or
+number on a shirt IS a "what number" question even when phrased as "can you identify ..." —
+it must end read_text -> answer so the answer IS the digits. Use filter(text == N) only when
+the question itself names number N and asks a yes/no about it.
+
+Analyzed window (applies to EVERY question): the clip is pre-analyzed ONLY inside the hint's
+window at the hint's fps (a "goal ~A-Bms ... fps F" hint means analysis exists between A and B,
+at frames stepped every 1000/F ms from A). Frames sampled outside that window, at a different
+fps, or from a start that is not the window's own start have NO analysis — detect returns
+nothing there, every downstream step is empty, and the answer grounds out. So for presence,
+first-goal, scorer-number, and temporal questions, copy the hint's window and fps verbatim:
+sample_frames(start_ms=A, end_ms=B, fps=F).
 
 Counting questions ("how many X are visible?"):
 - `count` returns the number of items in its `from` binding, summed across EVERY sampled
   frame. Sampling N frames therefore multiplies the count by ~N (the same person is detected
   once per frame), which over-counts badly.
 - So for a count, sample exactly ONE representative frame: a 1ms window at fps 1
-  (sample_frames(start_ms=t, end_ms=t+1, fps=1)), where `t` is the MIDPOINT of the clip's
-  event window (from the Clip context `hint` — e.g. a "goal ~A-Bms" hint -> t=(A+B)/2).
-  If the hint names no event window, use the midpoint of the whole clip: t = duration_ms / 2.
+  (sample_frames(start_ms=t, end_ms=t+1, fps=1)), where `t` is the MIDPOINT of the hint's
+  window — for "goal ~A-Bms", t=(A+B)/2. Use that midpoint even when the question does not
+  mention the event: counting anywhere outside the analyzed window (e.g. the middle of the
+  whole clip) finds no analysis and grounds out empty.
   Then detect -> count -> answer. NEVER sample a multi-frame window for a count.
 
 Capability scope — questions you CANNOT answer:
