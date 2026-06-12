@@ -110,7 +110,8 @@ git commit -m "eval: capture gpt-4o codegen fixtures + baseline report"
 `--only <case_id|shape|clip>` narrows the run; `--force` re-captures even fixtures that are fresh
 at the current prompt_version (resume is the default — fresh fixtures are silently skipped without
 it); `--limit N` caps live calls this invocation. A per-invocation `MAX_CAPTURE_CALLS`
-ceiling (default 64) bounds spend; `--force` does **not** bypass it. A full capture costs roughly
+ceiling (default 72, covering the 66-case bank in one invocation) bounds spend; `--force` does
+**not** bypass it. A full capture costs roughly
 **$0.35–$0.50** (verify current gpt-4o pricing first).
 
 ## Determinism
