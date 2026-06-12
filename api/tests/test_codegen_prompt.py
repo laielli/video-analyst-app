@@ -248,13 +248,16 @@ def test_few_shot_examples_validate_against_dsl():
 
 def test_few_shot_examples_rendered_into_prompt():
     """The examples are data; the prompt is their render. Every question and step must appear in
-    SYSTEM_PROMPT (compact JSON), and the examples block sits at the END so the injected Clip
-    context lands directly under the 'take the real window/fps from the Clip context' pointer."""
+    SYSTEM_PROMPT (compact JSON), and the examples block sits at the very END so the injected
+    Clip context lands directly under the 'substitute the real Clip context's window and fps'
+    pointer (recency: the real hint is the last thing the model reads)."""
     for ex in codegen.FEW_SHOT_EXAMPLES:
         assert json.dumps(ex["question"]) in codegen.SYSTEM_PROMPT
         for step in ex["program"]:
             assert json.dumps(step, separators=(",", ":")) in codegen.SYSTEM_PROMPT
     assert codegen.SYSTEM_PROMPT.index("Worked examples") > codegen.SYSTEM_PROMPT.index("Rules:")
+    # nothing may be appended after the last example — the clip block must land right under it.
+    assert codegen.SYSTEM_PROMPT.endswith(codegen._render_example(codegen.FEW_SHOT_EXAMPLES[-1]))
 
 
 def test_few_shot_scorer_number_example_shape():
@@ -266,6 +269,10 @@ def test_few_shot_scorer_number_example_shape():
     assert ops[-2:] == ["read_text", "answer"]
     assert "temporal_order" not in ops and "filter" not in ops
     _assert_uses_hint_window_verbatim(ex)
+    # the example must face the REAL failure stimulus: a hint that names a (decoy) scorer number
+    # — the failing rows lifted bernabeu's 'scorer wears #7' into filter(text == '7'). A hint
+    # with no number would demonstrate restraint against nothing.
+    assert re.search(r"scorer wears #\d", codegen.EXAMPLE_CLIP["hint"])
 
 
 def test_few_shot_presence_example_shape():
@@ -303,6 +310,9 @@ def test_few_shot_examples_teach_structure_not_the_test_set():
         q = case["question"]
         if len(q) >= 15:  # skip degenerate stubs like '?' that match anything
             assert q not in codegen.SYSTEM_PROMPT, f"bank question leaked into prompt: {q!r}"
+            # examples render questions via json.dumps — also scan the escaped form, or a
+            # quoted/non-ASCII bank question could leak invisibly to the raw scan above.
+            assert json.dumps(q) not in codegen.SYSTEM_PROMPT, f"bank question leaked (escaped): {q!r}"
     for clip in CLIPS.values():
         literals = set(re.findall(r"\d{4,}", clip["hint"])) | {str(clip["duration_ms"])}
         for lit in literals:
@@ -310,9 +320,9 @@ def test_few_shot_examples_teach_structure_not_the_test_set():
 
 
 def test_prompt_size_budget():
-    """The few-shot iteration TRIMMED the rulebook (~6.8k -> ~4.2k chars) while the whole prompt
-    (rules + examples) landed under the pre-iteration 6,851-char base. Budget-guard the trim so
+    """The few-shot iteration TRIMMED the rulebook (6,751 -> ~4.3k chars) while the whole prompt
+    (rules + examples) stayed under the pre-iteration 6,751-char base. Budget-guard the trim so
     rule-accretion can't creep back: shrink a rule or convert it to a worked example instead of
     appending prose."""
     assert len(codegen._RULES) <= 4500, "rulebook crept past its budget — trim or convert to an example"
-    assert len(codegen.SYSTEM_PROMPT) <= 6500, "prompt crept past its budget"
+    assert len(codegen.SYSTEM_PROMPT) <= 6700, "prompt crept past its budget (pre-iteration base: 6,751)"
