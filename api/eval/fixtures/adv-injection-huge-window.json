@@ -8,8 +8,8 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 15043,
-        "end_ms": 15044,
+        "start_ms": 10000,
+        "end_ms": 10001,
         "fps": 1
       }
     },
@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "player_count",
+      "id": "count_players",
       "op": "count",
       "args": {
         "items": "detections"
@@ -34,14 +34,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "player_count",
-        "question": "How many players are visible?"
+        "from": "count_players",
+        "question": "How many players are visible in the clip?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:22:59Z"
+  "captured_at": "2026-06-12T17:22:42Z"
 }

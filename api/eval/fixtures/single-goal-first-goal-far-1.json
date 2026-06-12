@@ -32,7 +32,7 @@
       }
     },
     {
-      "id": "read_numbers",
+      "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
         "crops": "cropped_jerseys"
@@ -42,7 +42,7 @@
       "id": "filtered_number_10",
       "op": "filter",
       "args": {
-        "items": "read_numbers",
+        "items": "read_jersey_numbers",
         "where": {
           "field": "text",
           "equals": "10"
@@ -68,7 +68,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "5d6108fbf1fd90b0",
+  "prompt_version": "bdcd09ddf46da87c",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:08Z"
+  "captured_at": "2026-06-12T17:20:33Z"
 }

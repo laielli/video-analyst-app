@@ -5,44 +5,44 @@
   "question": "What number does #99 wear?",
   "raw_program": [
     {
-      "id": "sample_frames_midpoint",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 15043,
-        "end_ms": 15044,
-        "fps": 1
+        "start_ms": 9000,
+        "end_ms": 11000,
+        "fps": 8
       }
     },
     {
-      "id": "detect_people",
+      "id": "detections",
       "op": "detect",
       "args": {
-        "frames": "sample_frames_midpoint",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "crop_jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "detect_people",
+        "detections": "detections",
         "region": "jersey"
       }
     },
     {
-      "id": "read_jersey_numbers",
+      "id": "read_jerseys",
       "op": "read_text",
       "args": {
-        "crops": "crop_jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "filter_number_99",
+      "id": "filter_99",
       "op": "filter",
       "args": {
-        "items": "read_jersey_numbers",
+        "items": "read_jerseys",
         "where": {
           "field": "text",
           "equals": "99"
@@ -50,17 +50,17 @@
       }
     },
     {
-      "id": "answer_unavailable",
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "filter_number_99",
+        "from": "filter_99",
         "question": "What number does #99 wear?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:22:34Z"
+  "captured_at": "2026-06-12T17:22:17Z"
 }

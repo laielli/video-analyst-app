@@ -8,13 +8,13 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 15043,
-        "end_ms": 15044,
-        "fps": 1
+        "start_ms": 9000,
+        "end_ms": 11000,
+        "fps": 8
       }
     },
     {
-      "id": "detections",
+      "id": "people",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -27,7 +27,7 @@
       "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "people",
         "region": "jersey"
       }
     },
@@ -60,7 +60,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:22:48Z"
+  "captured_at": "2026-06-12T17:22:32Z"
 }

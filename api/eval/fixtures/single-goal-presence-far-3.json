@@ -8,8 +8,8 @@
       "id": "sample_frame",
       "op": "sample_frames",
       "args": {
-        "start_ms": 2533,
-        "end_ms": 2534,
+        "start_ms": 4283,
+        "end_ms": 4284,
         "fps": 1
       }
     },
@@ -24,17 +24,24 @@
       }
     },
     {
+      "id": "count_people",
+      "op": "count",
+      "args": {
+        "items": "detect_people"
+      }
+    },
+    {
       "id": "answer_presence",
       "op": "answer",
       "args": {
-        "from": "detect_people",
+        "from": "count_people",
         "question": "Is anybody present in the frame?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "5d6108fbf1fd90b0",
+  "prompt_version": "bdcd09ddf46da87c",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:22Z"
+  "captured_at": "2026-06-12T17:20:51Z"
 }

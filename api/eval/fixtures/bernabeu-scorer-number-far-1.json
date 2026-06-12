@@ -5,7 +5,7 @@
   "question": "Read out the shirt number of the player who scored.",
   "raw_program": [
     {
-      "id": "sample_goal_frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,20 +14,20 @@
       }
     },
     {
-      "id": "detect_players",
+      "id": "detected_people",
       "op": "detect",
       "args": {
-        "frames": "sample_goal_frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "crop_jerseys",
+      "id": "cropped_jerseys",
       "op": "crop",
       "args": {
-        "detections": "detect_players",
+        "detections": "detected_people",
         "region": "jersey"
       }
     },
@@ -35,11 +35,11 @@
       "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "crop_jerseys"
+        "crops": "cropped_jerseys"
       }
     },
     {
-      "id": "filter_scorer",
+      "id": "filtered_number",
       "op": "filter",
       "args": {
         "items": "read_jersey_numbers",
@@ -50,17 +50,25 @@
       }
     },
     {
-      "id": "answer_scorer_number",
+      "id": "ordered_events",
+      "op": "temporal_order",
+      "args": {
+        "events": "filtered_number",
+        "by": "timestamp"
+      }
+    },
+    {
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "filter_scorer",
+        "from": "ordered_events",
         "question": "Read out the shirt number of the player who scored."
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:48Z"
+  "captured_at": "2026-06-12T17:21:14Z"
 }

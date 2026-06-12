@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "detections",
+      "id": "people_detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -27,7 +27,7 @@
       "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "people_detections",
         "region": "jersey"
       }
     },
@@ -60,7 +60,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:22:44Z"
+  "captured_at": "2026-06-12T17:22:28Z"
 }

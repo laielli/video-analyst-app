@@ -5,7 +5,7 @@
   "question": "Did the seven get the clip's first goal?",
   "raw_program": [
     {
-      "id": "sampled_frames",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,35 +14,35 @@
       }
     },
     {
-      "id": "detected_people",
+      "id": "detections",
       "op": "detect",
       "args": {
-        "frames": "sampled_frames",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "cropped_jerseys",
+      "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "detected_people",
+        "detections": "detections",
         "region": "jersey"
       }
     },
     {
-      "id": "read_numbers",
+      "id": "jersey_texts",
       "op": "read_text",
       "args": {
-        "crops": "cropped_jerseys"
+        "crops": "jersey_crops"
       }
     },
     {
-      "id": "filtered_seven",
+      "id": "filtered_jerseys",
       "op": "filter",
       "args": {
-        "items": "read_numbers",
+        "items": "jersey_texts",
         "where": {
           "field": "text",
           "equals": "7"
@@ -53,12 +53,12 @@
       "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "filtered_seven",
+        "events": "filtered_jerseys",
         "by": "timestamp"
       }
     },
     {
-      "id": "final_answer",
+      "id": "result",
       "op": "answer",
       "args": {
         "from": "ordered_events",
@@ -68,7 +68,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:22:05Z"
+  "captured_at": "2026-06-12T17:21:34Z"
 }

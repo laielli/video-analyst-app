@@ -8,9 +8,9 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 2533,
-        "end_ms": 2534,
-        "fps": 1
+        "start_ms": 3500,
+        "end_ms": 5000,
+        "fps": 8
       }
     },
     {
@@ -60,7 +60,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "5d6108fbf1fd90b0",
+  "prompt_version": "bdcd09ddf46da87c",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:22:37Z"
+  "captured_at": "2026-06-12T17:22:20Z"
 }

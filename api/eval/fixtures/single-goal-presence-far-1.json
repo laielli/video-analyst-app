@@ -5,7 +5,7 @@
   "question": "Can you see anyone playing in this clip?",
   "raw_program": [
     {
-      "id": "sampled_frames",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 3500,
@@ -14,27 +14,27 @@
       }
     },
     {
-      "id": "detected_people",
+      "id": "detections",
       "op": "detect",
       "args": {
-        "frames": "sampled_frames",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "result",
+      "id": "answer",
       "op": "answer",
       "args": {
-        "from": "detected_people",
+        "from": "detections",
         "question": "Can you see anyone playing in this clip?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "5d6108fbf1fd90b0",
+  "prompt_version": "bdcd09ddf46da87c",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:19Z"
+  "captured_at": "2026-06-12T17:20:47Z"
 }

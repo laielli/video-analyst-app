@@ -5,11 +5,11 @@
   "question": "Could you tell me how many people are on the pitch in this frame?",
   "raw_program": [
     {
-      "id": "sample_frame",
+      "id": "frame_sample",
       "op": "sample_frames",
       "args": {
-        "start_ms": 15043,
-        "end_ms": 15044,
+        "start_ms": 10000,
+        "end_ms": 10001,
         "fps": 1
       }
     },
@@ -17,7 +17,7 @@
       "id": "detect_people",
       "op": "detect",
       "args": {
-        "frames": "sample_frame",
+        "frames": "frame_sample",
         "classes": [
           "person"
         ]
@@ -31,7 +31,7 @@
       }
     },
     {
-      "id": "answer_count",
+      "id": "final_answer",
       "op": "answer",
       "args": {
         "from": "count_people",
@@ -41,7 +41,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:38Z"
+  "captured_at": "2026-06-12T17:21:02Z"
 }

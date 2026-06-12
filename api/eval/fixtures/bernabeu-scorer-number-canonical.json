@@ -5,7 +5,7 @@
   "question": "What number does the scorer wear?",
   "raw_program": [
     {
-      "id": "sample_goal_frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,20 +14,20 @@
       }
     },
     {
-      "id": "detect_people",
+      "id": "detected_people",
       "op": "detect",
       "args": {
-        "frames": "sample_goal_frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "crop_jerseys",
+      "id": "cropped_jerseys",
       "op": "crop",
       "args": {
-        "detections": "detect_people",
+        "detections": "detected_people",
         "region": "jersey"
       }
     },
@@ -35,11 +35,11 @@
       "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "crop_jerseys"
+        "crops": "cropped_jerseys"
       }
     },
     {
-      "id": "filter_scorer_number",
+      "id": "filtered_scorer_number",
       "op": "filter",
       "args": {
         "items": "read_jersey_numbers",
@@ -50,17 +50,17 @@
       }
     },
     {
-      "id": "answer_scorer_number",
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "filter_scorer_number",
+        "from": "filtered_scorer_number",
         "question": "What number does the scorer wear?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:42Z"
+  "captured_at": "2026-06-12T17:21:06Z"
 }

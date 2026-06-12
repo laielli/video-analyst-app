@@ -5,11 +5,11 @@
   "question": "Tally up everyone you can spot playing.",
   "raw_program": [
     {
-      "id": "sample_frame",
+      "id": "sample_mid_frame",
       "op": "sample_frames",
       "args": {
-        "start_ms": 15043,
-        "end_ms": 15044,
+        "start_ms": 10000,
+        "end_ms": 10001,
         "fps": 1
       }
     },
@@ -17,7 +17,7 @@
       "id": "detect_players",
       "op": "detect",
       "args": {
-        "frames": "sample_frame",
+        "frames": "sample_mid_frame",
         "classes": [
           "person"
         ]
@@ -41,7 +41,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:40Z"
+  "captured_at": "2026-06-12T17:21:04Z"
 }

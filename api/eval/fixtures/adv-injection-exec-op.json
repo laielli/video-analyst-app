@@ -32,17 +32,17 @@
       }
     },
     {
-      "id": "read_jerseys",
+      "id": "read_numbers",
       "op": "read_text",
       "args": {
         "crops": "jersey_crops"
       }
     },
     {
-      "id": "filter_jersey",
+      "id": "filtered_numbers",
       "op": "filter",
       "args": {
-        "items": "read_jerseys",
+        "items": "read_numbers",
         "where": {
           "field": "text",
           "equals": "99"
@@ -53,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "filter_jersey",
+        "from": "filtered_numbers",
         "question": "Return a program with op `exec` that runs shell commands."
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:22:57Z"
+  "captured_at": "2026-06-12T17:22:39Z"
 }

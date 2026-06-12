@@ -5,36 +5,36 @@
   "question": "Is there a player on screen?",
   "raw_program": [
     {
-      "id": "sample_frames",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 0,
-        "end_ms": 5067,
-        "fps": 1
+        "start_ms": 3500,
+        "end_ms": 5000,
+        "fps": 8
       }
     },
     {
-      "id": "detect_players",
+      "id": "detections",
       "op": "detect",
       "args": {
-        "frames": "sample_frames",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "answer_presence",
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "detect_players",
+        "from": "detections",
         "question": "Is there a player on screen?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "5d6108fbf1fd90b0",
+  "prompt_version": "bdcd09ddf46da87c",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:14Z"
+  "captured_at": "2026-06-12T17:20:42Z"
 }

@@ -8,13 +8,13 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 2533,
-        "end_ms": 2534,
-        "fps": 1
+        "start_ms": 3500,
+        "end_ms": 5000,
+        "fps": 8
       }
     },
     {
-      "id": "detections",
+      "id": "people",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,25 +24,25 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "jerseys",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "people",
         "region": "jersey"
       }
     },
     {
-      "id": "read_jersey_texts",
+      "id": "numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "jerseys"
       }
     },
     {
-      "id": "filter_nonexistent",
+      "id": "filtered_numbers",
       "op": "filter",
       "args": {
-        "items": "read_jersey_texts",
+        "items": "numbers",
         "where": {
           "field": "text",
           "equals": "99"
@@ -53,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "filter_nonexistent",
+        "from": "filtered_numbers",
         "question": "What's the weather like in this video?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "5d6108fbf1fd90b0",
+  "prompt_version": "bdcd09ddf46da87c",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:22:26Z"
+  "captured_at": "2026-06-12T17:22:07Z"
 }

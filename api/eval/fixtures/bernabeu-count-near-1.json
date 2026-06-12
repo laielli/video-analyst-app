@@ -5,19 +5,19 @@
   "question": "How many players can be seen?",
   "raw_program": [
     {
-      "id": "midpoint_frame",
+      "id": "mid_frame",
       "op": "sample_frames",
       "args": {
-        "start_ms": 15043,
-        "end_ms": 15044,
+        "start_ms": 10000,
+        "end_ms": 10001,
         "fps": 1
       }
     },
     {
-      "id": "detected_objects",
+      "id": "player_detections",
       "op": "detect",
       "args": {
-        "frames": "midpoint_frame",
+        "frames": "mid_frame",
         "classes": [
           "person"
         ]
@@ -27,11 +27,11 @@
       "id": "player_count",
       "op": "count",
       "args": {
-        "items": "detected_objects"
+        "items": "player_detections"
       }
     },
     {
-      "id": "final_answer",
+      "id": "result",
       "op": "answer",
       "args": {
         "from": "player_count",
@@ -41,7 +41,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:25Z"
+  "captured_at": "2026-06-12T17:20:55Z"
 }

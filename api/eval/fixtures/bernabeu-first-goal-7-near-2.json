@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "cropped_jerseys",
       "op": "crop",
       "args": {
         "detections": "detected_people",
@@ -35,11 +35,11 @@
       "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "cropped_jerseys"
       }
     },
     {
-      "id": "filter_number_7",
+      "id": "filtered_number_7",
       "op": "filter",
       "args": {
         "items": "read_jersey_numbers",
@@ -50,10 +50,10 @@
       }
     },
     {
-      "id": "temporal_ordering",
+      "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "filter_number_7",
+        "events": "filtered_number_7",
         "by": "timestamp"
       }
     },
@@ -61,14 +61,14 @@
       "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "temporal_ordering",
+        "from": "ordered_events",
         "question": "Is #7 the first scorer?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bec7d10d5b5f1f9a",
+  "prompt_version": "c936327716b67b14",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:59Z"
+  "captured_at": "2026-06-12T17:21:27Z"
 }

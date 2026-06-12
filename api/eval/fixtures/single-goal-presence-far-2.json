@@ -5,43 +5,36 @@
   "question": "Does the footage show at least one footballer?",
   "raw_program": [
     {
-      "id": "sampled_frames",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 2533,
-        "end_ms": 2534,
-        "fps": 1
+        "start_ms": 3500,
+        "end_ms": 5000,
+        "fps": 8
       }
     },
     {
-      "id": "detected_objects",
+      "id": "detections",
       "op": "detect",
       "args": {
-        "frames": "sampled_frames",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "counted_objects",
-      "op": "count",
-      "args": {
-        "items": "detected_objects"
-      }
-    },
-    {
-      "id": "final_answer",
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "counted_objects",
+        "from": "detections",
         "question": "Does the footage show at least one footballer?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "5d6108fbf1fd90b0",
+  "prompt_version": "bdcd09ddf46da87c",
   "model": "gpt-4o",
-  "captured_at": "2026-06-11T02:21:20Z"
+  "captured_at": "2026-06-12T17:20:49Z"
 }
