@@ -5,7 +5,7 @@
   "question": "Is #23 the first scorer?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,10 +14,10 @@
       }
     },
     {
-      "id": "detections",
+      "id": "detected_people",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
@@ -27,22 +27,22 @@
       "id": "jersey_crops",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "detected_people",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "read_jersey_numbers",
       "op": "read_text",
       "args": {
         "crops": "jersey_crops"
       }
     },
     {
-      "id": "filtered_23",
+      "id": "filter_23",
       "op": "filter",
       "args": {
-        "items": "jersey_texts",
+        "items": "read_jersey_numbers",
         "where": {
           "field": "text",
           "equals": "23"
@@ -53,12 +53,12 @@
       "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "filtered_23",
+        "events": "filter_23",
         "by": "timestamp"
       }
     },
     {
-      "id": "result",
+      "id": "final_answer",
       "op": "answer",
       "args": {
         "from": "ordered_events",
@@ -68,7 +68,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:22:02Z"
+  "captured_at": "2026-06-12T17:57:48Z"
 }

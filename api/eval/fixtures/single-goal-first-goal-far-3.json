@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "cropped_jerseys",
       "op": "crop",
       "args": {
         "detections": "detected_people",
@@ -32,17 +32,17 @@
       }
     },
     {
-      "id": "read_jersey_numbers",
+      "id": "read_numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "cropped_jerseys"
       }
     },
     {
-      "id": "filter_number_10",
+      "id": "filtered_tens",
       "op": "filter",
       "args": {
-        "items": "read_jersey_numbers",
+        "items": "read_numbers",
         "where": {
           "field": "text",
           "equals": "10"
@@ -50,10 +50,10 @@
       }
     },
     {
-      "id": "temporal_ordering",
+      "id": "ordered_events",
       "op": "temporal_order",
       "args": {
-        "events": "filter_number_10",
+        "events": "filtered_tens",
         "by": "timestamp"
       }
     },
@@ -61,14 +61,14 @@
       "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "temporal_ordering",
+        "from": "ordered_events",
         "question": "Did the 10 open the scoring?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bdcd09ddf46da87c",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:20:39Z"
+  "captured_at": "2026-06-12T17:56:38Z"
 }

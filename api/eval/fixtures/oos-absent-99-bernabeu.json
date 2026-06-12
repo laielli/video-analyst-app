@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "detections",
+      "id": "people",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,25 +24,25 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "jerseys",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "people",
         "region": "jersey"
       }
     },
     {
-      "id": "read_jerseys",
+      "id": "numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "jerseys"
       }
     },
     {
-      "id": "filter_99",
+      "id": "filtered_numbers",
       "op": "filter",
       "args": {
-        "items": "read_jerseys",
+        "items": "numbers",
         "where": {
           "field": "text",
           "equals": "99"
@@ -53,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "filter_99",
+        "from": "filtered_numbers",
         "question": "What number does #99 wear?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:22:17Z"
+  "captured_at": "2026-06-12T17:58:02Z"
 }

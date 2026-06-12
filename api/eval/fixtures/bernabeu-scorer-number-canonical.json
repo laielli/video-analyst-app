@@ -50,17 +50,25 @@
       }
     },
     {
-      "id": "result",
+      "id": "ordered_events",
+      "op": "temporal_order",
+      "args": {
+        "events": "filtered_scorer_number",
+        "by": "timestamp"
+      }
+    },
+    {
+      "id": "final_answer",
       "op": "answer",
       "args": {
-        "from": "filtered_scorer_number",
+        "from": "ordered_events",
         "question": "What number does the scorer wear?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:21:06Z"
+  "captured_at": "2026-06-12T17:57:02Z"
 }

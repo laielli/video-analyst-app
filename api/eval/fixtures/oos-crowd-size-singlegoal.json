@@ -8,13 +8,13 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 2533,
-        "end_ms": 2534,
-        "fps": 1
+        "start_ms": 3500,
+        "end_ms": 5000,
+        "fps": 8
       }
     },
     {
-      "id": "detections",
+      "id": "people_detections",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,24 +24,43 @@
       }
     },
     {
-      "id": "count_people",
-      "op": "count",
+      "id": "jersey_crops",
+      "op": "crop",
       "args": {
-        "items": "detections"
+        "detections": "people_detections",
+        "region": "jersey"
+      }
+    },
+    {
+      "id": "jersey_texts",
+      "op": "read_text",
+      "args": {
+        "crops": "jersey_crops"
+      }
+    },
+    {
+      "id": "filtered_jerseys",
+      "op": "filter",
+      "args": {
+        "items": "jersey_texts",
+        "where": {
+          "field": "text",
+          "equals": "99"
+        }
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "count_people",
+        "from": "filtered_jerseys",
         "question": "How many people are in the crowd?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "bdcd09ddf46da87c",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:22:30Z"
+  "captured_at": "2026-06-12T17:58:15Z"
 }

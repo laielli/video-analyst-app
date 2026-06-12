@@ -19,30 +19,30 @@
       "args": {
         "frames": "frames",
         "classes": [
-          "ball"
+          "person"
         ]
       }
     },
     {
-      "id": "ball_crops",
+      "id": "crops",
       "op": "crop",
       "args": {
         "detections": "detections",
-        "region": "ball"
+        "region": "jersey"
       }
     },
     {
-      "id": "ball_texts",
+      "id": "texts",
       "op": "read_text",
       "args": {
-        "crops": "ball_crops"
+        "crops": "crops"
       }
     },
     {
       "id": "filtered_texts",
       "op": "filter",
       "args": {
-        "items": "ball_texts",
+        "items": "texts",
         "where": {
           "field": "text",
           "equals": "99"
@@ -60,7 +60,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:22:15Z"
+  "captured_at": "2026-06-12T17:58:00Z"
 }

@@ -5,7 +5,7 @@
   "question": "Is there a player visible?",
   "raw_program": [
     {
-      "id": "frames",
+      "id": "sampled_frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,10 +14,10 @@
       }
     },
     {
-      "id": "detections",
+      "id": "detected_objects",
       "op": "detect",
       "args": {
-        "frames": "frames",
+        "frames": "sampled_frames",
         "classes": [
           "person"
         ]
@@ -27,14 +27,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "detections",
+        "from": "detected_objects",
         "question": "Is there a player visible?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "c936327716b67b14",
+  "prompt_version": "d33d2c59faf1ec54",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:21:43Z"
+  "captured_at": "2026-06-12T17:57:37Z"
 }

@@ -1,20 +1,20 @@
 {
   "fixture_format": 1,
-  "case_id": "oos-finalscore-bernabeu",
-  "clip_id": "bernabeu-counter",
-  "question": "What's the final score of the match?",
+  "case_id": "oos-keeper-foot-singlegoal",
+  "clip_id": "single-goal",
+  "question": "Is the goalkeeper left-footed?",
   "raw_program": [
     {
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 9000,
-        "end_ms": 11000,
+        "start_ms": 3500,
+        "end_ms": 5000,
         "fps": 8
       }
     },
     {
-      "id": "detections",
+      "id": "people",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,25 +24,25 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "jerseys",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "people",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "jerseys"
       }
     },
     {
-      "id": "filtered_texts",
+      "id": "filtered_numbers",
       "op": "filter",
       "args": {
-        "items": "jersey_texts",
+        "items": "numbers",
         "where": {
           "field": "text",
           "equals": "99"
@@ -53,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "filtered_texts",
-        "question": "What's the final score of the match?"
+        "from": "filtered_numbers",
+        "question": "Is the goalkeeper left-footed?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "d33d2c59faf1ec54",
+  "prompt_version": "8ce886d627706ef3",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:57:57Z"
+  "captured_at": "2026-06-12T17:58:47Z"
 }
