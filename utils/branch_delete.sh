@@ -1,5 +1,5 @@
 cd /Users/michaellaielli/career/video-analyst-app
 
-for w in a6ea881786b644fc4 a3fd8d7863253dafa aa75bdf1a3782d4a3 a217a12daf6159107; do
+for w in a4792aca4b58bc612 a44153b2b64dcc3f6 a98778a8becb96aa1 abbacb39cee8cb0d8 aa3fbac3f994f23ab; do
   git branch -D worktree-agent-$w
 done
