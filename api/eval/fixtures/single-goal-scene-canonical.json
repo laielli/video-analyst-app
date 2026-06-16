@@ -1,0 +1,37 @@
+{
+  "fixture_format": 1,
+  "case_id": "single-goal-scene-canonical",
+  "clip_id": "single-goal",
+  "question": "Describe what is happening in this clip.",
+  "raw_program": [
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 4000,
+        "end_ms": 4626,
+        "fps": 8
+      }
+    },
+    {
+      "id": "scene",
+      "op": "describe_scene",
+      "args": {
+        "frames": "frames"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "scene",
+        "question": "Describe what is happening in this clip."
+      }
+    }
+  ],
+  "error": null,
+  "usage": null,
+  "prompt_version": "edf7859f70e1e410",
+  "model": "seed",
+  "captured_at": "seed-stale"
+}
