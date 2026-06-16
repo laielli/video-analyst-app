@@ -84,6 +84,14 @@ export default function EvidencePanel({
               <span>{conf != null ? conf.toFixed(2) : "—"}</span>
             </div>
           </div>
+          {/* describe_scene: surface the whole-scene caption text as its own readout row (the
+              output_label carries the caption; the overlay is a full-frame outline). */}
+          {step?.op === "describe_scene" && step?.status === "done" && (
+            <div className="row">
+              <div className="k">Scene caption</div>
+              <div className="v"><span className="cap-text">{step?.output_label}</span></div>
+            </div>
+          )}
         </div>
         {step?.note && <div className="note">{step.note}</div>}
       </div>

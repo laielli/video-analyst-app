@@ -62,4 +62,29 @@ describe("EvidencePanel", () => {
     render(<EvidencePanel step={null} />);
     expect(screen.getByText(/No evidence frame for this step/i)).toBeInTheDocument();
   });
+
+  it("renders a scene caption readout for a describe_scene step", () => {
+    const s = step({
+      op: "describe_scene", status: "done", output_label: "A player runs toward the goal.",
+      evidence: { frame_ts_ms: 4625, overlays: [] },
+    });
+    render(<EvidencePanel step={s} />);
+    // dedicated "Scene caption" readout row carries the caption text (the .cap-text span).
+    expect(screen.getByText("Scene caption")).toBeInTheDocument();
+    const cap = document.querySelector(".cap-text") as HTMLElement;
+    expect(cap).toBeInTheDocument();
+    expect(cap.textContent).toBe("A player runs toward the goal.");
+  });
+
+  it("describe_scene diagnostic-empty renders WHAT + WHY", () => {
+    const s = step({
+      op: "describe_scene", status: "empty",
+      note: "no scene caption in the sampled frames (window has no cached captions)",
+      evidence: { frame_ts_ms: 4625, overlays: [] },
+    });
+    render(<EvidencePanel step={s} />);
+    expect(screen.getByText(/no scene caption in the sampled frames/i)).toBeInTheDocument();
+    // no Scene-caption readout row on the empty path.
+    expect(screen.queryByText("Scene caption")).toBeNull();
+  });
 });
