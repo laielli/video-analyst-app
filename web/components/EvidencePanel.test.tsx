@@ -62,4 +62,30 @@ describe("EvidencePanel", () => {
     render(<EvidencePanel step={null} />);
     expect(screen.getByText(/No evidence frame for this step/i)).toBeInTheDocument();
   });
+
+  it("renders a scene caption readout for a describe_scene step", () => {
+    const s = step({
+      op: "describe_scene",
+      output_label: "A football player celebrates a goal on a stadium pitch.",
+      evidence: { frame_ts_ms: 4625, overlays: [{ box: { x: 0, y: 0, w: 1, h: 1 }, label: "scene", tone: "teal", kind: "crop" }] },
+    });
+    render(<EvidencePanel step={s} />);
+    // the Scene row surfaces the caption text (also present in the Output pill -> >=1 match).
+    expect(screen.getByText("Scene")).toBeInTheDocument();
+    const sceneCell = document.querySelector(".scene-caption") as HTMLElement;
+    expect(sceneCell).toBeInTheDocument();
+    expect(sceneCell.textContent).toBe("A football player celebrates a goal on a stadium pitch.");
+  });
+
+  it("renders the diagnostic WHAT/WHY for an empty describe_scene step", () => {
+    const s = step({
+      op: "describe_scene",
+      status: "empty",
+      output_label: "(no scene caption)",
+      note: "no scene captions cached in the sampled window (3 frames searched); describe_scene grounds out",
+      evidence: { frame_ts_ms: 0, overlays: [] },
+    });
+    render(<EvidencePanel step={s} />);
+    expect(screen.getByText(/no scene captions cached in the sampled window/i)).toBeInTheDocument();
+  });
 });

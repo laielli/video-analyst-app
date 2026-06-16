@@ -32,6 +32,7 @@ function call(id: string, fnName: string, groups: Tok[][]): Tok[] {
 export const COMMENTS: Record<string, string> = {
   sample_frames: "# sample frames around the goal moment",
   detect: "# find every player on the pitch",
+  describe_scene: "# describe what's happening in the scene",
   crop: "# isolate each jersey-number region",
   read_text: "# OCR the number off each shirt",
   filter: "# keep only player #10",
@@ -47,6 +48,11 @@ function lineFor(s: ProgramStep): Tok[] {
       return call(s.id, "sample_frames", [[num(a.start_ms)], [num(a.end_ms)], [kw("fps"), op("="), num(a.fps)]]);
     case "detect":
       return call(s.id, "detect", [[nm(String(a.frames))], [op("["), str(`"${((a.classes as string[]) || []).join('", "')}"`), op("]")]]);
+    case "describe_scene": {
+      const groups: Tok[][] = [[nm(String(a.frames))]];
+      if (a.max_captions != null) groups.push([kw("max_captions"), op("="), num(a.max_captions)]);
+      return call(s.id, "describe_scene", groups);
+    }
     case "crop":
       return call(s.id, "crop", [[nm(String(a.detections))], [str(`"${a.region}"`)]]);
     case "read_text":

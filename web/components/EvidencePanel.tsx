@@ -77,6 +77,17 @@ export default function EvidencePanel({
               {step?.source && <span className={`src-tag ${step.source}`}>{step.source}</span>}
             </div>
           </div>
+          {step?.op === "describe_scene" && (
+            // describe_scene produces a whole-scene caption (kind:"captions"). Surface the caption
+            // text explicitly on `done`; on empty, a short marker (the full diagnostic WHAT/WHY
+            // note renders once at the bottom).
+            <div className="row">
+              <div className="k">Scene</div>
+              <div className="v scene-caption">
+                {step.status === "empty" ? "No scene caption for this window." : step.output_label}
+              </div>
+            </div>
+          )}
           <div className="row">
             <div className="k">Confidence</div>
             <div className="v">
