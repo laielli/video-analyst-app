@@ -447,3 +447,58 @@ def test_validate_cache_shape_catches_orphan_read_text():
     cache = canonical_cache(clip, detect, {"ghost": {"text": "10", "confidence": None, "source": "pinned"}}, [])
     errs = validate_cache_shape(cache)
     assert any("read_text key 'ghost'" in e for e in errs)
+
+
+# --------------------------------------------------------------------------------------
+# describe_scene precompute (Phase 4) — captions slice gated by sampling.caption_frames
+# --------------------------------------------------------------------------------------
+
+def test_precompute_emits_captions_slice(tmp_path, manifest, fake_frame_provider, fake_crop_provider):
+    # opting into sampling.caption_frames yields a `captions` map keyed by sampled ts, each entry
+    # carrying text/confidence/box; the produced cache passes validate_cache_shape.
+    manifest = dict(manifest)
+    manifest["sampling"] = {**manifest["sampling"], "caption_frames": True}
+    out = tmp_path / "cache.json"
+    rep = _run(manifest, fake_frame_provider, fake_crop_provider, out=out)
+    assert rep["exit"] == 0
+    data = json.loads(out.read_text())
+    assert "captions" in data and data["captions"], "captions slice must be emitted when opted in"
+    for ts, caps in data["captions"].items():
+        assert str(ts).isdigit()
+        for c in caps:
+            assert c["text"] and isinstance(c["confidence"], (int, float))
+            for k in ("x", "y", "w", "h"):
+                assert 0 <= c["box"][k] <= 1
+    assert validate_cache_shape(data) == []
+    # the cache's captions_at accessor resolves the slice.
+    cache = Cache.load(out)
+    sampled = sampled_timestamps(manifest)
+    assert cache.captions_at(sampled[0]), "captions_at must return the cached caption"
+
+
+def test_precompute_no_captions_when_not_opted_in(tmp_path, manifest, fake_frame_provider, fake_crop_provider):
+    # the default manifest (no sampling.caption_frames) yields NO captions key (back-compat: the
+    # committed caches stay byte-identical, no surprise CAPTION calls).
+    out = tmp_path / "cache.json"
+    rep = _run(manifest, fake_frame_provider, fake_crop_provider, out=out)
+    assert rep["exit"] == 0
+    data = json.loads(out.read_text())
+    assert "captions" not in data
+
+
+def test_validate_cache_shape_catches_overlong_caption():
+    # a caption longer than MAX_CAPTION_LEN is rejected by validate_cache_shape (security guard).
+    from limits import MAX_CAPTION_LEN
+    clip = {"id": "x", "width": 10, "height": 10, "duration_ms": 100, "fps": 30}
+    detect = {"100": [{"det_id": "p0", "cls": "person", "confidence": 0.5, "box": {"x": 0.1, "y": 0.1, "w": 0.1, "h": 0.1}}]}
+    captions = {"100": [{"text": "z" * (MAX_CAPTION_LEN + 1), "confidence": 0.5, "box": {"x": 0, "y": 0, "w": 1, "h": 1}}]}
+    cache = canonical_cache(clip, detect, {}, [], captions=captions)
+    errs = validate_cache_shape(cache)
+    assert any("text is" in e and "max is" in e for e in errs)
+
+
+def test_run_describe_scene_off_by_default(manifest, fake_frame_provider):
+    # run_describe_scene returns {} (no Azure CAPTION call) unless the manifest opts in.
+    ts = sampled_timestamps(manifest)
+    assert precompute.run_describe_scene(manifest, ts, frame_provider=fake_frame_provider,
+                                         vision=FakeAzureVision()) == {}
