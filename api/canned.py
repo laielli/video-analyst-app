@@ -45,6 +45,16 @@ QUERIES = [
         "program": str(EX / "hero_program.json"),
         "cache": str(EX / "hero_cache.json"),
     },
+    {
+        # describe_scene -> answer: grounds to the hero cache's scene caption (the new primitive).
+        # Question deliberately differs from the codegen few-shot scene example so the anti-
+        # contamination guard (no bank question verbatim in the prompt) stays satisfied.
+        "id": "hero-scene-description",
+        "text": "What is happening in the scene?",
+        "clip": "single-goal",
+        "program": str(EX / "single-goal_scene_program.json"),
+        "cache": str(EX / "hero_cache.json"),
+    },
     # ---- bernabeu-counter: 4 query shapes the hero chain never hits (multi-clip / multi-query) ----
     {
         # count -> answer (no crop/read_text/filter/temporal_order). Grounds to a number.

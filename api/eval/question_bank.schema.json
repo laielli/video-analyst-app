@@ -30,7 +30,7 @@
         },
         "shape": {
           "type": "string",
-          "enum": ["first-goal", "count", "scorer-number", "presence", "out-of-scope", "adversarial", "degenerate"]
+          "enum": ["first-goal", "count", "scorer-number", "presence", "scene", "out-of-scope", "adversarial", "degenerate"]
         },
         "phrasing_class": {
           "type": "string",

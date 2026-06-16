@@ -1,54 +1,111 @@
 # Codegen eval report
 
-- bank_version: `2`
-- prompt_version: `474f8438f9fb7159`
+- bank_version: `3`
+- prompt_version: `f6516a9b323a146d`
 - model: `gpt-4o`  ·  mode: `replay`  ·  captured_at: `2026-06-13T00:43:13Z`
-- total cases: 66  ·  in-scope: 38  ·  out-of-scope: 28  ·  safety: 7
-- STALE fixtures: 0  ·  MISSING fixtures: 0
+- total cases: 71  ·  in-scope: 0  ·  out-of-scope: 0  ·  safety: 0
+- STALE fixtures: 66  ·  MISSING fixtures: 5
 - estimated capture cost (offline est., usage is null): ~$0.41
-- prompt size (chars): bernabeu-counter=6860, single-goal=6830
+- prompt size (chars): bernabeu-counter=6917, single-goal=6887
 - total raw_program bytes: 32185
 
 ## Tier funnel (in-scope)
 
-T0_parsed 38/38 → T1_schema_valid 38/38 → T2_semantic_valid 38/38 → T3_grounded 38/38 → T4_answer_correct 38/38
+T0_parsed 0/0 → T1_schema_valid 0/0 → T2_semantic_valid 0/0 → T3_grounded 0/0 → T4_answer_correct 0/0
 
-- out-of-scope honest-refusal rate: 28/28 (1.00)
-- adversarial-safe rate: 7/7 (1.00)
+- out-of-scope honest-refusal rate: 0/0 (0.00)
+- adversarial-safe rate: 0/0 (0.00)
 
 ## Per-shape
 
 | group | n | T2 | T3 | T4 | pass |
 |---|---|---|---|---|---|
-| adversarial | 7 | 0.71 | 0.00 | 0.00 | 1.00 |
-| count | 8 | 1.00 | 1.00 | 1.00 | 1.00 |
-| degenerate | 3 | 1.00 | 0.33 | 0.33 | 1.00 |
-| first-goal | 16 | 1.00 | 0.75 | 0.75 | 1.00 |
-| out-of-scope | 15 | 1.00 | 0.00 | 0.00 | 1.00 |
-| presence | 11 | 1.00 | 1.00 | 1.00 | 1.00 |
-| scorer-number | 6 | 1.00 | 1.00 | 1.00 | 1.00 |
 
 ## Per-clip
 
 | group | n | T2 | T3 | T4 | pass |
 |---|---|---|---|---|---|
-| bernabeu-counter | 44 | 0.98 | 0.59 | 0.59 | 1.00 |
-| single-goal | 22 | 0.95 | 0.55 | 0.55 | 1.00 |
 
 ## Per-bucket (paraphrase distance)
 
 | group | n | T2 | T3 | T4 | pass |
 |---|---|---|---|---|---|
-| canonical | 7 | 1.00 | 0.86 | 0.86 | 1.00 |
-| degenerate | 3 | 1.00 | 0.33 | 0.33 | 1.00 |
-| injection | 7 | 0.71 | 0.00 | 0.00 | 1.00 |
-| out_of_scope | 15 | 1.00 | 0.00 | 0.00 | 1.00 |
-| paraphrase-far | 19 | 1.00 | 0.95 | 0.95 | 1.00 |
-| paraphrase-near | 15 | 1.00 | 0.87 | 0.87 | 1.00 |
 
 ## Failure detail
 
-_All cases passed._
+| case_id | reached | detail | flag |
+|---|---|---|---|
+| `adv-injection-empty-program` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `adv-injection-exec-op` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `adv-injection-fps-override` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `adv-injection-huge-window` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `adv-injection-reveal-prompt` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `adv-scene-injection-fps` | MISSING | no fixture (run capture) | MISSING |
+| `adv-unicode-rtl-noise` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `adv-zero-width-count-bait` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `bernabeu-count-canonical` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-count-far-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-count-far-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-count-far-3` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-count-far-4` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-count-near-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-count-near-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-count-near-3` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-23-canonical` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-23-far-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-23-near-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-23-near-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-7-canonical` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-7-far-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-7-far-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-7-far-3` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-7-near-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-first-goal-7-near-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-presence-anchor` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-presence-far-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-presence-far-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-presence-near-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-presence-near-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-scorer-number-canonical` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-scorer-number-far-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-scorer-number-far-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-scorer-number-far-3` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-scorer-number-near-1` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `bernabeu-scorer-number-near-2` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `degenerate-all-caps` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `degenerate-question-mark` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `degenerate-unicode-digits` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-absent-99-bernabeu` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-ballspeed-bernabeu` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-coach-bernabeu` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-commentary-singlegoal` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `oos-crowd-size-singlegoal` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `oos-emotion-bernabeu` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-finalscore-bernabeu` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-formation-bernabeu` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-halftime-score-bernabeu` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-jersey-color-singlegoal` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `oos-keeper-foot-singlegoal` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `oos-offside-bernabeu` | STALE | stale fixture (prompt_version a3cca197c2ee4155) | STALE |
+| `oos-referee-singlegoal` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `oos-stadium-singlegoal` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `oos-weather-singlegoal` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-first-goal-canonical` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-first-goal-far-1` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-first-goal-far-2` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-first-goal-far-3` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-first-goal-near-1` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-first-goal-near-2` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-presence-anchor` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-presence-far-1` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-presence-far-2` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-presence-far-3` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-presence-near-1` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-presence-near-2` | STALE | stale fixture (prompt_version edf7859f70e1e410) | STALE |
+| `single-goal-scene-canonical` | MISSING | no fixture (run capture) | MISSING |
+| `single-goal-scene-far-1` | MISSING | no fixture (run capture) | MISSING |
+| `single-goal-scene-near-1` | MISSING | no fixture (run capture) | MISSING |
+| `single-goal-scene-near-2` | MISSING | no fixture (run capture) | MISSING |
 
 ---
 
