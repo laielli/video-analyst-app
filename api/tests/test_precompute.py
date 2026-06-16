@@ -447,3 +447,50 @@ def test_validate_cache_shape_catches_orphan_read_text():
     cache = canonical_cache(clip, detect, {"ghost": {"text": "10", "confidence": None, "source": "pinned"}}, [])
     errs = validate_cache_shape(cache)
     assert any("read_text key 'ghost'" in e for e in errs)
+
+
+# --------------------------------------------------------------------------------------
+# describe_scene precompute (caption slice)
+# --------------------------------------------------------------------------------------
+
+def test_precompute_emits_captions_slice(tmp_path, manifest, fake_frame_provider, fake_crop_provider):
+    """With sampling.caption_frames opted in + a FakeAzureVision caption, the cache carries a
+    `captions` map keyed by sampled ts that passes validate_cache_shape, and the new accessor
+    captions_at returns the caption."""
+    out = tmp_path / "cache.json"
+    m = json.loads(json.dumps({k: v for k, v in manifest.items() if k != "_dir"}))
+    m["_dir"] = manifest["_dir"]
+    m["sampling"]["caption_frames"] = True  # opt in
+    rep = _run(m, fake_frame_provider, fake_crop_provider, out=out)
+    assert rep["exit"] == 0
+    assert rep["caption_frames"], "caption_frames should be populated when opted in"
+    data = json.loads(out.read_text())
+    assert "captions" in data and data["captions"]
+    cache = Cache.load(out)
+    # captions_at returns the canned caption at a sampled ts (4625 is in the hero window).
+    caps = cache.captions_at(4625)
+    assert caps and caps[0]["text"] == FakeAzureVision.CANNED_CAPTION
+    assert caps[0]["box"] == {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}
+    assert validate_cache_shape(data) == []
+
+
+def test_precompute_no_captions_when_not_opted_in(tmp_path, manifest, fake_frame_provider, fake_crop_provider):
+    """The default manifest (no sampling.caption_frames) yields NO captions key — the default cache
+    shape is unchanged (low blast radius)."""
+    out = tmp_path / "cache.json"
+    rep = _run(manifest, fake_frame_provider, fake_crop_provider, out=out)
+    assert rep["exit"] == 0
+    assert rep["caption_frames"] == []
+    data = json.loads(out.read_text())
+    assert "captions" not in data
+
+
+def test_validate_cache_shape_catches_overlong_caption():
+    from limits import MAX_CAPTION_LEN
+
+    clip = {"id": "x", "width": 10, "height": 10, "duration_ms": 100, "fps": 30}
+    detect = {"100": [{"det_id": "p0", "cls": "person", "confidence": 0.5, "box": {"x": 0.1, "y": 0.1, "w": 0.1, "h": 0.1}}]}
+    caps = {"100": [{"text": "x" * (MAX_CAPTION_LEN + 1), "confidence": 0.9, "box": {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}}]}
+    cache = canonical_cache(clip, detect, {}, [], captions=caps)
+    errs = validate_cache_shape(cache)
+    assert any("text is" in e and "max is" in e for e in errs)
