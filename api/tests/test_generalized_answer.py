@@ -164,3 +164,39 @@ def test_existence_question_present():
     f = doc["findings"]
     assert f["grounded"] is True
     assert f["answer"] == "Yes"
+
+
+# --------------------------------------------------------------------------------------
+# test_scene_question_grounds_to_caption — describe_scene -> answer over the hero captions slice
+# --------------------------------------------------------------------------------------
+
+def test_scene_question_grounds_to_caption():
+    # The hero cache carries a `captions` slice at 4625; the window 4000-4626 @ fps8 samples it,
+    # and the scene question grounds to the caption text (never the #10 hero verdict).
+    program = [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "What is happening in this scene?"}},
+    ]
+    doc = _run(program, "What is happening in this scene?")
+    f = doc["findings"]
+    assert f["grounded"] is True
+    assert f["answer"], "scene answer must be the (non-empty) caption text"
+    assert "#10 scored the first goal" not in (f["verdict"] or "")
+    # the scene trace step renders its caption in output_label (codex P1: not "No").
+    scene = next(t for t in doc["trace"] if t["op"] == "describe_scene")
+    assert scene["status"] == "done"
+    assert scene["output_label"] == f["answer"]
+
+
+def test_scene_question_off_window_grounds_out():
+    # A window with no cached captions -> describe_scene empty -> honest ungrounded (Q1 -> A).
+    program = [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 100, "end_ms": 200, "fps": 1}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "what is happening?"}},
+    ]
+    doc = _run(program, "what is happening?")
+    f = doc["findings"]
+    assert f["grounded"] is False
+    assert f["reason"] == "no-grounded-answer"

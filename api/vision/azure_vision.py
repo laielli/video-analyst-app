@@ -45,11 +45,24 @@ class TextLine:
 
 
 @dataclass
+class Caption:
+    """A whole-image scene caption (Azure Image Analysis 4.0 CAPTION). CAPTION returns ONE
+    caption per image with no region, so `box` is a full-frame Box(0,0,1,1) for overlay parity
+    (the run-doc/UI overlay contract always carries a box)."""
+    text: str
+    confidence: float | None
+    box: Box
+
+
+@dataclass
 class AnalysisResult:
     width: int
     height: int
     objects: list[Detection]
     lines: list[TextLine]
+    # captions defaults to [] so every existing positional/keyword constructor (conftest,
+    # precompute, vision tests) stays valid; only the CAPTION path populates it.
+    captions: list[Caption] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -62,6 +75,10 @@ class AnalysisResult:
             "lines": [
                 {"text": l.text, "confidence": l.confidence, "box": asdict(l.box.rounded()), "words": l.words}
                 for l in self.lines
+            ],
+            "captions": [
+                {"text": c.text, "confidence": c.confidence, "box": asdict(c.box.rounded())}
+                for c in self.captions
             ],
         }
 
@@ -96,7 +113,8 @@ class AzureVision:
             key=os.environ.get("AZURE_VISION_KEY", ""),
         )
 
-    def analyze(self, image_bytes: bytes, detect: bool = True, read: bool = True) -> AnalysisResult:
+    def analyze(self, image_bytes: bytes, detect: bool = True, read: bool = True,
+                caption: bool = False) -> AnalysisResult:
         from azure.ai.vision.imageanalysis.models import VisualFeatures
 
         features = []
@@ -104,8 +122,10 @@ class AzureVision:
             features.append(VisualFeatures.OBJECTS)
         if read:
             features.append(VisualFeatures.READ)
+        if caption:
+            features.append(VisualFeatures.CAPTION)
         if not features:
-            raise ValueError("Request at least one of detect/read.")
+            raise ValueError("Request at least one of detect/read/caption.")
 
         result = self._client.analyze(image_data=image_bytes, visual_features=features)
         W = result.metadata.width
@@ -142,4 +162,19 @@ class AzureVision:
                         )
                     )
 
-        return AnalysisResult(width=W, height=H, objects=objects, lines=lines)
+        captions: list[Caption] = []
+        # Only read the caption when CAPTION was requested (parity with the detect/read branches,
+        # which key off the requested feature) so an unrelated result.caption can't leak in.
+        cap = getattr(result, "caption", None) if caption else None
+        if cap is not None:
+            # CAPTION returns one whole-image caption (text + confidence) with NO region; store a
+            # full-frame box so the overlay contract (box always present) holds.
+            captions.append(
+                Caption(
+                    text=cap.text,
+                    confidence=round(cap.confidence, 4) if cap.confidence is not None else None,
+                    box=Box(0.0, 0.0, 1.0, 1.0),
+                )
+            )
+
+        return AnalysisResult(width=W, height=H, objects=objects, lines=lines, captions=captions)

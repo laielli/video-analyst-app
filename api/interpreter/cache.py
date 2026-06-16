@@ -15,6 +15,7 @@ class Cache:
         self._detect: dict = data.get("detect", {})      # "ts_ms" -> [detection,...]
         self._read: dict = data.get("read_text", {})      # det_id -> {text,confidence,source,note}
         self._events: list = data.get("events", [])       # [{ts_ms,type,scorer_det,box}]
+        self._captions: dict = data.get("captions", {})  # "ts_ms" -> [{text,confidence,box},...]
 
     @classmethod
     def load(cls, path: str | Path) -> "Cache":
@@ -29,6 +30,11 @@ class Cache:
 
     def read_text_for(self, det_id: str) -> dict | None:
         return self._read.get(det_id)
+
+    def captions_at(self, ts_ms: int) -> list[dict]:
+        """Scene captions cached at a sampled-frame ts (mirrors detections_at). Empty when the clip
+        cache carries no `captions` slice for that frame (the diagnostic-empty grounding path)."""
+        return self._captions.get(str(ts_ms), [])
 
     def goal_events(self) -> list[dict]:
         return sorted((e for e in self._events if e.get("type") == "goal"), key=lambda e: e["ts_ms"])
