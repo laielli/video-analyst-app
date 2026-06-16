@@ -301,6 +301,39 @@ def test_few_shot_ground_out_example_shape():
     assert "fps" in q and "ms" in q, "the example must embed sampling instructions"
 
 
+def test_few_shot_scene_example_shape():
+    """scene-description (the new op): the worked program ends describe_scene -> answer with NO
+    detect / count / temporal_order, over the hint window + fps verbatim."""
+    ex = _example("scene-description")
+    ops = [s["op"] for s in ex["program"]]
+    assert ops[-2:] == ["describe_scene", "answer"]
+    assert "detect" not in ops and "count" not in ops and "temporal_order" not in ops
+    _assert_uses_hint_window_verbatim(ex)
+
+
+def test_codegen_prompt_has_scene_rule():
+    """The prompt must name the describe_scene op and route 'what is happening' to it."""
+    p = codegen.SYSTEM_PROMPT
+    low = p.lower()
+    assert "describe_scene" in p
+    assert "what is happening" in low
+    assert "describe_scene -> answer" in low
+    # the new op is in the listed observable signals (scene description is IN scope).
+    assert "scene description" in low
+
+
+def test_codegen_prompt_scene_rule_stays_scoped():
+    """Widening the capability surface for scene description must NOT pull formation / emotion /
+    jersey color in-scope (over-refusal regression guard) — they stay in the out-of-scope list."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    # the out-of-scope attributes remain named (so they still ground out).
+    for attr in ("formation", "emotion", "color"):
+        assert attr in low, f"{attr} must remain named as out-of-scope"
+    # the refusal rule is still capability-scoped, not blanket-uncertainty.
+    assert "outside the listed capabilities" in low or "outside that surface" in low
+    assert "when unsure" not in low and "when in doubt" not in low
+
+
 def test_few_shot_examples_teach_structure_not_the_test_set():
     """Anti-contamination: no bank question may appear verbatim in the prompt (the eval would
     measure memorization, not generalization), and no real clip timing literal may leak into the
