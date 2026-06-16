@@ -33,6 +33,7 @@ from limits import (  # noqa: E402
     MAX_DETECT_CLASSES,
     MAX_PROGRAM_BYTES,
     MAX_SAMPLED_FRAMES,
+    MAX_SCENE_CAPTIONS,
     MAX_STEPS,
     MAX_STR_ARG_LEN,
     sampled_frame_count,
@@ -46,28 +47,37 @@ DEFAULT_PROGRAM = HERE.parent / "examples" / "hero_program.json"
 PRODUCES = {
     "sample_frames": "frames",
     "detect": "detections",
+    "describe_scene": "captions",
     "crop": "crops",
     "read_text": "texts",
     "count": "number",
     "answer": "answer",
 }
 # (binding arg field -> required input kind: a literal kind, None for "any collection",
-# or "any" for any synthesizable kind — used by `answer`, which op_answer now generalizes
-# over collections + `number` + `ordered` (Phase 0). Without "any", a `count -> answer`
-# program would not validate because `number` is not a collection.)
+# a frozenset for "any kind in this allow-list", or "any" for any synthesizable kind — used by
+# `answer`, which op_answer now generalizes over collections + `number` + `ordered` (Phase 0).
+# Without "any", a `count -> answer` program would not validate because `number` is not a
+# collection. `temporal_order` uses an explicit allow-list (NOT None): it keys on detection
+# det_ids (op_temporal_order, primitives.py), so it is interpreter-meaningless over `captions`
+# — which are now a COLLECTION_KIND for filter/count — and MUST reject them (codex P1).
 EXPECTS = {
     "detect": {"frames": "frames"},
+    "describe_scene": {"frames": "frames"},
     "crop": {"detections": "detections"},
     "read_text": {"crops": "crops"},
     "filter": {"items": None},
     "count": {"items": None},
-    "temporal_order": {"events": None},
+    "temporal_order": {"events": frozenset({"detections", "crops", "texts"})},
     "answer": {"from": "any"},
 }
-COLLECTION_KINDS = {"frames", "detections", "crops", "texts"}
+# Collections op_filter/op_count iterate over (and op_answer's presence/text branches consume).
+# `captions` is a full member so `filter`/`count` can compose over scene captions — but it is
+# DELIBERATELY excluded from temporal_order's EXPECTS allow-list above (temporal_order keys on
+# det_id, which a caption item has no equivalent of).
+COLLECTION_KINDS = {"frames", "detections", "crops", "texts", "captions"}
 # Kinds op_answer can synthesize a deterministic answer from (Phase 0). "unknown" is excluded
-# so a malformed binding chain still surfaces, but the validator stays permissive for the four
-# legitimate question shapes (temporal/count/text/existence).
+# so a malformed binding chain still surfaces, but the validator stays permissive for the
+# legitimate question shapes (temporal/count/text/existence/scene).
 ANSWERABLE_KINDS = COLLECTION_KINDS | {"number", "ordered"}
 
 # Numeric arg-value bounds the JSON Schema documents as prose but cannot enforce. A *validated*
@@ -188,6 +198,19 @@ def _arg_domain_errors(i: int, sid: str, op: str, args: dict) -> list[str]:
                         f"step[{i}] '{sid}' (filter): where.{f} is {len(v)} chars; "
                         f"max is {MAX_STR_ARG_LEN}"
                     )
+    elif op == "describe_scene":
+        # max_captions is optional; bound it to 1..MAX_SCENE_CAPTIONS when present (trust boundary,
+        # mirrors detect.classes count). The schema also enforces this statically, but strict:false
+        # makes the schema advisory on the codegen call, so the local validator is the real gate.
+        n = args.get("max_captions")
+        if n is not None:
+            if not isinstance(n, int) or isinstance(n, bool):
+                out.append(f"step[{i}] '{sid}' (describe_scene): max_captions is not an integer")
+            elif not (1 <= n <= MAX_SCENE_CAPTIONS):
+                out.append(
+                    f"step[{i}] '{sid}' (describe_scene): max_captions {n} out of "
+                    f"[1, {MAX_SCENE_CAPTIONS}]"
+                )
     # answer.question is deliberately NOT length-capped here: it is the user's query passed
     # through verbatim, already bounded by MAX_QUERY_TEXT_LEN (500) at the route AND by
     # MAX_PROGRAM_BYTES on the whole doc. A 256-char cap here would falsely reject legitimate
@@ -240,6 +263,15 @@ def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
                     errors.append(
                         f"step[{i}] '{sid}' ({op}): arg '{field}' expects an answerable kind "
                         f"(collection | number | ordered) but '{ref}' produces '{got}'"
+                    )
+            elif isinstance(want, frozenset):
+                # An explicit kind allow-list (temporal_order): accept only the named kinds. This is
+                # how temporal_order rejects `captions` (codex P1) — captions are a COLLECTION_KIND
+                # for filter/count, but temporal_order keys on det_id and can't order them.
+                if got not in want:
+                    errors.append(
+                        f"step[{i}] '{sid}' ({op}): arg '{field}' expects one of "
+                        f"{sorted(want)} but '{ref}' produces '{got}'"
                     )
             elif want is not None and got != want:
                 errors.append(

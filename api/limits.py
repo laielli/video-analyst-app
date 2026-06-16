@@ -16,6 +16,7 @@ Sizing rationale (observed legitimate envelopes vs. the bombs they reject):
   - Real programs: hero = 7 steps / 13 frames; bernabeu first-goal = 7 steps / 17 frames.
   - Largest legitimate full-clip sweep: bernabeu (30086ms) @ fps30 ~= 912 frames.
   - The bombs: end=2e9 @ fps30 ~= 60M frames (the documented OOM via list(range(...))).
+  - describe_scene captions: <= MAX_SCENE_CAPTIONS per program; each text <= MAX_CAPTION_LEN.
 The defaults sit comfortably above the legitimate full-clip sweep while rejecting the bombs.
 """
 from __future__ import annotations
@@ -40,6 +41,15 @@ MAX_SAMPLED_FRAMES = 2000
 
 # detect.classes length cap (a class list of thousands is abuse, not analysis).
 MAX_DETECT_CLASSES = 16
+
+# describe_scene caption-count cap: thousands of per-frame captions is abuse (mirrors
+# MAX_DETECT_CLASSES). Bounds the size of the `captions` binding op_describe_scene materializes.
+MAX_SCENE_CAPTIONS = 16
+
+# Per-caption text-length cap: captions are model-generated free text; bound the STRING that
+# enters a binding/answer/run-doc (run_doc.schema.json has no maxLength). Align with
+# MAX_STR_ARG_LEN. op_describe_scene truncates each caption to this length at the boundary.
+MAX_CAPTION_LEN = 256
 
 # Length cap for free-string args (detect.classes[] elements, filter.where.field/equals,
 # answer.question; crop.region/temporal_order.by enums are already constrained structurally).
