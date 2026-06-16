@@ -1,0 +1,8 @@
+{
+  "_comment": "Pinned program for the SCENE-DESCRIPTION query 'What is happening in this clip?' on single-goal (the hero clip). Hits the scene-caption op-path describe_scene -> answer (from a `captions` binding), the shape SYSTEM_PROMPT lists for 'what is happening?' / 'describe the scene'. Authored for the eval harness's scene cell: it is the derivation source for the cell's ground truth + anchor-question text. The hero cache carries a scene caption only at 4625ms, so the window 4000-4626ms @ fps8 samples that single captioned frame and the scene answer grounds to the caption text. Validates against ../schema/dsl.schema.json. end_ms 4626 <= clip duration_ms 5067.",
+  "program": [
+    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 4000, "end_ms": 4626, "fps": 8 } },
+    { "id": "scene", "op": "describe_scene", "args": { "frames": "frames" } },
+    { "id": "result", "op": "answer", "args": { "from": "scene", "question": "What is happening in this clip?" } }
+  ]
+}
