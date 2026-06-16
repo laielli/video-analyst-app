@@ -164,3 +164,40 @@ def test_existence_question_present():
     f = doc["findings"]
     assert f["grounded"] is True
     assert f["answer"] == "Yes"
+
+
+# --------------------------------------------------------------------------------------
+# test_scene_question — "what is happening?" over captions grounds to the scene caption
+# --------------------------------------------------------------------------------------
+
+def test_scene_question_grounds_to_caption():
+    # describe_scene -> answer over the hero cache's captions slice (4625ms) grounds to the
+    # caption text, never a fabricated #10 verdict.
+    program = [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "What is happening?"}},
+    ]
+    doc = _run(program, "What is happening?")
+    f = doc["findings"]
+    assert f["grounded"] is True
+    assert f["answer"]  # the caption text (non-empty)
+    assert "#10 scored the first goal" not in (f["verdict"] or "")
+    # the scene step rendered its caption in output_label.
+    scene = next(t for t in doc["trace"] if t["op"] == "describe_scene")
+    assert scene["status"] == "done"
+    assert scene["output_label"] == f["answer"]
+
+
+def test_scene_question_off_window_grounds_out():
+    # A window with NO cached captions -> describe_scene empty -> honest ground-out (Q1 -> A).
+    program = [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 100, "end_ms": 200, "fps": 1}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "What is happening?"}},
+    ]
+    doc = _run(program, "What is happening?")
+    f = doc["findings"]
+    assert f["grounded"] is False
+    assert f["answer"] is None
+    assert f["reason"] == "no-grounded-answer"

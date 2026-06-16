@@ -14,7 +14,7 @@ import base64
 
 import pytest
 
-from vision.azure_vision import AzureVision, AnalysisResult, Detection, Box
+from vision.azure_vision import AzureVision, AnalysisResult, Caption, Detection, Box
 from vision.vlm_read import AzureVLM, VlmRead
 
 
@@ -76,11 +76,17 @@ class _Metadata:
         self.width, self.height = w, h
 
 
+class _Caption:
+    def __init__(self, text, confidence):
+        self.text, self.confidence = text, confidence
+
+
 class _Result:
-    def __init__(self, metadata, objects=None, read=None):
+    def __init__(self, metadata, objects=None, read=None, caption=None):
         self.metadata = metadata
         self.objects = objects
         self.read = read
+        self.caption = caption
 
 
 class FakeImageAnalysisClient:
@@ -186,6 +192,46 @@ def test_azure_vision_passes_visual_features_to_client():
     vis_r = _make_vision(_Result(_Metadata(10, 10), read=_Read([])))
     vis_r.analyze(b"img", detect=False, read=True)
     assert vis_r._client.last_kwargs["visual_features"] == [VisualFeatures.READ]
+
+
+# ---------------------------------------------------------------------------------------
+# describe_scene CAPTION feature
+# ---------------------------------------------------------------------------------------
+
+def test_analyze_caption_returns_caption():
+    # A fake Azure result with a `caption` member yields one Caption with a full-frame box.
+    result = _Result(_Metadata(200, 100), caption=_Caption("A player on the pitch.", 0.823456))
+    res = _make_vision(result).analyze(b"img", detect=False, read=False, caption=True)
+    assert len(res.captions) == 1
+    c = res.captions[0]
+    assert c.text == "A player on the pitch."
+    assert c.confidence == 0.8235  # rounded to 4 places
+    # CAPTION has no region -> full-frame box for overlay parity.
+    assert (c.box.x, c.box.y, c.box.w, c.box.h) == (0.0, 0.0, 1.0, 1.0)
+    # to_dict round-trips the captions block.
+    d = res.to_dict()
+    assert d["captions"][0]["text"] == "A player on the pitch."
+    assert d["captions"][0]["box"] == {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}
+
+
+def test_analyze_caption_flag_independent():
+    from azure.ai.vision.imageanalysis.models import VisualFeatures
+
+    # caption-only -> requests only CAPTION (not OBJECTS/READ).
+    vis = _make_vision(_Result(_Metadata(10, 10), caption=_Caption("x", 0.5)))
+    vis.analyze(b"img", detect=False, read=False, caption=True)
+    assert vis._client.last_kwargs["visual_features"] == [VisualFeatures.CAPTION]
+    # a missing caption member yields no captions (no crash).
+    vis2 = _make_vision(_Result(_Metadata(10, 10), objects=_Objects([])))
+    res = vis2.analyze(b"img", detect=True, read=False, caption=False)
+    assert res.captions == []
+
+
+def test_analyze_requires_at_least_one_feature_includes_caption():
+    # analyze(detect=False, read=False, caption=False) raises (all three off).
+    vis = _make_vision(_Result(_Metadata(10, 10)))
+    with pytest.raises(ValueError, match="at least one"):
+        vis.analyze(b"img", detect=False, read=False, caption=False)
 
 
 # ---------------------------------------------------------------------------------------
