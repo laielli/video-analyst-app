@@ -301,6 +301,48 @@ def test_few_shot_ground_out_example_shape():
     assert "fps" in q and "ms" in q, "the example must embed sampling instructions"
 
 
+# --------------------------------------------------------------------------------------
+# describe_scene — the new scene-description shape (layer 1 prompt + worked example)
+# --------------------------------------------------------------------------------------
+
+def test_codegen_prompt_has_scene_rule():
+    """SYSTEM_PROMPT names describe_scene and routes 'what is happening' / 'describe the scene'
+    to it (the scene-description shape ending describe_scene -> answer)."""
+    p = codegen.SYSTEM_PROMPT
+    low = p.lower()
+    assert "describe_scene" in p
+    assert "what is happening" in low
+    assert "describe the scene" in low
+    assert "describe_scene -> answer" in low
+
+
+def test_codegen_prompt_scene_rule_stays_scoped():
+    """Over-refusal-mirror guard: widening scene into scope must NOT pull formation / emotion /
+    jersey color in-scope (a too-broad 'describe' rule would regress the oos-honest rate). They
+    stay listed as NOT-answerable, and describe_scene is scoped to a whole-scene caption."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    # the attributes remain explicitly out-of-scope.
+    assert "formation" in low
+    assert "emotion" in low
+    assert "color" in low
+    # describe_scene is scoped: it captions the scene at large, NOT those attributes.
+    assert "does not read color" in low or "not color, formation" in low
+    # the capability-scope refusal rule stays capability-scoped, not blanket.
+    assert "when unsure" not in low and "when in doubt" not in low
+
+
+def test_few_shot_scene_example_shape():
+    """The new scene example ends describe_scene -> answer, has NO detect/count/temporal_order,
+    and copies the EXAMPLE_CLIP hint window+fps verbatim."""
+    ex = _example("scene-description")
+    ops = [s["op"] for s in ex["program"]]
+    assert ops == ["sample_frames", "describe_scene", "answer"]
+    assert "detect" not in ops and "count" not in ops and "temporal_order" not in ops
+    _assert_uses_hint_window_verbatim(ex)
+    win = next(s for s in ex["program"] if s["op"] == "sample_frames")["args"]
+    assert win["end_ms"] - win["start_ms"] > 1, "scene must not use the 1ms midpoint pattern"
+
+
 def test_few_shot_examples_teach_structure_not_the_test_set():
     """Anti-contamination: no bank question may appear verbatim in the prompt (the eval would
     measure memorization, not generalization), and no real clip timing literal may leak into the
