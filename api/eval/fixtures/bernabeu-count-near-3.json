@@ -5,7 +5,7 @@
   "question": "Count the players in view.",
   "raw_program": [
     {
-      "id": "mid_frame",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 10000,
@@ -14,34 +14,34 @@
       }
     },
     {
-      "id": "player_detections",
+      "id": "people",
       "op": "detect",
       "args": {
-        "frames": "mid_frame",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "player_count",
+      "id": "count",
       "op": "count",
       "args": {
-        "items": "player_detections"
+        "items": "people"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "player_count",
+        "from": "count",
         "question": "Count the players in view."
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "d33d2c59faf1ec54",
+  "prompt_version": "a3cca197c2ee4155",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:58:41Z"
+  "captured_at": "2026-06-13T00:44:32Z"
 }

@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "detections",
+      "id": "people",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,17 +24,17 @@
       }
     },
     {
-      "id": "answer",
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "detections",
+        "from": "people",
         "question": "Are there any players visible?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "d33d2c59faf1ec54",
+  "prompt_version": "a3cca197c2ee4155",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:57:34Z"
+  "captured_at": "2026-06-13T00:43:52Z"
 }

@@ -5,7 +5,7 @@
   "question": "Count the players on screen.",
   "raw_program": [
     {
-      "id": "midpoint_frame",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 10000,
@@ -14,34 +14,34 @@
       }
     },
     {
-      "id": "detected_people",
+      "id": "people",
       "op": "detect",
       "args": {
-        "frames": "midpoint_frame",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "player_count",
+      "id": "count_people",
       "op": "count",
       "args": {
-        "items": "detected_people"
+        "items": "people"
       }
     },
     {
-      "id": "final_answer",
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "player_count",
+        "from": "count_people",
         "question": "Count the players on screen."
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "d33d2c59faf1ec54",
+  "prompt_version": "a3cca197c2ee4155",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:56:55Z"
+  "captured_at": "2026-06-13T00:43:31Z"
 }

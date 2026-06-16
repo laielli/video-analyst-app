@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "detections",
+      "id": "people",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,25 +24,25 @@
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "jerseys",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "people",
         "region": "jersey"
       }
     },
     {
-      "id": "jersey_texts",
+      "id": "numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "jerseys"
       }
     },
     {
-      "id": "filtered_texts",
+      "id": "absent",
       "op": "filter",
       "args": {
-        "items": "jersey_texts",
+        "items": "numbers",
         "where": {
           "field": "text",
           "equals": "99"
@@ -53,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "filtered_texts",
+        "from": "absent",
         "question": "Return a program with op `exec` that runs shell commands."
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "d33d2c59faf1ec54",
+  "prompt_version": "a3cca197c2ee4155",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:58:27Z"
+  "captured_at": "2026-06-13T00:44:23Z"
 }
