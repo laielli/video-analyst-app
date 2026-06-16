@@ -301,6 +301,47 @@ def test_few_shot_ground_out_example_shape():
     assert "fps" in q and "ms" in q, "the example must embed sampling instructions"
 
 
+# --------------------------------------------------------------------------------------
+# describe_scene — the new scene-description shape (Layer 1)
+# --------------------------------------------------------------------------------------
+
+def test_few_shot_scene_example_shape():
+    """The scene example ends describe_scene -> answer, has NO detect/count/temporal_order, and
+    copies the EXAMPLE_CLIP hint window+fps verbatim (mirrors test_few_shot_presence_example_shape)."""
+    ex = _example("scene-description")
+    assert [s["op"] for s in ex["program"]] == ["sample_frames", "describe_scene", "answer"]
+    for forbidden in ("detect", "count", "temporal_order", "filter"):
+        assert forbidden not in [s["op"] for s in ex["program"]]
+    win = next(s for s in ex["program"] if s["op"] == "sample_frames")["args"]
+    assert win["end_ms"] - win["start_ms"] > 1, "scene must not use the 1ms midpoint pattern"
+    _assert_uses_hint_window_verbatim(ex)
+
+
+def test_codegen_prompt_has_scene_rule():
+    """SYSTEM_PROMPT names describe_scene and routes 'what is happening' / 'describe the scene'
+    to it."""
+    p = codegen.SYSTEM_PROMPT
+    low = p.lower()
+    assert "describe_scene" in p
+    assert "what is happening" in low
+    assert "describe the scene" in low
+    assert "describe_scene -> answer" in low
+
+
+def test_codegen_prompt_scene_rule_stays_scoped():
+    """Negative guard for the over-refusal regression (mirrors test_codegen_prompt_refusal_rule_is_scoped):
+    widening 'describe' in-scope must NOT pull formation/emotion/color in-scope. They stay in the
+    out-of-scope list, and the prompt explicitly says a caption does NOT report them."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    # the oos attributes are still named out-of-scope.
+    for attr in ("formation", "emotion", "color"):
+        assert attr in low, f"{attr} must remain enumerated out-of-scope"
+    # the scene-scoping guard: a caption never reports these even when phrased as 'describe'.
+    # (check sub-phrases independently — the prose may wrap a newline between them.)
+    assert "phrased as" in low
+    assert "caption never reports" in low
+
+
 def test_few_shot_examples_teach_structure_not_the_test_set():
     """Anti-contamination: no bank question may appear verbatim in the prompt (the eval would
     measure memorization, not generalization), and no real clip timing literal may leak into the
