@@ -70,6 +70,14 @@ export default function EvidencePanel({
         <div className="readout">
           <div className="row"><div className="k">Producer step</div><div className="v">{step?.producer ?? step?.op ?? "—"}</div></div>
           <div className="row"><div className="k">Input</div><div className="v">{step?.input_label ?? "—"}</div></div>
+          {/* describe_scene surfaces the model's scene caption as a dedicated readout row; the
+              caption text rides in output_label (a `done` scene step) or note (diagnostic-empty). */}
+          {step?.op === "describe_scene" && (
+            <div className="row">
+              <div className="k">Scene caption</div>
+              <div className="v">{step.status === "done" ? (step.output_label ?? "—") : (step.note ?? "no scene caption")}</div>
+            </div>
+          )}
           <div className="row">
             <div className="k">Output</div>
             <div className="v">

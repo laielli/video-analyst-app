@@ -51,6 +51,32 @@ describe("EvidencePanel", () => {
     expect(parseFloat(ov.style.height)).toBeCloseTo(44.4, 5);
   });
 
+  it("renders a scene caption readout for a describe_scene step", () => {
+    const s = step({
+      op: "describe_scene",
+      status: "done",
+      output_label: "a soccer player celebrates a goal on the pitch",
+      evidence: { frame_ts_ms: 4625, overlays: [] },
+    });
+    render(<EvidencePanel step={s} />);
+    expect(screen.getByText("Scene caption")).toBeInTheDocument();
+    // the caption text is surfaced in the dedicated readout row (appears in the panel).
+    expect(screen.getAllByText("a soccer player celebrates a goal on the pitch").length).toBeGreaterThan(0);
+  });
+
+  it("renders the diagnostic-empty WHAT/WHY note for an empty describe_scene step", () => {
+    const s = step({
+      op: "describe_scene",
+      status: "empty",
+      note: "no scene captions cached for the 1 sampled frames (the window has no precomputed CAPTION analysis)",
+      evidence: { frame_ts_ms: 0, overlays: [] },
+    });
+    render(<EvidencePanel step={s} />);
+    // the diagnostic-empty WHAT/WHY appears in both the Scene caption readout row and the note.
+    expect(screen.getAllByText(/no scene captions cached/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("Scene caption")).toBeInTheDocument();
+  });
+
   it("renders the program provenance tag", () => {
     render(<EvidencePanel step={step({ evidence: { frame_ts_ms: 4625, overlays: [] } })} programSource="ungrounded" />);
     const tag = document.querySelector(".prov-tag.ungrounded");
