@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-clip replay cache for single-goal.mov — the precomputed vision evidence the interpreter replays with zero live Azure calls (design D1 hero path). `detect` holds the REAL Azure AI Vision boxes returned at the 4.625s sampled frame (5 people; p_messi is the conf-0.75 left box). `read_text` is the hand-verified pin for the hero #10 (source:pinned) because Azure Read misreads the WC font and gpt-4o vision is quota-blocked. `events` is the known goal moment. Keys in `detect` are sampled-frame timestamps in ms.",
+  "_comment": "Per-clip replay cache for single-goal.mov — the precomputed vision evidence the interpreter replays with zero live Azure calls (design D1 hero path). `detect` holds the REAL Azure AI Vision boxes returned at the 4.625s sampled frame (5 people; p_messi is the conf-0.75 left box). `read_text` is the hand-verified pin for the hero #10 (source:pinned) because Azure Read misreads the WC font and gpt-4o vision is quota-blocked. `events` is the known goal moment. `captions` is the Azure Image Analysis 4.0 CAPTION scene caption at the same 4.625s frame (full-frame box, for the describe_scene op + the eval scene cell). Keys in `detect`/`captions` are sampled-frame timestamps in ms.",
   "clip": { "id": "single-goal", "width": 1872, "height": 1042, "duration_ms": 5067, "fps": 60 },
   "detect": {
     "4625": [
@@ -12,6 +12,11 @@
   },
   "read_text": {
     "p_messi": { "text": "10", "confidence": null, "source": "pinned", "note": "Hand-verified. Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision pending TPM quota. The 10 is human-legible and pinned for the hero query (disclosed in the demo)." }
+  },
+  "captions": {
+    "4625": [
+      { "text": "a soccer player in a stadium during a match", "confidence": 0.85, "box": { "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0 } }
+    ]
   },
   "events": [
     { "ts_ms": 4000, "type": "goal", "scorer_det": "p_messi", "box": { "x": 0.86, "y": 0.34, "w": 0.10, "h": 0.34 } }

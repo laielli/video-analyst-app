@@ -26,23 +26,39 @@ import seed_fixtures  # noqa: E402
 
 # ---- replay over committed seeds ---------------------------------------------------------
 
+# Bank cells added on a PR branch but not yet live-captured (the describe_scene scene cell, captured
+# post-merge per api/eval/README.md's runbook). Their cases are deliberately MISSING pre-merge: the
+# gate's advisory-stale path keys off `present` (run_eval.py:154-168), so missing-but-uncaptured
+# cells do NOT block the gate. Listed here so the structural test below tolerates exactly them.
+PENDING_CAPTURE_SHAPES = {"scene"}
+
+
 def test_replay_over_committed_fixtures_scores():
     """Structural invariants over the COMMITTED fixtures in whichever PHASE the repo is in
     (fresh-at-current-pv, or uniformly stale mid prompt-edit before the human re-captures): every
-    bank case has a committed fixture and replay scores them all. Staleness is all-or-nothing,
-    mirroring apply_gate's advisory rule (run_eval.py:163-167) — a prompt edit stales EVERY
-    committed fixture uniformly, which is the advisory-gate design, not a regression. Partial
-    staleness (or any MISSING) still fails: that is the anti-gaming signal a hand-stamped fixture
-    would trip. Quality floors over real output are the threshold gate's job, not this test's."""
+    bank case EXCEPT a pending-capture cell has a committed fixture, and replay scores them all.
+    Staleness is all-or-nothing over the PRESENT fixtures, mirroring apply_gate's advisory rule
+    (run_eval.py:163-167) — a prompt edit stales EVERY committed fixture uniformly, which is the
+    advisory-gate design, not a regression. Partial staleness still fails: that is the anti-gaming
+    signal a hand-stamped fixture would trip. A NEW bank cell awaiting its post-merge live capture
+    (PENDING_CAPTURE_SHAPES) may be MISSING; an UNEXPECTED missing case still fails. Quality floors
+    over real output are the threshold gate's job, not this test's."""
     cases = bank.load_bank()
     results = run_eval.replay(cases)
     assert len(results) == len(cases)
-    assert not any(r.missing for r in results), "a bank case lacks a committed fixture"
-    n_stale = sum(1 for r in results if r.stale)
-    assert n_stale == 0 or n_stale == len(results), (
-        f"staleness must be all-or-nothing (got {n_stale}/{len(results)} stale) — a prompt edit "
-        "stales every committed fixture uniformly; partial staleness means a fixture was "
-        "hand-restamped or only some were re-captured"
+    by_id = {c["case_id"]: c for c in cases}
+    for r in results:
+        if r.missing:
+            shape = by_id[r.case_id]["shape"]
+            assert shape in PENDING_CAPTURE_SHAPES, (
+                f"{r.case_id} ({shape}) lacks a committed fixture and is not a pending-capture cell")
+    # Staleness is all-or-nothing over the PRESENT (non-missing) fixtures.
+    present = [r for r in results if not r.missing]
+    n_stale = sum(1 for r in present if r.stale)
+    assert n_stale == 0 or n_stale == len(present), (
+        f"staleness must be all-or-nothing over present fixtures (got {n_stale}/{len(present)} "
+        "stale) — a prompt edit stales every committed fixture uniformly; partial staleness means "
+        "a fixture was hand-restamped or only some were re-captured"
     )
 
 
@@ -77,17 +93,33 @@ def test_seed_fixtures_regenerate_match(tmp_path):
     committed_dir = EVAL_DIR / "fixtures"
     regenerated = sorted(tmp_path.glob("*.json"))
     committed = sorted(committed_dir.glob("*.json"))
-    assert {p.name for p in regenerated} == {p.name for p in committed}, \
-        "regenerated seed set differs from committed (bank edited without re-seed/re-capture?)"
+    reg_names = {p.name for p in regenerated}
+    committed_names = {p.name for p in committed}
+    # Every committed fixture must still correspond to a bank case (no orphan). The reverse can
+    # differ by exactly the pending-capture cells (a new bank cell whose live capture lands
+    # post-merge — its seed regenerates here but is intentionally not committed yet).
+    assert committed_names <= reg_names, \
+        "a committed fixture has no bank case (bank shrank without removing the fixture?)"
+    cases_by_id = {c["case_id"]: c for c in bank.load_bank()}
+    extra = reg_names - committed_names
+    for name in extra:
+        case_id = name[: -len(".json")]
+        shape = cases_by_id[case_id]["shape"]
+        assert shape in PENDING_CAPTURE_SHAPES, \
+            f"regenerated seed {name} ({shape}) has no committed fixture and is not pending-capture"
     # Regeneration is deterministic (keeps seed_fixtures.py meaningfully covered post-capture).
     second = tmp_path / "second"
     seed_fixtures.generate_all(fixtures_dir=second)
     for p in regenerated:
         assert json.loads(p.read_text()) == json.loads((second / p.name).read_text()), \
             f"seed regeneration is nondeterministic for {p.name}"
-    # Byte-equality against committed files only while they are seeds.
+    # Byte-equality against committed files only while they are seeds (and only those that exist —
+    # a pending-capture cell has a regenerated seed but no committed counterpart yet).
     for p in regenerated:
-        b = json.loads((committed_dir / p.name).read_text())
+        committed_path = committed_dir / p.name
+        if not committed_path.exists():
+            continue
+        b = json.loads(committed_path.read_text())
         if b.get("captured_at") == seed_fixtures.SEED_CAPTURED_AT:
             assert json.loads(p.read_text()) == b, \
                 f"committed seed {p.name} differs from regeneration"

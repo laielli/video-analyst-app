@@ -45,6 +45,16 @@ QUERIES = [
         "program": str(EX / "hero_program.json"),
         "cache": str(EX / "hero_cache.json"),
     },
+    {
+        # describe_scene -> answer over the hero clip's `captions` slice. Grounds to the scene
+        # caption text. Backs the eval bank's new single-goal/scene cell (its canonical anchor is
+        # verbatim this query, per test_canonical_matches_canned_queries).
+        "id": "hero-scene-description",
+        "text": "What is happening in this scene?",
+        "clip": "single-goal",
+        "program": str(EX / "single-goal_scene_program.json"),
+        "cache": str(EX / "hero_cache.json"),
+    },
     # ---- bernabeu-counter: 4 query shapes the hero chain never hits (multi-clip / multi-query) ----
     {
         # count -> answer (no crop/read_text/filter/temporal_order). Grounds to a number.

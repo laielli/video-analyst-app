@@ -38,6 +38,7 @@ SEED_MODEL = "seed"                  # fixed sentinel (real capture stamps the d
 _PINNED = {
     ("single-goal", "first-goal", True): "hero_program.json",
     ("single-goal", "presence", True): "single-goal_presence_program.json",
+    ("single-goal", "scene", True): "single-goal_scene_program.json",
     ("bernabeu-counter", "count", True): "bernabeu-counter_count_program.json",
     ("bernabeu-counter", "scorer-number", True): "bernabeu-counter_scorer-number_program.json",
     ("bernabeu-counter", "first-goal", True): "bernabeu-counter_first-goal-7_program.json",
