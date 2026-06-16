@@ -22,6 +22,7 @@ from validate_program import (
 from limits import (
     MAX_DETECT_CLASSES,
     MAX_SAMPLED_FRAMES,
+    MAX_SCENE_CAPTIONS,
     MAX_STEPS,
     MAX_STR_ARG_LEN,
     MAX_TIME_MS,
@@ -62,6 +63,10 @@ def test_limit_constants_match_schema():
     assert classes["maxItems"] == MAX_DETECT_CLASSES
     assert classes["items"]["maxLength"] == MAX_STR_ARG_LEN
 
+    # describe_scene.args.max_captions schema bound mirrors MAX_SCENE_CAPTIONS.
+    mc = defs["describe_scene"]["properties"]["args"]["properties"]["max_captions"]
+    assert mc["minimum"] == 1 and mc["maximum"] == MAX_SCENE_CAPTIONS
+
     sf = defs["sample_frames"]["properties"]["args"]["properties"]
     assert sf["fps"]["minimum"] == 1 and sf["fps"]["maximum"] == 30
     assert sf["start_ms"]["minimum"] == 0 and sf["start_ms"]["maximum"] == MAX_TIME_MS
@@ -72,7 +77,7 @@ def test_limit_constants_match_schema():
     where = defs["filter"]["properties"]["args"]["properties"]["where"]["properties"]
     assert where["field"]["maxLength"] == MAX_STR_ARG_LEN
     assert where["equals"]["maxLength"] == MAX_STR_ARG_LEN
-    for op in ("sample_frames", "detect", "crop", "read_text", "filter", "count",
+    for op in ("sample_frames", "detect", "describe_scene", "crop", "read_text", "filter", "count",
                "temporal_order", "answer"):
         assert defs[op]["properties"]["id"]["maxLength"] == MAX_STR_ARG_LEN
 
@@ -152,3 +157,75 @@ def test_arg_domain_leaves_short_strings_alone():
         {"id": "r", "op": "answer", "args": {"from": "g", "question": "is there a person?"}},
     ]}
     assert validation_errors(prog, clip=canned.clip_by_id("single-goal")) == []
+
+
+# ---------------------------------------------------------------------------------------
+# describe_scene — the new captions primitive's trust-boundary contract
+# ---------------------------------------------------------------------------------------
+
+def _scene_clip():
+    return canned.clip_by_id("single-goal")
+
+
+def test_describe_scene_kind_flows_to_answer():
+    # sample_frames -> describe_scene -> answer validates clean (captions is answerable).
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "what is happening?"}},
+    ]}
+    assert validation_errors(prog, clip=_scene_clip()) == []
+
+
+def test_describe_scene_rejects_non_frames_input():
+    # describe_scene over a `detections` binding is a kind-flow error (it expects `frames`).
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "d", "op": "detect", "args": {"frames": "frames", "classes": ["person"]}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "d"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "q"}},
+    ]}
+    errs = validation_errors(prog, clip=_scene_clip())
+    assert any("expects kind 'frames'" in e for e in errs)
+
+
+def test_describe_scene_max_captions_overlong_rejected():
+    # max_captions = MAX_SCENE_CAPTIONS + 1 is rejected (structural schema bound + semantic).
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames", "max_captions": MAX_SCENE_CAPTIONS + 1}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "q"}},
+    ]}
+    assert validation_errors(prog, clip=_scene_clip())
+    # the semantic arg-domain check fires independently when structure is bypassed.
+    sem = semantic_errors(prog["program"], clip=_scene_clip())
+    assert any("max_captions" in e for e in sem)
+
+
+def test_describe_scene_unknown_op_still_rejected():
+    # an op typo 'caption_scene' is not whitelisted -> rejected before execution.
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "scene", "op": "caption_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "q"}},
+    ]}
+    assert validation_errors(prog, clip=_scene_clip())
+
+
+def test_temporal_order_rejects_captions():
+    # temporal_order(describe_scene(...)) is interpreter-meaningless (op_temporal_order keys on
+    # det_id) and MUST be fenced off by temporal_order's explicit kind allow-list.
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "ord", "op": "temporal_order", "args": {"events": "scene", "by": "timestamp"}},
+        {"id": "result", "op": "answer", "args": {"from": "ord", "question": "q"}},
+    ]}
+    errs = validation_errors(prog, clip=_scene_clip())
+    assert any("temporal_order" in e and "captions" in e for e in errs)
+
+
+def test_describe_scene_pinned_program_validates():
+    # the committed pinned scene program passes the tightened validator.
+    raw = json.loads((EX / "single-goal_scene_program.json").read_text())
+    assert validation_errors(raw, clip=_scene_clip()) == []
