@@ -164,3 +164,23 @@ def test_existence_question_present():
     f = doc["findings"]
     assert f["grounded"] is True
     assert f["answer"] == "Yes"
+
+
+# --------------------------------------------------------------------------------------
+# test_scene_question — describe_scene -> answer grounds to the committed scene caption
+# --------------------------------------------------------------------------------------
+
+def test_scene_question_grounds_to_caption():
+    program = [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "what is happening?"}},
+    ]
+    doc = _run(program, "what is happening?")
+    f = doc["findings"]
+    assert f["grounded"] is True
+    # the hero cache's caption slice at 4625ms.
+    assert "player" in (f["answer"] or "").lower()
+    # the scene answer is NOT a fabricated Yes/No nor the hero verdict.
+    assert f["answer"] not in ("Yes", "No")
+    assert "#10 scored the first goal" not in (f["verdict"] or "")

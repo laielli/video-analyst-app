@@ -11,18 +11,20 @@ from __future__ import annotations
 
 from interpreter import Cache
 from interpreter.primitives import (
-    op_sample_frames, op_detect, op_crop, op_read_text,
+    op_sample_frames, op_detect, op_describe_scene, op_crop, op_read_text,
     op_filter, op_count, op_temporal_order, op_answer, _subject_label,
 )
+from limits import MAX_CAPTION_LEN
 
 
-def make_cache(detect=None, read_text=None, events=None):
+def make_cache(detect=None, read_text=None, events=None, captions=None):
     """Minimal Cache. MUST include the 'clip' key — Cache.__init__ reads data['clip']."""
     return Cache({
         "clip": {"id": "t", "width": 100, "height": 100, "duration_ms": 5000},
         "detect": detect or {},
         "read_text": read_text or {},
         "events": events or [],
+        "captions": captions or {},
     })
 
 
@@ -112,6 +114,68 @@ def test_detect_empty_carries_note_and_empty_status():
     # focus falls back to the last frame ts, no overlays.
     assert result["evidence"]["frame_ts_ms"] == 999
     assert result["evidence"]["overlays"] == []
+
+
+# ---------------------------------------------------------------------------------------
+# op_describe_scene
+# ---------------------------------------------------------------------------------------
+
+def _scene_box():
+    return {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}
+
+
+def test_describe_scene_binding_and_trace():
+    cache = make_cache(captions={"100": [{"text": "a player runs at goal", "confidence": 0.8, "box": _scene_box()}]})
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": 100}]}}
+    step = {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}}
+    binding, result = op_describe_scene(step, env, cache)
+    assert binding["kind"] == "captions"
+    assert binding["items"][0]["text"] == "a player runs at goal"
+    assert binding["items"][0]["frame_ts_ms"] == 100
+    assert result["status"] == "done"
+    assert result["op"] == "describe_scene"
+    # output_label carries the caption text (NOT a Yes/No) — the readout/UI shows the caption.
+    assert result["output_label"] == "a player runs at goal"
+    # overlay on the focus frame is a full-frame box tagged with the caption.
+    ov = result["evidence"]["overlays"][0]
+    assert ov["box"] == _scene_box()
+    assert "a player runs at goal" in ov["label"]
+    assert result["evidence"]["frame_ts_ms"] == 100
+
+
+def test_describe_scene_empty_is_diagnostic():
+    cache = make_cache(captions={})  # no captions in the window
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": 100}]}}
+    step = {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}}
+    binding, result = op_describe_scene(step, env, cache)
+    assert binding["items"] == []
+    assert result["status"] == "empty"
+    # D-DR5: WHAT was searched + WHY, never a bare "No evidence".
+    assert "no scene caption" in result["note"]
+    assert "sampled frames" in result["note"]
+    # focus falls back to the last frame, no overlays.
+    assert result["evidence"]["frame_ts_ms"] == 100
+    assert result["evidence"]["overlays"] == []
+
+
+def test_describe_scene_caption_text_bounded():
+    # adversarial / security: a cached caption longer than MAX_CAPTION_LEN is truncated BEFORE it
+    # enters the binding (the model emits free text; bound it at the boundary).
+    long_text = "x" * (MAX_CAPTION_LEN + 50)
+    cache = make_cache(captions={"100": [{"text": long_text, "confidence": 0.7, "box": _scene_box()}]})
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": 100}]}}
+    step = {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}}
+    binding, _ = op_describe_scene(step, env, cache)
+    assert len(binding["items"][0]["text"]) == MAX_CAPTION_LEN
+
+
+def test_describe_scene_max_captions_caps_items():
+    caps = {str(ts): [{"text": f"cap {ts}", "confidence": 0.5, "box": _scene_box()}] for ts in (100, 200, 300)}
+    cache = make_cache(captions=caps)
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": ts} for ts in (100, 200, 300)]}}
+    step = {"id": "scene", "op": "describe_scene", "args": {"frames": "frames", "max_captions": 2}}
+    binding, _ = op_describe_scene(step, env, cache)
+    assert len(binding["items"]) == 2
 
 
 # ---------------------------------------------------------------------------------------
@@ -402,6 +466,36 @@ def test_answer_presence_detections():
     assert v["yes"] is True
     assert v["verdict"] == "Yes — found 2"
     assert result["output_label"] == "Yes"
+
+
+def test_answer_caption_grounds_to_caption_text():
+    env = {"scene": {"kind": "captions", "items": [{"text": "a player runs at goal"}]}}
+    binding, result = op_answer(
+        {"id": "r", "op": "answer", "args": {"from": "scene", "question": "what is happening?"}}, env, make_cache())
+    v = binding["value"]
+    assert v["grounded"] is True
+    assert v["answer"] == "a player runs at goal"
+    assert v["verdict"] == "Scene: a player runs at goal"
+
+
+def test_answer_caption_output_label_is_readout():
+    # codex P1: a grounded captions answer must set output_label to the caption text, NOT "No"
+    # (captions falls into the else branch otherwise and the caption is discarded from the trace).
+    env = {"scene": {"kind": "captions", "items": [{"text": "the keeper dives"}]}}
+    _, result = op_answer(
+        {"id": "r", "op": "answer", "args": {"from": "scene", "question": "q"}}, env, make_cache())
+    assert result["output_label"] == "the keeper dives"
+    assert result["output_label"] != "No"
+
+
+def test_answer_caption_empty_grounds_out():
+    env = {"scene": {"kind": "captions", "items": []}}
+    binding, result = op_answer(
+        {"id": "r", "op": "answer", "args": {"from": "scene", "question": "q"}}, env, make_cache())
+    v = binding["value"]
+    assert v["grounded"] is False
+    assert v["reason"] == "no-grounded-answer"
+    assert result["status"] == "empty"
 
 
 # --- ungrounded discriminators (grounded=False + reason; never a fabricated verdict) ---

@@ -14,7 +14,7 @@ import base64
 
 import pytest
 
-from vision.azure_vision import AzureVision, AnalysisResult, Detection, Box
+from vision.azure_vision import AzureVision, AnalysisResult, Caption, Detection, Box
 from vision.vlm_read import AzureVLM, VlmRead
 
 
@@ -76,11 +76,17 @@ class _Metadata:
         self.width, self.height = w, h
 
 
+class _Caption:
+    def __init__(self, text, confidence):
+        self.text, self.confidence = text, confidence
+
+
 class _Result:
-    def __init__(self, metadata, objects=None, read=None):
+    def __init__(self, metadata, objects=None, read=None, caption=None):
         self.metadata = metadata
         self.objects = objects
         self.read = read
+        self.caption = caption
 
 
 class FakeImageAnalysisClient:
@@ -186,6 +192,39 @@ def test_azure_vision_passes_visual_features_to_client():
     vis_r = _make_vision(_Result(_Metadata(10, 10), read=_Read([])))
     vis_r.analyze(b"img", detect=False, read=True)
     assert vis_r._client.last_kwargs["visual_features"] == [VisualFeatures.READ]
+
+
+# ---------------------------------------------------------------------------------------
+# azure_vision caption (describe_scene backend) parsing + feature flag
+# ---------------------------------------------------------------------------------------
+
+def test_analyze_caption_returns_caption():
+    # A fake Azure result with a `caption` member yields one Caption (full-frame box) in
+    # AnalysisResult.captions; to_dict round-trips it.
+    result = _Result(_Metadata(200, 100), caption=_Caption("a player on the pitch", 0.876543))
+    res = _make_vision(result).analyze(b"img", detect=False, read=False, caption=True)
+    assert len(res.captions) == 1
+    cap = res.captions[0]
+    assert cap.text == "a player on the pitch"
+    assert cap.confidence == 0.8765  # rounded to 4 places
+    # CAPTION has no region -> full-frame box.
+    assert cap.box == Box(0.0, 0.0, 1.0, 1.0)
+    d = res.to_dict()
+    assert d["captions"] == [{"text": "a player on the pitch", "confidence": 0.8765,
+                              "box": {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}}]
+
+
+def test_analyze_caption_flag_independent():
+    from azure.ai.vision.imageanalysis.models import VisualFeatures
+
+    # caption-only -> exactly [CAPTION]; the flag is independent of detect/read.
+    vis = _make_vision(_Result(_Metadata(10, 10), caption=_Caption("x", 0.5)))
+    vis.analyze(b"img", detect=False, read=False, caption=True)
+    assert vis._client.last_kwargs["visual_features"] == [VisualFeatures.CAPTION]
+    # detect+caption -> [OBJECTS, CAPTION] in that order (detect-then-read-then-caption).
+    vis2 = _make_vision(_Result(_Metadata(10, 10), objects=_Objects([]), caption=_Caption("y", 0.5)))
+    vis2.analyze(b"img", detect=True, read=False, caption=True)
+    assert vis2._client.last_kwargs["visual_features"] == [VisualFeatures.OBJECTS, VisualFeatures.CAPTION]
 
 
 # ---------------------------------------------------------------------------------------

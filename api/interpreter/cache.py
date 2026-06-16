@@ -15,6 +15,7 @@ class Cache:
         self._detect: dict = data.get("detect", {})      # "ts_ms" -> [detection,...]
         self._read: dict = data.get("read_text", {})      # det_id -> {text,confidence,source,note}
         self._events: list = data.get("events", [])       # [{ts_ms,type,scorer_det,box}]
+        self._captions: dict = data.get("captions", {})   # "ts_ms" -> [{text,confidence,box}]
 
     @classmethod
     def load(cls, path: str | Path) -> "Cache":
@@ -26,6 +27,10 @@ class Cache:
 
     def detections_at(self, ts_ms: int) -> list[dict]:
         return self._detect.get(str(ts_ms), [])
+
+    def captions_at(self, ts_ms: int) -> list[dict]:
+        """Scene captions cached at a sampled-frame ts (mirrors detections_at). [] when absent."""
+        return self._captions.get(str(ts_ms), [])
 
     def read_text_for(self, det_id: str) -> dict | None:
         return self._read.get(det_id)
