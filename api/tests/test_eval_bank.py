@@ -23,6 +23,7 @@ import canned  # noqa: E402
 LIVE_CELLS = {
     ("single-goal", "first-goal"),
     ("single-goal", "presence"),
+    ("single-goal", "scene"),
     ("bernabeu-counter", "count"),
     ("bernabeu-counter", "scorer-number"),
     ("bernabeu-counter", "first-goal"),

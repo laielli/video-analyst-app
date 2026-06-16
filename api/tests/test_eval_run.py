@@ -26,23 +26,43 @@ import seed_fixtures  # noqa: E402
 
 # ---- replay over committed seeds ---------------------------------------------------------
 
+# The describe_scene cell (bank_version 3) ships WITHOUT committed fixtures: it is captured live
+# in the post-merge runbook (the advisory-stale path — see eval/README.md + the PR plan). Its
+# case_ids are the only legitimate MISSING entries pre-capture; every other case must have a
+# committed fixture. Once the post-merge capture lands, this set empties out (the cell gets real
+# fixtures + min_fixtures rises), restoring the strict full-coverage invariant.
+_PENDING_CAPTURE_CASE_IDS = {
+    "single-goal-scene-canonical",
+    "single-goal-scene-near-1",
+    "single-goal-scene-near-2",
+    "single-goal-scene-far-1",
+    "adv-injection-scene-fps-override",
+}
+
+
 def test_replay_over_committed_fixtures_scores():
     """Structural invariants over the COMMITTED fixtures in whichever PHASE the repo is in
     (fresh-at-current-pv, or uniformly stale mid prompt-edit before the human re-captures): every
-    bank case has a committed fixture and replay scores them all. Staleness is all-or-nothing,
-    mirroring apply_gate's advisory rule (run_eval.py:163-167) — a prompt edit stales EVERY
-    committed fixture uniformly, which is the advisory-gate design, not a regression. Partial
-    staleness (or any MISSING) still fails: that is the anti-gaming signal a hand-stamped fixture
-    would trip. Quality floors over real output are the threshold gate's job, not this test's."""
+    bank case has a committed fixture (EXCEPT the post-merge-captured describe_scene cell) and
+    replay scores them all. Staleness is all-or-nothing over the PRESENT (non-missing) fixtures,
+    mirroring apply_gate's advisory rule (run_eval.py:166-169) — a prompt edit stales EVERY
+    present fixture uniformly, which is the advisory-gate design, not a regression. Partial
+    staleness still fails: that is the anti-gaming signal a hand-stamped fixture would trip.
+    Quality floors over real output are the threshold gate's job, not this test's."""
     cases = bank.load_bank()
     results = run_eval.replay(cases)
     assert len(results) == len(cases)
-    assert not any(r.missing for r in results), "a bank case lacks a committed fixture"
-    n_stale = sum(1 for r in results if r.stale)
-    assert n_stale == 0 or n_stale == len(results), (
-        f"staleness must be all-or-nothing (got {n_stale}/{len(results)} stale) — a prompt edit "
-        "stales every committed fixture uniformly; partial staleness means a fixture was "
-        "hand-restamped or only some were re-captured"
+    missing_ids = {r.case_id for r in results if r.missing}
+    assert missing_ids <= _PENDING_CAPTURE_CASE_IDS, (
+        f"a bank case lacks a committed fixture (unexpected MISSING: "
+        f"{missing_ids - _PENDING_CAPTURE_CASE_IDS})"
+    )
+    present = [r for r in results if not r.missing]
+    n_stale = sum(1 for r in present if r.stale)
+    assert n_stale == 0 or n_stale == len(present), (
+        f"staleness must be all-or-nothing over present fixtures (got {n_stale}/{len(present)} "
+        "stale) — a prompt edit stales every present fixture uniformly; partial staleness means a "
+        "fixture was hand-restamped or only some were re-captured"
     )
 
 
@@ -69,24 +89,30 @@ def test_replay_over_regenerated_seeds_reaches_targets(tmp_path):
 
 def test_seed_fixtures_regenerate_match(tmp_path):
     """Seed regeneration stays coherent with the bank and deterministic in both phases. The
-    name set must match the committed fixtures (a bank edit without re-seed/re-capture fails
-    here); byte-for-byte equality applies only to committed fixtures that are still seeds
-    (captured_at == the seed sentinel) — after the live-capture runbook the committed set is
-    real gpt-4o output and intentionally differs."""
+    regenerated set covers the WHOLE bank; the committed fixtures cover every case EXCEPT the
+    post-merge-captured describe_scene cell (which ships without committed fixtures — the
+    advisory-stale path). So regenerated == committed ∪ pending-capture, and a bank edit that
+    forgot to re-seed/re-capture a NON-scene cell still trips this. Byte-for-byte equality applies
+    only to committed fixtures that are still seeds (captured_at == the seed sentinel) — after the
+    live-capture runbook the committed set is real gpt-4o output and intentionally differs."""
     seed_fixtures.generate_all(fixtures_dir=tmp_path)
     committed_dir = EVAL_DIR / "fixtures"
     regenerated = sorted(tmp_path.glob("*.json"))
     committed = sorted(committed_dir.glob("*.json"))
-    assert {p.name for p in regenerated} == {p.name for p in committed}, \
-        "regenerated seed set differs from committed (bank edited without re-seed/re-capture?)"
+    pending = {f"{cid}.json" for cid in _PENDING_CAPTURE_CASE_IDS}
+    assert {p.name for p in regenerated} == {p.name for p in committed} | pending, \
+        "regenerated seed set differs from committed ∪ pending (bank edited without re-seed/re-capture?)"
     # Regeneration is deterministic (keeps seed_fixtures.py meaningfully covered post-capture).
     second = tmp_path / "second"
     seed_fixtures.generate_all(fixtures_dir=second)
     for p in regenerated:
         assert json.loads(p.read_text()) == json.loads((second / p.name).read_text()), \
             f"seed regeneration is nondeterministic for {p.name}"
-    # Byte-equality against committed files only while they are seeds.
+    # Byte-equality against committed files only while they are seeds. Pending-capture cases
+    # (the describe_scene cell) have no committed fixture yet, so skip them here.
     for p in regenerated:
+        if p.name in pending:
+            continue
         b = json.loads((committed_dir / p.name).read_text())
         if b.get("captured_at") == seed_fixtures.SEED_CAPTURED_AT:
             assert json.loads(p.read_text()) == b, \

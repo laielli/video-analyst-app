@@ -78,6 +78,16 @@ QUERIES = [
         "program": str(EX / "bernabeu-counter_scorer-number_program.json"),
         "cache": str(EX / "bernabeu-counter_cache.json"),
     },
+    {
+        # describe_scene -> answer: grounds to the scene caption (the new visual primitive).
+        # Distinct from the few-shot scene example's question ("What is happening in this clip?")
+        # so no bank question leaks into the codegen prompt (anti-contamination).
+        "id": "hero-scene-description",
+        "text": "What is happening in the scene?",
+        "clip": "single-goal",
+        "program": str(EX / "single-goal_scene_program.json"),
+        "cache": str(EX / "hero_cache.json"),
+    },
 ]
 
 
