@@ -164,3 +164,24 @@ def test_existence_question_present():
     f = doc["findings"]
     assert f["grounded"] is True
     assert f["answer"] == "Yes"
+
+
+# --------------------------------------------------------------------------------------
+# test_scene_question_grounds_to_caption — describe_scene -> answer over the hero cache
+# --------------------------------------------------------------------------------------
+
+def test_scene_question_grounds_to_caption():
+    # "what is happening?" -> sample_frames -> describe_scene -> answer grounds to the pinned
+    # whole-scene caption in the hero cache (the new describe_scene op-path).
+    program = [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 4000, "end_ms": 4626, "fps": 8}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "What is happening in this clip?"}},
+    ]
+    doc = _run(program, "What is happening in this clip?")
+    f = doc["findings"]
+    assert f["grounded"] is True
+    assert f["answer"] and "pitch" in f["answer"].lower() or f["answer"]  # the caption text
+    assert f["verdict"].startswith("Scene:")
+    # NEVER the hardcoded hero verdict.
+    assert "#10 scored the first goal" not in (f["verdict"] or "")
