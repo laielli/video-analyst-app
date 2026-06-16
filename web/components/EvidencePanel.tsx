@@ -77,6 +77,15 @@ export default function EvidencePanel({
               {step?.source && <span className={`src-tag ${step.source}`}>{step.source}</span>}
             </div>
           </div>
+          {step?.op === "describe_scene" && (
+            // Scene caption gets its own readout row: describe_scene's whole-image caption is free
+            // text (the answer IS the caption), so surface it in full rather than only as the
+            // truncated Output pill. output_label carries the caption (or "(no scene caption)").
+            <div className="row">
+              <div className="k">Scene caption</div>
+              <div className="v scene-caption">{step.output_label ?? "—"}</div>
+            </div>
+          )}
           <div className="row">
             <div className="k">Confidence</div>
             <div className="v">
