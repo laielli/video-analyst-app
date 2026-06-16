@@ -3,8 +3,8 @@ import { programToLines, COMMENTS } from "@/lib/program";
 import type { ProgramStep } from "@/lib/types";
 
 // program.ts is pure (it builds colored tokens from the DSL, no parsing). We assert one case per
-// branch in lineFor: sample_frames, detect, filter, answer, and the default fallback — and that
-// COMMENTS covers all 8 ops.
+// branch in lineFor: sample_frames, detect, describe_scene, filter, answer, and the default
+// fallback — and that COMMENTS covers all 9 ops.
 
 function tokens(line: { c: string; t: string }[]) {
   return line.map((tok) => tok.t).join("");
@@ -28,6 +28,22 @@ describe("programToLines", () => {
     expect(s).toContain("people = detect(");
     expect(s).toContain("frames");
     expect(s).toContain('"person", "ball"');
+  });
+
+  it("renders describe_scene with the frames binding", () => {
+    const step: ProgramStep = { id: "scene", op: "describe_scene", args: { frames: "frames" } };
+    const [line] = programToLines([step]);
+    const s = tokens(line);
+    expect(s).toContain("scene = describe_scene(");
+    expect(s).toContain("frames");
+  });
+
+  it("renders describe_scene with an optional max_captions arg", () => {
+    const step: ProgramStep = { id: "scene", op: "describe_scene", args: { frames: "frames", max_captions: 4 } };
+    const [line] = programToLines([step]);
+    const s = tokens(line);
+    expect(s).toContain("scene = describe_scene(");
+    expect(s).toContain("max_captions=4");
   });
 
   it("renders filter with where.field == equals", () => {
@@ -70,8 +86,8 @@ describe("programToLines", () => {
 });
 
 describe("COMMENTS", () => {
-  it("covers all 8 ops", () => {
-    const ops = ["sample_frames", "detect", "crop", "read_text", "filter", "count", "temporal_order", "answer"];
+  it("covers all 9 ops", () => {
+    const ops = ["sample_frames", "detect", "describe_scene", "crop", "read_text", "filter", "count", "temporal_order", "answer"];
     for (const op of ops) {
       expect(COMMENTS[op]).toBeTruthy();
     }

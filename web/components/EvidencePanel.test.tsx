@@ -62,4 +62,40 @@ describe("EvidencePanel", () => {
     render(<EvidencePanel step={null} />);
     expect(screen.getByText(/No evidence frame for this step/i)).toBeInTheDocument();
   });
+
+  it("renders a scene caption readout for a describe_scene step", () => {
+    // The describe_scene step carries the caption in output_label (the whole-scene readout) and a
+    // full-frame overlay box (default knob: reuse kind:crop/tone:teal, caption text in the readout).
+    const s = step({
+      op: "describe_scene",
+      producer: "Azure AI Vision · caption",
+      output_label: "a soccer player celebrating a goal",
+      evidence: {
+        frame_ts_ms: 4625,
+        overlays: [{ box: { x: 0, y: 0, w: 1, h: 1 }, label: "a soccer player celebrating a goal", tone: "teal", kind: "crop" }],
+      },
+    });
+    render(<EvidencePanel step={s} />);
+    // the caption text shows in the Output readout pill (the caption appears both there and on the
+    // overlay label, so scope the assertion to the pill specifically).
+    const pill = document.querySelector(".pill") as HTMLElement;
+    expect(pill.textContent).toBe("a soccer player celebrating a goal");
+    // the full-frame overlay renders (the "whole-scene" box).
+    const ov = document.querySelector(".ov.teal") as HTMLElement;
+    expect(ov).toBeInTheDocument();
+    expect(parseFloat(ov.style.width)).toBeCloseTo(100, 5);
+    expect(parseFloat(ov.style.height)).toBeCloseTo(100, 5);
+  });
+
+  it("renders the diagnostic-empty note for an empty scene step (WHAT + WHY)", () => {
+    const s = step({
+      op: "describe_scene",
+      status: "empty",
+      output_label: "(no scene caption)",
+      note: "no scene caption in the sampled frames (describe_scene returned nothing)",
+      evidence: { frame_ts_ms: 4625, overlays: [] },
+    });
+    render(<EvidencePanel step={s} />);
+    expect(screen.getByText(/no scene caption in the sampled frames/i)).toBeInTheDocument();
+  });
 });
