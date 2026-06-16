@@ -33,6 +33,7 @@ from limits import (  # noqa: E402
     MAX_DETECT_CLASSES,
     MAX_PROGRAM_BYTES,
     MAX_SAMPLED_FRAMES,
+    MAX_SCENE_CAPTIONS,
     MAX_STEPS,
     MAX_STR_ARG_LEN,
     sampled_frame_count,
@@ -46,28 +47,37 @@ DEFAULT_PROGRAM = HERE.parent / "examples" / "hero_program.json"
 PRODUCES = {
     "sample_frames": "frames",
     "detect": "detections",
+    "describe_scene": "captions",
     "crop": "crops",
     "read_text": "texts",
     "count": "number",
     "answer": "answer",
 }
-# (binding arg field -> required input kind: a literal kind, None for "any collection",
-# or "any" for any synthesizable kind — used by `answer`, which op_answer now generalizes
-# over collections + `number` + `ordered` (Phase 0). Without "any", a `count -> answer`
-# program would not validate because `number` is not a collection.)
+# (binding arg field -> required input kind: a literal kind, None for "any collection", a
+# frozenset for an explicit kind allow-list, or "any" for any synthesizable kind — used by
+# `answer`, which op_answer now generalizes over collections + `number` + `ordered` (Phase 0).
+# Without "any", a `count -> answer` program would not validate because `number` is not a
+# collection. temporal_order's `events` is allow-listed (NOT None) so captions — which op_answer
+# can ground but op_temporal_order cannot order (it keys on detection det_id) — cannot reach it.
+# The hero first-goal chain feeds temporal_order a `texts` binding (read_text -> filter ->
+# temporal_order), so texts/detections/crops/frames stay valid; only captions is excluded.)
+TEMPORAL_ORDER_KINDS = frozenset({"frames", "detections", "crops", "texts"})
 EXPECTS = {
     "detect": {"frames": "frames"},
+    "describe_scene": {"frames": "frames"},
     "crop": {"detections": "detections"},
     "read_text": {"crops": "crops"},
     "filter": {"items": None},
     "count": {"items": None},
-    "temporal_order": {"events": None},
+    "temporal_order": {"events": TEMPORAL_ORDER_KINDS},
     "answer": {"from": "any"},
 }
-COLLECTION_KINDS = {"frames", "detections", "crops", "texts"}
+# captions is a FULL collection kind: filter/count iterate it and answer grounds it. It is
+# deliberately NOT in TEMPORAL_ORDER_KINDS — temporal_order(captions) is interpreter-meaningless.
+COLLECTION_KINDS = {"frames", "detections", "crops", "texts", "captions"}
 # Kinds op_answer can synthesize a deterministic answer from (Phase 0). "unknown" is excluded
-# so a malformed binding chain still surfaces, but the validator stays permissive for the four
-# legitimate question shapes (temporal/count/text/existence).
+# so a malformed binding chain still surfaces, but the validator stays permissive for the
+# legitimate question shapes (temporal/count/text/existence/scene-caption).
 ANSWERABLE_KINDS = COLLECTION_KINDS | {"number", "ordered"}
 
 # Numeric arg-value bounds the JSON Schema documents as prose but cannot enforce. A *validated*
@@ -188,6 +198,14 @@ def _arg_domain_errors(i: int, sid: str, op: str, args: dict) -> list[str]:
                         f"step[{i}] '{sid}' (filter): where.{f} is {len(v)} chars; "
                         f"max is {MAX_STR_ARG_LEN}"
                     )
+    elif op == "describe_scene":
+        mc = args.get("max_captions")
+        if mc is not None and isinstance(mc, int) and not isinstance(mc, bool):
+            if not (1 <= mc <= MAX_SCENE_CAPTIONS):
+                out.append(
+                    f"step[{i}] '{sid}' (describe_scene): max_captions {mc} out of "
+                    f"[1, {MAX_SCENE_CAPTIONS}]"
+                )
     # answer.question is deliberately NOT length-capped here: it is the user's query passed
     # through verbatim, already bounded by MAX_QUERY_TEXT_LEN (500) at the route AND by
     # MAX_PROGRAM_BYTES on the whole doc. A 256-char cap here would falsely reject legitimate
@@ -240,6 +258,15 @@ def semantic_errors(program: list[dict], clip: dict | None = None) -> list[str]:
                     errors.append(
                         f"step[{i}] '{sid}' ({op}): arg '{field}' expects an answerable kind "
                         f"(collection | number | ordered) but '{ref}' produces '{got}'"
+                    )
+            elif isinstance(want, frozenset):
+                # An explicit kind allow-list (temporal_order.events): reject anything outside it.
+                # captions is deliberately excluded — op_temporal_order keys on detection det_id
+                # and cannot order a caption binding.
+                if got not in want:
+                    errors.append(
+                        f"step[{i}] '{sid}' ({op}): arg '{field}' expects one of "
+                        f"{sorted(want)} but '{ref}' produces '{got}'"
                     )
             elif want is not None and got != want:
                 errors.append(
