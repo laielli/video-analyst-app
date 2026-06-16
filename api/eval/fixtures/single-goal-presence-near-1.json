@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "detections",
+      "id": "people",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -27,14 +27,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "detections",
+        "from": "people",
         "question": "Is there a player visible on screen?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "8ce886d627706ef3",
+  "prompt_version": "edf7859f70e1e410",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:56:43Z"
+  "captured_at": "2026-06-13T00:43:23Z"
 }

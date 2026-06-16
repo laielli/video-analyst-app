@@ -42,9 +42,11 @@ THRESHOLDS_PATH = HERE / "thresholds.json"
 DEFAULT_REPORT_MD = HERE / "report.md"
 DEFAULT_REPORT_JSON = HERE / "report.json"
 
-# Per-invocation ceiling on ACTUAL live calls (capture only). Default = bank size band, so a
-# fat-fingered bank can't bill thousands. --force does NOT bypass this; --limit is clamped to it.
-MAX_CAPTURE_CALLS = 64
+# Per-invocation ceiling on ACTUAL live calls (capture only). Default = bank size band (66-case
+# bank + headroom, so one `capture --force` covers the whole bank — at 64 it silently skipped 2
+# cases and left a partial-stale state the gate FAILs on), so a fat-fingered bank can't bill
+# thousands. --force does NOT bypass this; --limit is clamped to it.
+MAX_CAPTURE_CALLS = 72
 
 # Offline cost estimate (Resolved #1: usage is null; cost is an offline estimate). gpt-4o pricing
 # ~ $2.50/M input, $10/M output; ~900 input + ~400 output tokens per case.

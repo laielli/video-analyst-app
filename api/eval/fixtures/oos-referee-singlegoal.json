@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "detections",
+      "id": "people",
       "op": "detect",
       "args": {
         "frames": "frames",
@@ -24,25 +24,25 @@
       }
     },
     {
-      "id": "crops",
+      "id": "jerseys",
       "op": "crop",
       "args": {
-        "detections": "detections",
+        "detections": "people",
         "region": "jersey"
       }
     },
     {
-      "id": "texts",
+      "id": "numbers",
       "op": "read_text",
       "args": {
-        "crops": "crops"
+        "crops": "jerseys"
       }
     },
     {
-      "id": "filtered_texts",
+      "id": "absent",
       "op": "filter",
       "args": {
-        "items": "texts",
+        "items": "numbers",
         "where": {
           "field": "text",
           "equals": "99"
@@ -53,14 +53,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "filtered_texts",
+        "from": "absent",
         "question": "Who is the referee?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "8ce886d627706ef3",
+  "prompt_version": "edf7859f70e1e410",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:57:54Z"
+  "captured_at": "2026-06-13T00:44:05Z"
 }

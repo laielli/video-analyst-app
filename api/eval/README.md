@@ -10,7 +10,7 @@ that gap.
 
 ```
 eval/
-  question_bank.json          # ~60 cases: phrasing variants × shapes × clips + out-of-scope/adversarial/degenerate
+  question_bank.json          # 66 cases: phrasing variants × shapes × clips + out-of-scope/adversarial/degenerate
   question_bank.schema.json   # JSON Schema for a bank case (the bank is schema-validated on load)
   bank.py                     # load + filter the bank; prompt_version stamp; derive_ground_truth
   fixtures.py                 # one recorded gpt-4o output per case (fixtures/<case_id>.json), atomic IO
@@ -67,7 +67,7 @@ cd api
 source .venv/bin/activate
 
 # 0) Smoke creds only (sub-cent) — do NOT `capture --limit 1` then `replay` after a prompt edit:
-#    capturing 1 case makes it fresh while the other 59 stay stale -> partial staleness -> gate
+#    capturing 1 case makes it fresh while the other 65 stay stale -> partial staleness -> gate
 #    FAILs (and the phase-aware committed-fixtures test fails too). Smoke creds with the probe,
 #    then do the FULL re-capture in step 2 before any replay.
 python scripts/codegen_probe.py --question "How many players are visible?"   # exit 0 = creds good; 2 = fix .env
@@ -82,7 +82,7 @@ python eval/run_eval.py capture --force --dry-run
 #    After a prompt edit the committed fixtures are STALE, so capture would re-call them even
 #    without --force — but --force is the safe default that also covers the seed-stamped/same-prompt
 #    cases (verified against run_eval.py:262-270).
-python eval/run_eval.py capture --force   # ~60 calls, budget-capped; a re-run skips fresh cases
+python eval/run_eval.py capture --force   # 66 calls, budget-capped; a re-run skips fresh cases
 
 # 3) Score the real fixtures + regenerate the committed report:
 python eval/run_eval.py replay --report eval/report.md --json eval/report.json
@@ -94,7 +94,8 @@ git commit -m "eval: capture gpt-4o codegen fixtures + baseline report"
 # 5) Ratchet eval/thresholds.json (creds-NOT-required, but pairs with this re-capture):
 #    - read the new measured T4_answer_correct / out_of_scope_honest rates from eval/report.md,
 #    - set each thresholds.json floor ~5pp UNDER the measured rate (the calibration convention in
-#      the thresholds.json _comment; ~2.8pp == 1 in-scope case, so leave temperature=0 jitter room),
+#      the thresholds.json _comment; ~2.6pp == 1 in-scope case at n=38, so leave temperature=0
+#      jitter room),
 #    - commit. This is the ONLY step the implementer agents do NOT do (they have no creds to
 #      re-capture, so they cannot measure the lifted rates).
 
@@ -110,7 +111,8 @@ git commit -m "eval: capture gpt-4o codegen fixtures + baseline report"
 `--only <case_id|shape|clip>` narrows the run; `--force` re-captures even fixtures that are fresh
 at the current prompt_version (resume is the default — fresh fixtures are silently skipped without
 it); `--limit N` caps live calls this invocation. A per-invocation `MAX_CAPTURE_CALLS`
-ceiling (default 64) bounds spend; `--force` does **not** bypass it. A full capture costs roughly
+ceiling (default 72, covering the 66-case bank in one invocation) bounds spend; `--force` does
+**not** bypass it. A full capture costs roughly
 **$0.35–$0.50** (verify current gpt-4o pricing first).
 
 ## Determinism

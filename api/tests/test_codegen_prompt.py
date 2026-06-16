@@ -10,6 +10,8 @@ message is inspected. Mock-seam style from conftest.py.
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 
 import codegen
 from canned import CLIPS
@@ -212,3 +214,115 @@ def test_codegen_prompt_forbids_hint_number_filter():
     low = codegen.SYSTEM_PROMPT.lower()
     assert "never filter on a number taken from the clip context hint" in low
     assert "never end temporal_order -> answer" in low
+
+
+# --------------------------------------------------------------------------------------
+# Few-shot iteration (#3) — worked examples carry the failing-shape behavior. The 66-case
+# capture under the #50 prompt showed prose rules alone do not steer the 3 remaining shapes,
+# so each gets a worked program; these guards pin the examples' shape invariants creds-free.
+# --------------------------------------------------------------------------------------
+
+def _example(shape: str) -> dict:
+    return next(e for e in codegen.FEW_SHOT_EXAMPLES if e["shape"] == shape)
+
+
+def _assert_uses_hint_window_verbatim(ex: dict):
+    """The example's sample step must copy the EXAMPLE_CLIP hint's window + fps verbatim — the
+    analyzed-window behavior the examples are supposed to demonstrate."""
+    win = next(s for s in ex["program"] if s["op"] == "sample_frames")["args"]
+    hint = codegen.EXAMPLE_CLIP["hint"]
+    assert f"{win['start_ms']}-{win['end_ms']}ms" in hint
+    assert f"fps {win['fps']}" in hint
+
+
+def test_few_shot_examples_validate_against_dsl():
+    """Every few-shot program must pass the REAL validator (the same gate generated programs
+    face) against the fictional example clip — an example that wouldn't validate would teach the
+    model an illegal shape."""
+    from validate_program import validation_errors
+
+    for ex in codegen.FEW_SHOT_EXAMPLES:
+        errs = validation_errors({"program": ex["program"]}, clip=codegen.EXAMPLE_CLIP)
+        assert errs == [], f"few-shot example {ex['shape']!r} fails the real validator: {errs}"
+
+
+def test_few_shot_examples_rendered_into_prompt():
+    """The examples are data; the prompt is their render. Every question and step must appear in
+    SYSTEM_PROMPT (compact JSON), and the examples block sits at the very END so the injected
+    Clip context lands directly under the 'substitute the real Clip context's window and fps'
+    pointer (recency: the real hint is the last thing the model reads)."""
+    for ex in codegen.FEW_SHOT_EXAMPLES:
+        assert json.dumps(ex["question"]) in codegen.SYSTEM_PROMPT
+        for step in ex["program"]:
+            assert json.dumps(step, separators=(",", ":")) in codegen.SYSTEM_PROMPT
+    assert codegen.SYSTEM_PROMPT.index("Worked examples") > codegen.SYSTEM_PROMPT.index("Rules:")
+    # nothing may be appended after the last example — the clip block must land right under it.
+    assert codegen.SYSTEM_PROMPT.endswith(codegen._render_example(codegen.FEW_SHOT_EXAMPLES[-1]))
+
+
+def test_few_shot_scorer_number_example_shape():
+    """scorer-number (3/6 paraphrases ended temporal_order -> 'Yes' at the 2026-06-12 capture):
+    the worked program must end read_text -> answer with NO filter and NO temporal_order, over
+    the hint window verbatim."""
+    ex = _example("scorer-number")
+    ops = [s["op"] for s in ex["program"]]
+    assert ops[-2:] == ["read_text", "answer"]
+    assert "temporal_order" not in ops and "filter" not in ops
+    _assert_uses_hint_window_verbatim(ex)
+    # the example must face the REAL failure stimulus: a hint that names a (decoy) scorer number
+    # — the failing rows lifted bernabeu's 'scorer wears #7' into filter(text == '7'). A hint
+    # with no number would demonstrate restraint against nothing.
+    assert re.search(r"scorer wears #\d", codegen.EXAMPLE_CLIP["hint"])
+
+
+def test_few_shot_presence_example_shape():
+    """presence (far-3 used the 1ms count-midpoint pattern and grounded out empty): the worked
+    program is detect -> answer over the hint's full multi-frame window, never the 1ms midpoint
+    and never a count."""
+    ex = _example("presence")
+    assert [s["op"] for s in ex["program"]] == ["sample_frames", "detect", "answer"]
+    win = next(s for s in ex["program"] if s["op"] == "sample_frames")["args"]
+    assert win["end_ms"] - win["start_ms"] > 1, "presence must not use the 1ms midpoint pattern"
+    _assert_uses_hint_window_verbatim(ex)
+
+
+def test_few_shot_ground_out_example_shape():
+    """injection/noise (adv-injection-huge-window + adv-unicode-rtl-noise leaked grounded '5'
+    via the count chain): the example question embeds sampling instructions + count bait, and
+    the worked program is the absent-jersey ground-out chain — never count."""
+    ex = _example("ground-out")
+    ops = [s["op"] for s in ex["program"]]
+    assert "count" not in ops
+    assert ops[-2:] == ["filter", "answer"]
+    filt = next(s for s in ex["program"] if s["op"] == "filter")
+    assert filt["args"]["where"] == {"field": "text", "equals": "99"}
+    q = ex["question"].lower()
+    assert "how many" in q, "the example must carry count bait"
+    assert "fps" in q and "ms" in q, "the example must embed sampling instructions"
+
+
+def test_few_shot_examples_teach_structure_not_the_test_set():
+    """Anti-contamination: no bank question may appear verbatim in the prompt (the eval would
+    measure memorization, not generalization), and no real clip timing literal may leak into the
+    base prompt (the examples compile against a FICTIONAL clip)."""
+    bank_doc = json.loads((Path(codegen.API_DIR) / "eval" / "question_bank.json").read_text())
+    for case in bank_doc["cases"]:
+        q = case["question"]
+        if len(q) >= 15:  # skip degenerate stubs like '?' that match anything
+            assert q not in codegen.SYSTEM_PROMPT, f"bank question leaked into prompt: {q!r}"
+            # examples render questions via json.dumps — also scan the escaped form, or a
+            # quoted/non-ASCII bank question could leak invisibly to the raw scan above.
+            assert json.dumps(q) not in codegen.SYSTEM_PROMPT, f"bank question leaked (escaped): {q!r}"
+    for clip in CLIPS.values():
+        literals = set(re.findall(r"\d{4,}", clip["hint"])) | {str(clip["duration_ms"])}
+        for lit in literals:
+            assert lit not in codegen.SYSTEM_PROMPT, f"real clip literal leaked into prompt: {lit}"
+
+
+def test_prompt_size_budget():
+    """The few-shot iteration TRIMMED the rulebook (6,751 -> ~4.3k chars) while the whole prompt
+    (rules + examples) stayed under the pre-iteration 6,751-char base. Budget-guard the trim so
+    rule-accretion can't creep back: shrink a rule or convert it to a worked example instead of
+    appending prose."""
+    assert len(codegen._RULES) <= 4500, "rulebook crept past its budget — trim or convert to an example"
+    assert len(codegen.SYSTEM_PROMPT) <= 6700, "prompt crept past its budget (pre-iteration base: 6,751)"

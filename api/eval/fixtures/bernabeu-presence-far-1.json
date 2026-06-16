@@ -5,7 +5,7 @@
   "question": "Can you spot anyone on the pitch?",
   "raw_program": [
     {
-      "id": "sampled_frames",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,10 +14,10 @@
       }
     },
     {
-      "id": "detected_objects",
+      "id": "people",
       "op": "detect",
       "args": {
-        "frames": "sampled_frames",
+        "frames": "frames",
         "classes": [
           "person"
         ]
@@ -27,14 +27,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "detected_objects",
+        "from": "people",
         "question": "Can you spot anyone on the pitch?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "d33d2c59faf1ec54",
+  "prompt_version": "a3cca197c2ee4155",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:57:39Z"
+  "captured_at": "2026-06-13T00:43:56Z"
 }

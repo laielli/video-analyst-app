@@ -5,7 +5,7 @@
   "question": "Does #23 score the first goal?",
   "raw_program": [
     {
-      "id": "sampled_frames",
+      "id": "frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
@@ -14,35 +14,35 @@
       }
     },
     {
-      "id": "detected_people",
+      "id": "people",
       "op": "detect",
       "args": {
-        "frames": "sampled_frames",
+        "frames": "frames",
         "classes": [
           "person"
         ]
       }
     },
     {
-      "id": "jersey_crops",
+      "id": "jerseys",
       "op": "crop",
       "args": {
-        "detections": "detected_people",
+        "detections": "people",
         "region": "jersey"
       }
     },
     {
-      "id": "read_jersey_numbers",
+      "id": "numbers",
       "op": "read_text",
       "args": {
-        "crops": "jersey_crops"
+        "crops": "jerseys"
       }
     },
     {
-      "id": "filter_23",
+      "id": "filtered",
       "op": "filter",
       "args": {
-        "items": "read_jersey_numbers",
+        "items": "numbers",
         "where": {
           "field": "text",
           "equals": "23"
@@ -50,25 +50,25 @@
       }
     },
     {
-      "id": "temporal_order_23",
+      "id": "ordered",
       "op": "temporal_order",
       "args": {
-        "events": "filter_23",
+        "events": "filtered",
         "by": "timestamp"
       }
     },
     {
-      "id": "answer_first_goal",
+      "id": "result",
       "op": "answer",
       "args": {
-        "from": "temporal_order_23",
+        "from": "ordered",
         "question": "Does #23 score the first goal?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "d33d2c59faf1ec54",
+  "prompt_version": "a3cca197c2ee4155",
   "model": "gpt-4o",
-  "captured_at": "2026-06-12T17:57:43Z"
+  "captured_at": "2026-06-13T00:43:58Z"
 }
