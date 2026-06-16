@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 # Reuse the real dataclasses so the fakes are structurally identical to production.
-from vision.azure_vision import AnalysisResult, Detection, Box  # noqa: E402
+from vision.azure_vision import AnalysisResult, Caption, Detection, Box  # noqa: E402
 from vision.vlm_read import VlmRead  # noqa: E402
 
 API_DIR = Path(__file__).resolve().parent.parent
@@ -34,13 +34,24 @@ HERO_OBJECTS = [
 ]
 
 
+# Canned CAPTION output (describe_scene). One whole-image caption with a full-frame box —
+# mirrors the real Azure CAPTION shape (no region).
+HERO_CAPTION = Caption(
+    text="A football player runs with the ball on a stadium pitch.",
+    confidence=0.83,
+    box=Box(0.0, 0.0, 1.0, 1.0),
+)
+
+
 class FakeAzureVision:
     """Stands in for AzureVision. analyze() returns the same objects for every frame, so the
-    sampled-frame stride is what determines which ts carry detections. Counts calls."""
+    sampled-frame stride is what determines which ts carry detections. Counts calls. With
+    caption=True it returns one canned Caption (the describe_scene CAPTION feature)."""
     instances: list["FakeAzureVision"] = []
 
-    def __init__(self, objects=None):
+    def __init__(self, objects=None, caption=None):
         self.objects = list(HERO_OBJECTS if objects is None else objects)
+        self.caption = HERO_CAPTION if caption is None else caption
         self.analyze_calls = 0
         FakeAzureVision.instances.append(self)
 
@@ -48,7 +59,7 @@ class FakeAzureVision:
     def from_env(cls):
         return cls()
 
-    def analyze(self, image_bytes, detect=True, read=False):
+    def analyze(self, image_bytes, detect=True, read=False, caption=False):
         # Azure Read is deliberately NOT a rung in the OCR ladder (Resolved #2): its known
         # 22->77 jersey-font misread would poison the cache. Enforce that suite-wide — any
         # read=True from the pipeline is a regression. (Guard ported from PR #6's
@@ -59,6 +70,7 @@ class FakeAzureVision:
             width=1872, height=1042,
             objects=list(self.objects) if detect else [],
             lines=[],
+            captions=[self.caption] if (caption and self.caption is not None) else [],
         )
 
 

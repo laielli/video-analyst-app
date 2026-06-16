@@ -16,7 +16,7 @@ import pytest
 import precompute
 from precompute import (
     OcrLadder, GroundingError, SetupError,
-    mint_det_ids, run_precompute, sampled_timestamps,
+    mint_det_ids, run_describe_scene, run_precompute, sampled_timestamps,
     canonical_cache, validate_cache_shape,
 )
 from interpreter import Cache, Interpreter
@@ -447,3 +447,70 @@ def test_validate_cache_shape_catches_orphan_read_text():
     cache = canonical_cache(clip, detect, {"ghost": {"text": "10", "confidence": None, "source": "pinned"}}, [])
     errs = validate_cache_shape(cache)
     assert any("read_text key 'ghost'" in e for e in errs)
+
+
+# --------------------------------------------------------------------------------------
+# describe_scene captions slice (Layer 3 CAPTION via precompute)
+# --------------------------------------------------------------------------------------
+
+def test_precompute_emits_captions_slice(tmp_path, manifest, fake_frame_provider, fake_crop_provider):
+    # Opt into caption_frames -> the produced cache carries a `captions` map keyed by sampled ts
+    # (the FakeAzureVision returns one canned Caption per analyze(caption=True)).
+    manifest["sampling"]["caption_frames"] = True
+    out = tmp_path / "cache.json"
+    rep = _run(manifest, fake_frame_provider, fake_crop_provider, out=out)
+    assert rep["exit"] == 0
+    data = json.loads(out.read_text())
+    assert "captions" in data and data["captions"], "expected a captions slice"
+    # keyed by sampled ts ms (4625 is the evidence frame in the hero window).
+    for ts, caps in data["captions"].items():
+        assert ts.isdigit()
+        assert caps[0]["text"]
+        assert "confidence" in caps[0]
+        for k in ("x", "y", "w", "h"):
+            assert 0 <= caps[0]["box"][k] <= 1
+    # the slice passes shape validation.
+    assert validate_cache_shape(data) == []
+    # and Cache.captions_at reads it back.
+    cache = Cache.load(out)
+    some_ts = int(next(iter(data["captions"])))
+    assert cache.captions_at(some_ts)[0]["text"]
+
+
+def test_precompute_no_captions_when_not_opted_in(tmp_path, manifest, fake_frame_provider, fake_crop_provider):
+    # Default manifest (no sampling.caption_frames) yields no captions key.
+    out = tmp_path / "cache.json"
+    _run(manifest, fake_frame_provider, fake_crop_provider, out=out)
+    data = json.loads(out.read_text())
+    assert "captions" not in data
+
+
+def test_run_describe_scene_gated_by_opt_in(manifest, fake_frame_provider):
+    ts = sampled_timestamps(manifest)
+    # not opted in -> empty.
+    assert run_describe_scene(manifest, ts, frame_provider=fake_frame_provider, vision=FakeAzureVision()) == {}
+    # opted in -> a captions map.
+    manifest["sampling"]["caption_frames"] = True
+    caps = run_describe_scene(manifest, ts, frame_provider=fake_frame_provider, vision=FakeAzureVision())
+    assert caps and all(str(k).isdigit() for k in caps)
+
+
+def test_validate_cache_shape_catches_overlong_caption():
+    from limits import MAX_CAPTION_LEN
+    clip = {"id": "x", "width": 10, "height": 10, "duration_ms": 100, "fps": 30}
+    detect = {"100": [{"det_id": "p0", "cls": "person", "confidence": 0.5, "box": {"x": 0.1, "y": 0.1, "w": 0.1, "h": 0.1}}]}
+    captions = {"100": [{"text": "x" * (MAX_CAPTION_LEN + 1), "confidence": 0.5,
+                         "box": {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}}]}
+    cache = canonical_cache(clip, detect, {}, [], captions=captions)
+    errs = validate_cache_shape(cache)
+    assert any("captions[100] text is" in e for e in errs)
+
+
+def test_validate_cache_shape_catches_caption_box_out_of_range():
+    clip = {"id": "x", "width": 10, "height": 10, "duration_ms": 100, "fps": 30}
+    detect = {"100": [{"det_id": "p0", "cls": "person", "confidence": 0.5, "box": {"x": 0.1, "y": 0.1, "w": 0.1, "h": 0.1}}]}
+    captions = {"100": [{"text": "ok", "confidence": 0.5,
+                         "box": {"x": 0.0, "y": 0.0, "w": 1.5, "h": 1.0}}]}
+    cache = canonical_cache(clip, detect, {}, [], captions=captions)
+    errs = validate_cache_shape(cache)
+    assert any("captions[100] box.w" in e for e in errs)

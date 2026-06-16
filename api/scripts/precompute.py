@@ -51,6 +51,7 @@ sys.path.insert(0, str(API_DIR))   # vision, interpreter packages
 
 # ocr_probe gives us the proven ffmpeg extraction + the no-dep .env loader.
 from ocr_probe import extract_frame, load_dotenv  # noqa: E402
+from limits import MAX_CAPTION_LEN  # noqa: E402 — caption free-text cap
 
 CLIPS_DIR = REPO_ROOT / "clips"
 FRAMES_DIR = REPO_ROOT / "web" / "public" / "frames"
@@ -353,6 +354,35 @@ def run_detect(manifest: dict, timestamps: list[int], *, frame_provider, vision)
 
 
 # --------------------------------------------------------------------------------------
+# describe_scene (Layer 3 CAPTION) — extract frame -> AzureVision.analyze(caption=True)
+# --------------------------------------------------------------------------------------
+
+def run_describe_scene(manifest: dict, timestamps: list[int], *, frame_provider, vision) -> dict:
+    """Returns a captions map keyed by sampled ts ms (mirrors run_detect's detect map). Gated by
+    the manifest opt-in sampling.caption_frames (default false), so a default manifest emits no
+    captions. vision is an AzureVision-like with .analyze(bytes, detect=False, read=False,
+    caption=True). Each caption's free text is truncated to MAX_CAPTION_LEN at this boundary."""
+    if not manifest.get("sampling", {}).get("caption_frames", False):
+        return {}
+    captions: dict = {}
+    for ts in timestamps:
+        img = frame_provider(ts)
+        if img is None:
+            continue  # guarded: one bad frame doesn't abort the run
+        result = vision.analyze(img, detect=False, read=False, caption=True)
+        entries = []
+        for c in getattr(result, "captions", []) or []:
+            b = c.box.rounded() if hasattr(c.box, "rounded") else c.box
+            box = {"x": b.x, "y": b.y, "w": b.w, "h": b.h} if hasattr(b, "x") else dict(b)
+            text = (c.text or "")[:MAX_CAPTION_LEN]
+            if text:
+                entries.append({"text": text, "confidence": c.confidence, "box": _round_box(box)})
+        if entries:
+            captions[str(ts)] = entries
+    return captions
+
+
+# --------------------------------------------------------------------------------------
 # the linchpin: pins + read_text + events in ONE ordered step (Phase 2.5 / 3 / 4)
 # --------------------------------------------------------------------------------------
 
@@ -443,8 +473,11 @@ def resolve_pins_reads_events(
 # canonical JSON + atomic write (Phase 5)
 # --------------------------------------------------------------------------------------
 
-def canonical_cache(clip: dict, detect: dict, read_text: dict, events: list[dict]) -> dict:
-    """Deterministic output: detect keys numeric-sorted, detections by det_id, boxes 4dp."""
+def canonical_cache(clip: dict, detect: dict, read_text: dict, events: list[dict],
+                    captions: dict | None = None) -> dict:
+    """Deterministic output: detect keys numeric-sorted, detections by det_id, boxes 4dp. The
+    `captions` slice (keyed by sampled ts ms, mirroring `detect`) is keyword-defaulted to None so
+    existing callers stay valid; it is emitted ONLY when present (describe_scene opt-in)."""
     sorted_detect = {}
     for k in sorted(detect, key=int):
         dets = sorted(detect[k], key=lambda d: d["det_id"])
@@ -452,7 +485,7 @@ def canonical_cache(clip: dict, detect: dict, read_text: dict, events: list[dict
             {"det_id": d["det_id"], "cls": d["cls"], "confidence": d["confidence"], "box": _round_box(d["box"])}
             for d in dets
         ]
-    return {
+    out = {
         "clip": {
             "id": clip["id"], "width": clip["width"], "height": clip["height"],
             "duration_ms": clip["duration_ms"], "fps": clip["fps"],
@@ -461,6 +494,15 @@ def canonical_cache(clip: dict, detect: dict, read_text: dict, events: list[dict
         "read_text": {k: read_text[k] for k in sorted(read_text)},
         "events": sorted(events, key=lambda e: e["ts_ms"]),
     }
+    if captions:
+        sorted_captions = {}
+        for k in sorted(captions, key=int):
+            sorted_captions[k] = [
+                {"text": c["text"], "confidence": c.get("confidence"), "box": _round_box(c["box"])}
+                for c in captions[k]
+            ]
+        out["captions"] = sorted_captions
+    return out
 
 
 def cache_to_json(cache: dict) -> str:
@@ -526,6 +568,25 @@ def validate_cache_shape(cache: dict) -> list[str]:
                 errs.append(f"event missing '{k}'")
         if ev.get("scorer_det") not in all_det_ids:
             errs.append(f"event scorer_det '{ev.get('scorer_det')}' not in `detect`")
+    # captions slice (describe_scene opt-in): keyed by sampled ts ms; each entry needs `text`
+    # (length <= MAX_CAPTION_LEN), a confidence, and a `box` in [0,1].
+    captions = cache.get("captions", {})
+    for ts, caps in captions.items():
+        if not str(ts).lstrip("-").isdigit():
+            errs.append(f"captions key '{ts}' is not an integer ms")
+        for c in caps:
+            txt = c.get("text")
+            if not txt:
+                errs.append(f"captions[{ts}] entry has no text")
+            elif len(txt) > MAX_CAPTION_LEN:
+                errs.append(f"captions[{ts}] text is {len(txt)} chars; max is {MAX_CAPTION_LEN}")
+            if "confidence" not in c:
+                errs.append(f"captions[{ts}] entry missing 'confidence'")
+            box = c.get("box", {})
+            for k in ("x", "y", "w", "h"):
+                v = box.get(k)
+                if not isinstance(v, (int, float)) or not (0 <= v <= 1):
+                    errs.append(f"captions[{ts}] box.{k}={v!r} not in [0,1]")
     return errs
 
 
@@ -710,8 +771,11 @@ def run_precompute(
         manifest, detect, clip, ladder=ladder, jersey_crop_provider=jersey_crop_provider,
     )
 
+    # --- describe_scene captions (manifest opt-in sampling.caption_frames, default off) ---
+    captions = run_describe_scene(manifest, timestamps, frame_provider=frame_provider, vision=vision)
+
     # --- canonical cache + shape validation ---
-    cache = canonical_cache(clip, detect, read_text, events)
+    cache = canonical_cache(clip, detect, read_text, events, captions=captions)
     shape_errs = validate_cache_shape(cache)
     if shape_errs:
         raise GroundingError("cache shape invalid: " + "; ".join(shape_errs))
