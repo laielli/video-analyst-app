@@ -1,9 +1,11 @@
 """
-Azure AI Vision Image Analysis 4.0 adapter — the two real per-frame primitives:
-`detect` (OBJECTS) and `read_text` (READ / OCR). Stateless: one image in, structured
-results out. Boxes are returned in NORMALIZED 0-1 coordinates (relative to the analyzed
-frame), which is exactly the overlay contract the UI consumes (overlay-normalized-stills
-decision) — so the same payload feeds the interpreter, the run-doc cache, and the canvas.
+Azure AI Vision Image Analysis 4.0 adapter — the three real per-frame primitives:
+`detect` (OBJECTS), `read_text` (READ / OCR), and `describe_scene` (CAPTION). Stateless:
+one image in, structured results out. Boxes are returned in NORMALIZED 0-1 coordinates
+(relative to the analyzed frame), which is exactly the overlay contract the UI consumes
+(overlay-normalized-stills decision) — so the same payload feeds the interpreter, the
+run-doc cache, and the canvas. CAPTION has no region, so it carries a full-frame box for
+overlay parity.
 
 Why this service and not Video Indexer: keeping detection + OCR as stateless image
 primitives preserves the glass-box thesis (the generated program does the orchestration,
@@ -45,11 +47,21 @@ class TextLine:
 
 
 @dataclass
+class Caption:
+    """A whole-image scene caption (Azure CAPTION feature). CAPTION returns no region, so the box
+    is a full-frame Box(0,0,1,1) for overlay parity with detect/read_text outputs."""
+    text: str
+    confidence: float | None
+    box: Box
+
+
+@dataclass
 class AnalysisResult:
     width: int
     height: int
     objects: list[Detection]
     lines: list[TextLine]
+    captions: list[Caption] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -62,6 +74,10 @@ class AnalysisResult:
             "lines": [
                 {"text": l.text, "confidence": l.confidence, "box": asdict(l.box.rounded()), "words": l.words}
                 for l in self.lines
+            ],
+            "captions": [
+                {"text": c.text, "confidence": c.confidence, "box": asdict(c.box.rounded())}
+                for c in self.captions
             ],
         }
 
@@ -96,7 +112,8 @@ class AzureVision:
             key=os.environ.get("AZURE_VISION_KEY", ""),
         )
 
-    def analyze(self, image_bytes: bytes, detect: bool = True, read: bool = True) -> AnalysisResult:
+    def analyze(self, image_bytes: bytes, detect: bool = True, read: bool = True,
+                caption: bool = False) -> AnalysisResult:
         from azure.ai.vision.imageanalysis.models import VisualFeatures
 
         features = []
@@ -104,8 +121,10 @@ class AzureVision:
             features.append(VisualFeatures.OBJECTS)
         if read:
             features.append(VisualFeatures.READ)
+        if caption:
+            features.append(VisualFeatures.CAPTION)
         if not features:
-            raise ValueError("Request at least one of detect/read.")
+            raise ValueError("Request at least one of detect/read/caption.")
 
         result = self._client.analyze(image_data=image_bytes, visual_features=features)
         W = result.metadata.width
@@ -142,4 +161,15 @@ class AzureVision:
                         )
                     )
 
-        return AnalysisResult(width=W, height=H, objects=objects, lines=lines)
+        captions: list[Caption] = []
+        if getattr(result, "caption", None) is not None:
+            cap = result.caption
+            captions.append(
+                Caption(
+                    text=cap.text,
+                    confidence=round(cap.confidence, 4) if cap.confidence is not None else None,
+                    box=Box(0.0, 0.0, 1.0, 1.0),  # full-frame: CAPTION has no region
+                )
+            )
+
+        return AnalysisResult(width=W, height=H, objects=objects, lines=lines, captions=captions)

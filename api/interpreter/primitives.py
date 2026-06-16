@@ -3,7 +3,7 @@ Op implementations. Each is fn(step, env, cache) -> (binding, step_result):
   - binding: the value stored under step["id"] for later steps to reference.
   - step_result: the run-doc trace entry (status, provenance, EVIDENCE overlays).
 
-Replay mode: detect/read_text read from the cache (real Azure outputs + pins);
+Replay mode: detect/read_text/describe_scene read from the cache (real Azure outputs + pins);
 crop/filter/count/temporal_order/answer are local compute. No live calls.
 
 Binding kinds and item shapes:
@@ -11,13 +11,20 @@ Binding kinds and item shapes:
   detections  items=[{det_id,cls,confidence,box,frame_ts_ms}]
   crops       items=[{crop_id,det_id,box,person_box,person_conf,frame_ts_ms}]
   texts       items=[{det_id,text,confidence,source,note?,crop_box,person_box,frame_ts_ms}]
+  captions    items=[{text,confidence,box,frame_ts_ms}]   (scene caption per frame)
   number      value=int
   ordered     value={events,first,subject_dets,subject_label,subject_is_first_scorer}
   answer      value={answer,verdict,question,yes,grounded,reason?}
 """
 from __future__ import annotations
 
-from limits import MAX_SAMPLED_FRAMES, ProgramLimitExceeded, sampled_frame_count
+from limits import (
+    MAX_CAPTION_LEN,
+    MAX_SAMPLED_FRAMES,
+    MAX_SCENE_CAPTIONS,
+    ProgramLimitExceeded,
+    sampled_frame_count,
+)
 
 
 def _evi(frame_ts_ms, overlays):
@@ -76,6 +83,40 @@ def op_detect(step, env, cache):
     if not dets:
         result["note"] = "no detections in the sampled frames"
     return {"kind": "detections", "items": dets}, result
+
+
+def op_describe_scene(step, env, cache):
+    """Scene captioning (Azure CAPTION, replay-mode). One whole-image caption per sampled frame
+    that carries a cached caption. Model free text is BOUNDED at the boundary (MAX_CAPTION_LEN)
+    before it enters the binding/answer/run-doc; the COUNT is bounded by max_captions
+    (<= MAX_SCENE_CAPTIONS). Mirrors op_detect's structure; CAPTION has no region, so the overlay
+    is a full-frame box (tone teal, kind crop — the whole-scene readout)."""
+    a = step["args"]
+    frames = env[a["frames"]]["items"]
+    cap = a.get("max_captions", MAX_SCENE_CAPTIONS)
+    items = []
+    for f in frames:
+        for c in cache.captions_at(f["frame_ts_ms"])[:1]:  # one caption per frame
+            text = (c.get("text") or "")[:MAX_CAPTION_LEN]  # bound model free-text at the boundary
+            items.append({**c, "text": text, "frame_ts_ms": f["frame_ts_ms"]})
+    items = items[:cap]
+    focus_ts = items[-1]["frame_ts_ms"] if items else (frames[-1]["frame_ts_ms"] if frames else 0)
+    overlays = [
+        {"box": it.get("box", {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}),
+         "label": it["text"], "confidence": it.get("confidence"), "tone": "teal", "kind": "crop"}
+        for it in items if it["frame_ts_ms"] == focus_ts
+    ]
+    result = {
+        "id": step["id"], "op": "describe_scene", "producer": "Azure AI Vision · caption",
+        "status": "done" if items else "empty", "source": "cached",
+        "inputs": [a["frames"]], "input_label": f"{len(frames)} frames",
+        "output_label": (items[0]["text"] if items else "(no scene caption)"),
+        "confidence": next((it.get("confidence") for it in items if it.get("confidence") is not None), None),
+        "evidence": _evi(focus_ts, overlays),
+    }
+    if not items:
+        result["note"] = "no scene caption in the sampled frames (describe_scene returned nothing)"
+    return {"kind": "captions", "items": items}, result
 
 
 def op_crop(step, env, cache):
@@ -265,6 +306,18 @@ def _answer_presence(src, q):
     return "Yes", f"Yes — found {len(items)}", True, None
 
 
+def _answer_caption(src, q):
+    """scene-description: 'what is happening?' -> the scene caption text. Default knob: return the
+    FIRST frame's caption (most-representative; matches read_text's 'first legible' posture). The
+    answer IS the caption readout — never a Yes/No."""
+    items = src.get("items", [])
+    caps = [it["text"] for it in items if it.get("text")]
+    if not caps:
+        return None, None, None, "no-grounded-answer"   # nothing captioned -> honest ungrounded
+    readout = caps[0]
+    return readout, f"Scene: {readout}", None, None
+
+
 def op_answer(step, env, cache):
     a = step["args"]
     src = env[a["from"]]
@@ -276,6 +329,8 @@ def op_answer(step, env, cache):
         ans, verdict, yes, reason = _answer_count(src, q)
     elif kind == "texts":
         ans, verdict, yes, reason = _answer_text(src, q)
+    elif kind == "captions":
+        ans, verdict, yes, reason = _answer_caption(src, q)
     elif kind in ("detections", "crops", "frames"):
         ans, verdict, yes, reason = _answer_presence(src, q)
     else:
@@ -296,7 +351,10 @@ def op_answer(step, env, cache):
                         focus_ts = ts
 
     if grounded:
-        output_label = ans if kind in ("number", "texts") else ("Yes" if yes else "No")
+        # A readout answer (number / texts / captions) carries yes=None; a Yes/No verdict
+        # (presence / temporal) sets yes. Drive the label off `yes is None` so a captions answer
+        # shows its caption readout, not "No" (the readout kinds need not be enumerated by name).
+        output_label = ans if yes is None else ("Yes" if yes else "No")
         result = {
             "id": step["id"], "op": "answer", "producer": "answer_question",
             "status": "done", "source": "live", "inputs": [a["from"]],
@@ -326,6 +384,7 @@ def op_answer(step, env, cache):
 OPS = {
     "sample_frames": op_sample_frames,
     "detect": op_detect,
+    "describe_scene": op_describe_scene,
     "crop": op_crop,
     "read_text": op_read_text,
     "filter": op_filter,
