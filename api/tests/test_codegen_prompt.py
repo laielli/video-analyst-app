@@ -301,6 +301,41 @@ def test_few_shot_ground_out_example_shape():
     assert "fps" in q and "ms" in q, "the example must embed sampling instructions"
 
 
+# --------------------------------------------------------------------------------------
+# describe_scene (new primitive) — scene-description shape rule + worked example + scope guard
+# --------------------------------------------------------------------------------------
+
+def test_few_shot_scene_example_shape():
+    """The new scene-description example must end describe_scene -> answer, with NO detect/count/
+    temporal_order, copying the EXAMPLE_CLIP window+fps verbatim (the analyzed-window behavior)."""
+    ex = _example("scene-description")
+    ops = [s["op"] for s in ex["program"]]
+    assert ops == ["sample_frames", "describe_scene", "answer"]
+    assert "detect" not in ops and "count" not in ops and "temporal_order" not in ops
+    _assert_uses_hint_window_verbatim(ex)
+
+
+def test_codegen_prompt_has_scene_rule():
+    """The prompt must name describe_scene and route 'what is happening' to the scene chain."""
+    p = codegen.SYSTEM_PROMPT
+    low = p.lower()
+    assert "describe_scene" in low
+    assert "what is happening" in low
+    assert "describe_scene -> answer" in low
+
+
+def test_codegen_prompt_scene_rule_stays_scoped():
+    """Over-refusal regression guard: widening 'what is happening' into scope must NOT pull
+    formation/emotion/jersey-COLOR/weather in-scope — they stay listed as NOT answerable."""
+    low = codegen.SYSTEM_PROMPT.lower()
+    # the out-of-scope attributes remain named in the NOT-answerable list.
+    for oos in ("formation", "emotion", "color", "weather"):
+        assert oos in low, f"{oos} must stay named (out-of-scope) after the scene widening"
+    # the scene widening did not weaken the capability-scoped refusal rule.
+    assert "outside the listed capabilities" in low
+    assert "is not answerable" in low or "not answerable" in low
+
+
 def test_few_shot_examples_teach_structure_not_the_test_set():
     """Anti-contamination: no bank question may appear verbatim in the prompt (the eval would
     measure memorization, not generalization), and no real clip timing literal may leak into the
