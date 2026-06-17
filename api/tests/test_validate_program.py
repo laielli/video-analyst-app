@@ -22,6 +22,7 @@ from validate_program import (
 from limits import (
     MAX_DETECT_CLASSES,
     MAX_SAMPLED_FRAMES,
+    MAX_SCENE_CAPTIONS,
     MAX_STEPS,
     MAX_STR_ARG_LEN,
     MAX_TIME_MS,
@@ -67,12 +68,17 @@ def test_limit_constants_match_schema():
     assert sf["start_ms"]["minimum"] == 0 and sf["start_ms"]["maximum"] == MAX_TIME_MS
     assert sf["end_ms"]["minimum"] == 0 and sf["end_ms"]["maximum"] == MAX_TIME_MS
 
+    # describe_scene.args.max_captions caps to MAX_SCENE_CAPTIONS (kept in sync with limits.py).
+    ds = defs["describe_scene"]["properties"]["args"]["properties"]
+    assert ds["max_captions"]["minimum"] == 1
+    assert ds["max_captions"]["maximum"] == MAX_SCENE_CAPTIONS
+
     # string-arg caps on id (every op), binding, filter.where.field/equals.
     assert defs["binding"]["maxLength"] == MAX_STR_ARG_LEN
     where = defs["filter"]["properties"]["args"]["properties"]["where"]["properties"]
     assert where["field"]["maxLength"] == MAX_STR_ARG_LEN
     assert where["equals"]["maxLength"] == MAX_STR_ARG_LEN
-    for op in ("sample_frames", "detect", "crop", "read_text", "filter", "count",
+    for op in ("sample_frames", "detect", "describe_scene", "crop", "read_text", "filter", "count",
                "temporal_order", "answer"):
         assert defs[op]["properties"]["id"]["maxLength"] == MAX_STR_ARG_LEN
 
@@ -152,3 +158,91 @@ def test_arg_domain_leaves_short_strings_alone():
         {"id": "r", "op": "answer", "args": {"from": "g", "question": "is there a person?"}},
     ]}
     assert validation_errors(prog, clip=canned.clip_by_id("single-goal")) == []
+
+
+# --------------------------------------------------------------------------------------
+# describe_scene (Phase 1) — kind flow, arg-domain, adversarial rejects, temporal_order close-off
+# --------------------------------------------------------------------------------------
+
+def _scene_prog(scene_args=None, extra=None):
+    scene_args = scene_args if scene_args is not None else {"frames": "frames"}
+    steps = [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 2000, "end_ms": 4000, "fps": 4}},
+        {"id": "scene", "op": "describe_scene", "args": scene_args},
+    ]
+    if extra:
+        steps.extend(extra)
+    steps.append({"id": "result", "op": "answer", "args": {"from": "scene", "question": "what is happening?"}})
+    return {"program": steps}
+
+
+def test_describe_scene_kind_flows_to_answer():
+    # sample_frames -> describe_scene -> answer is a valid chain (captions is answerable).
+    clip = {"duration_ms": 8000}
+    assert validation_errors(_scene_prog(), clip=clip) == []
+
+
+def test_describe_scene_rejects_non_frames_input():
+    # describe_scene over a `detections` binding is a kind-flow error (frames-only input).
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 2000, "end_ms": 4000, "fps": 4}},
+        {"id": "people", "op": "detect", "args": {"frames": "frames", "classes": ["person"]}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "people"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "q"}},
+    ]}
+    errs = validation_errors(prog, clip={"duration_ms": 8000})
+    assert any("expects kind 'frames'" in e and "describe_scene" in e for e in errs)
+
+
+def test_describe_scene_max_captions_overlong_rejected():
+    # adversarial: max_captions over the cap is rejected (structurally by the schema maximum).
+    errs = validation_errors(_scene_prog({"frames": "frames", "max_captions": MAX_SCENE_CAPTIONS + 1}),
+                             clip={"duration_ms": 8000})
+    assert errs
+
+
+def test_describe_scene_max_captions_in_range_ok():
+    # a max_captions within bounds validates.
+    assert validation_errors(_scene_prog({"frames": "frames", "max_captions": MAX_SCENE_CAPTIONS}),
+                             clip={"duration_ms": 8000}) == []
+
+
+def test_describe_scene_unknown_op_still_rejected():
+    # adversarial: a typo'd op ('caption_scene') is rejected structurally (the op enum).
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 2000, "end_ms": 4000, "fps": 4}},
+        {"id": "scene", "op": "caption_scene", "args": {"frames": "frames"}},
+        {"id": "result", "op": "answer", "args": {"from": "scene", "question": "q"}},
+    ]}
+    errs = validation_errors(prog, clip={"duration_ms": 8000})
+    assert errs and any(e.startswith("structural:") for e in errs)
+
+
+def test_temporal_order_rejects_captions():
+    # codex P1: temporal_order(captions) is interpreter-meaningless (op_temporal_order keys on
+    # det_id) and MUST NOT validate, even though captions is a COLLECTION_KIND.
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 2000, "end_ms": 4000, "fps": 4}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "ordered", "op": "temporal_order", "args": {"events": "scene", "by": "timestamp"}},
+        {"id": "result", "op": "answer", "args": {"from": "ordered", "question": "q"}},
+    ]}
+    errs = validation_errors(prog, clip={"duration_ms": 8000})
+    assert any("temporal_order" in e and "scene" in e for e in errs), errs
+
+
+def test_filter_and_count_accept_captions():
+    # captions is a full COLLECTION_KIND: filter/count compose over it (composability headroom).
+    prog = {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 2000, "end_ms": 4000, "fps": 4}},
+        {"id": "scene", "op": "describe_scene", "args": {"frames": "frames"}},
+        {"id": "n", "op": "count", "args": {"items": "scene"}},
+        {"id": "result", "op": "answer", "args": {"from": "n", "question": "q"}},
+    ]}
+    assert validation_errors(prog, clip={"duration_ms": 8000}) == []
+
+
+def test_scene_pinned_program_validates():
+    # the committed pinned scene program passes the real validator over its clip.
+    raw = json.loads((EX / "single-goal_scene_program.json").read_text())
+    assert validation_errors(raw, clip=canned.clip_by_id("single-goal")) == []

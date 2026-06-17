@@ -45,6 +45,16 @@ QUERIES = [
         "program": str(EX / "hero_program.json"),
         "cache": str(EX / "hero_cache.json"),
     },
+    {
+        # scene-description: sample_frames -> describe_scene -> answer, grounding to the pinned
+        # whole-scene caption (the describe_scene primitive — a new question shape the detect/
+        # read_text surface couldn't express). Anchors the bank's scene cell canonical question.
+        "id": "single-goal-scene",
+        "text": "Describe the scene in this clip.",
+        "clip": "single-goal",
+        "program": str(EX / "single-goal_scene_program.json"),
+        "cache": str(EX / "hero_cache.json"),
+    },
     # ---- bernabeu-counter: 4 query shapes the hero chain never hits (multi-clip / multi-query) ----
     {
         # count -> answer (no crop/read_text/filter/temporal_order). Grounds to a number.

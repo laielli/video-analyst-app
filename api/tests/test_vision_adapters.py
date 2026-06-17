@@ -76,11 +76,17 @@ class _Metadata:
         self.width, self.height = w, h
 
 
+class _Caption:
+    def __init__(self, text, confidence):
+        self.text, self.confidence = text, confidence
+
+
 class _Result:
-    def __init__(self, metadata, objects=None, read=None):
+    def __init__(self, metadata, objects=None, read=None, caption=None):
         self.metadata = metadata
         self.objects = objects
         self.read = read
+        self.caption = caption
 
 
 class FakeImageAnalysisClient:
@@ -186,6 +192,39 @@ def test_azure_vision_passes_visual_features_to_client():
     vis_r = _make_vision(_Result(_Metadata(10, 10), read=_Read([])))
     vis_r.analyze(b"img", detect=False, read=True)
     assert vis_r._client.last_kwargs["visual_features"] == [VisualFeatures.READ]
+
+
+# ---------------------------------------------------------------------------------------
+# azure_vision CAPTION (describe_scene backend)
+# ---------------------------------------------------------------------------------------
+
+def test_analyze_caption_returns_caption():
+    # a fake Azure result with a `caption` member yields one Caption with a full-frame box;
+    # confidence is rounded; to_dict() round-trips the captions slice.
+    result = _Result(_Metadata(640, 480), caption=_Caption("a soccer match", 0.876543))
+    res = _make_vision(result).analyze(b"img", detect=False, read=False, caption=True)
+    assert len(res.captions) == 1
+    c = res.captions[0]
+    assert c.text == "a soccer match"
+    assert c.confidence == 0.8765  # rounded to 4 places
+    # CAPTION has no region -> full-frame box.
+    assert (c.box.x, c.box.y, c.box.w, c.box.h) == (0.0, 0.0, 1.0, 1.0)
+    d = res.to_dict()
+    assert d["captions"] == [{"text": "a soccer match", "confidence": 0.8765,
+                              "box": {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}}]
+
+
+def test_analyze_caption_flag_independent():
+    from azure.ai.vision.imageanalysis.models import VisualFeatures
+
+    # caption=True alone requests ONLY CAPTION (independent of detect/read).
+    vis = _make_vision(_Result(_Metadata(10, 10), caption=_Caption("x", 0.5)))
+    vis.analyze(b"img", detect=False, read=False, caption=True)
+    assert vis._client.last_kwargs["visual_features"] == [VisualFeatures.CAPTION]
+    # with no caption member present (caption=None), captions is empty even when requested.
+    vis2 = _make_vision(_Result(_Metadata(10, 10)))
+    res = vis2.analyze(b"img", detect=False, read=False, caption=True)
+    assert res.captions == []
 
 
 # ---------------------------------------------------------------------------------------

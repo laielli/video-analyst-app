@@ -62,4 +62,38 @@ describe("EvidencePanel", () => {
     render(<EvidencePanel step={null} />);
     expect(screen.getByText(/No evidence frame for this step/i)).toBeInTheDocument();
   });
+
+  it("renders a scene caption readout for a describe_scene step", () => {
+    const caption = "A player runs across the pitch as the ball goes in";
+    const s = step({
+      op: "describe_scene",
+      output_label: caption,
+      evidence: {
+        frame_ts_ms: 4625,
+        // describe_scene's full-frame box renders as a whole-scene outline (reused kind:"crop").
+        overlays: [{ box: { x: 0, y: 0, w: 1, h: 1 }, label: caption, tone: "teal", kind: "crop" }],
+      },
+    });
+    render(<EvidencePanel step={s} />);
+    // the dedicated "Scene caption" readout row carries the full caption text.
+    expect(screen.getByText("Scene caption")).toBeInTheDocument();
+    const captionEl = document.querySelector(".scene-caption") as HTMLElement;
+    expect(captionEl).toBeInTheDocument();
+    expect(captionEl.textContent).toBe(caption);
+    // the whole-scene overlay outline is drawn.
+    expect(document.querySelector(".ov.teal")).toBeInTheDocument();
+  });
+
+  it("describe_scene empty step shows the diagnostic note (WHAT + WHY)", () => {
+    const s = step({
+      op: "describe_scene",
+      status: "empty",
+      output_label: "(no scene caption)",
+      note: "no cached scene captions in the 2 sampled frame(s) — the describe_scene window/fps is outside the precomputed caption slice",
+      evidence: { frame_ts_ms: 0, overlays: [] },
+    });
+    render(<EvidencePanel step={s} />);
+    expect(screen.getByText(/no cached scene captions/i)).toBeInTheDocument();
+    expect(screen.getByText(/outside the precomputed caption slice/i)).toBeInTheDocument();
+  });
 });

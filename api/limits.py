@@ -16,6 +16,8 @@ Sizing rationale (observed legitimate envelopes vs. the bombs they reject):
   - Real programs: hero = 7 steps / 13 frames; bernabeu first-goal = 7 steps / 17 frames.
   - Largest legitimate full-clip sweep: bernabeu (30086ms) @ fps30 ~= 912 frames.
   - The bombs: end=2e9 @ fps30 ~= 60M frames (the documented OOM via list(range(...))).
+  - describe_scene: <= MAX_SCENE_CAPTIONS whole-image captions; each caption's model free-text
+    is truncated to MAX_CAPTION_LEN before it enters a binding/answer/run-doc.
 The defaults sit comfortably above the legitimate full-clip sweep while rejecting the bombs.
 """
 from __future__ import annotations
@@ -41,9 +43,20 @@ MAX_SAMPLED_FRAMES = 2000
 # detect.classes length cap (a class list of thousands is abuse, not analysis).
 MAX_DETECT_CLASSES = 16
 
+# describe_scene caption-count cap: thousands of per-frame captions is abuse (mirrors
+# MAX_DETECT_CLASSES). Mirrored into the schema (describe_scene.args.max_captions.maximum), kept
+# in sync by test_limit_constants_match_schema.
+MAX_SCENE_CAPTIONS = 16
+
 # Length cap for free-string args (detect.classes[] elements, filter.where.field/equals,
 # answer.question; crop.region/temporal_order.by enums are already constrained structurally).
 MAX_STR_ARG_LEN = 256
+
+# Per-caption text-length cap: captions are model-generated free text; bound the STRING that
+# enters a binding/answer/run-doc BEFORE it does (run_doc.schema.json has no maxLength on labels).
+# Aligned with MAX_STR_ARG_LEN. Enforced in op_describe_scene (truncation at the boundary) and
+# asserted by validate_cache_shape on committed caption slices.
+MAX_CAPTION_LEN = 256
 
 # Static numeric bound on the sample_frames window endpoints (mirrored into the schema as
 # start_ms/end_ms maximum). Far above any real clip (~30s) but finite, so a 2e9 end_ms is
