@@ -191,6 +191,64 @@ h1.query {
 .stage.empty .node { border-color: var(--muted); color: var(--muted); }
 .stage.viewing .nm { text-decoration: underline; text-underline-offset: 3px; }
 
+/* ---------- Browse-all-runs link (bidirectional nav in the analyst header) ---------- */
+.browse-link {
+  margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600;
+  color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent;
+}
+.browse-link:hover { border-bottom-color: var(--accent); }
+.browse-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
+
+/* ---------- Runs gallery / demo front door ---------- */
+/* Responsive down to mobile (E): a single-column card grid below 1024px (NOT the analyst's
+   desktop-only gate). All visuals come from the locked tokens — no new color/font tokens. */
+.gallery { max-width: 1320px; margin: 0 auto; padding: 24px clamp(16px, 3vw, 36px) 48px; }
+.gallery .query-row { align-items: center; }
+.gallery-lede { color: var(--muted); max-width: 64ch; margin: 14px 0 0; font-size: 15px; }
+
+.gx-section { margin-top: 30px; }
+.gx-shape {
+  font-family: var(--ff-display); font-weight: 600; font-size: 22px; letter-spacing: -0.01em;
+  color: var(--ink); margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.gx-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;
+}
+@media (max-width: 1023px) {
+  .gx-grid { grid-template-columns: 1fr; }
+}
+
+.gx-card {
+  display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--paper); overflow: hidden; text-decoration: none; color: inherit;
+  transition: border-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.gx-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.gx-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.gx-thumb { position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; background: var(--panel); }
+.gx-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Token-built placeholder for clips without a committed still (mirrors .frame-empty). */
+.gx-thumb-empty {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 6px; text-align: center; padding: 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-s);
+}
+.gx-thumb-clip { font-family: var(--ff-display); font-size: 14px; color: var(--ink); max-width: 28ch; }
+.gx-thumb-shape { font-family: var(--ff-mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+
+.gx-card-body { padding: 14px 15px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.gx-query {
+  font-family: var(--ff-display); font-weight: 600; font-size: 18px; line-height: 1.18;
+  letter-spacing: -0.01em; color: var(--ink); margin: 0;
+}
+.gx-tags { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+.gx-shape-tag {
+  font-family: var(--ff-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 2px 9px; white-space: nowrap;
+}
+.gx-clip-label { font-family: var(--ff-ui); font-size: 12px; color: var(--muted); }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }

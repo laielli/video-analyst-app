@@ -72,3 +72,37 @@ export type Meta = {
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };
+
+// ---------- Gallery (the runs front-door) ----------
+// A single entry of the static curation bundled at web/lib/curated.json — the gallery's ONLY
+// data source (no runtime fetch). Parity-tested against canned.QUERIES + the eval bank by
+// api/tests/test_gallery_curation_parity.py so it can never silently drift off the registries.
+// `shape` is the lowercase machine label the repo already uses (count / first-goal /
+// scorer-number / scene); the UI maps machine -> display text only at render time.
+export type CurationEntry = {
+  id: string;
+  text: string;
+  clip: string;
+  clipLabel: string;
+  shape: string;
+};
+
+// The thumbnail discriminant: either a committed still or the token-built CSS placeholder
+// (R1 — only `single-goal` has committed stills; `bernabeu-counter` falls back to a placeholder).
+export type GalleryThumb =
+  | { kind: "img"; src: string }
+  | { kind: "placeholder" };
+
+// The presentational view-model a GalleryCard consumes — assembled by buildCards(), DOM-free.
+export type GalleryCardVM = {
+  queryId: string;
+  clipId: string;
+  clipLabel: string;
+  text: string;
+  shape: string;
+  href: string;
+  thumb: GalleryThumb;
+};
+
+// A shape section: cards grouped under one machine shape label, deterministic section order.
+export type GallerySection = { shape: string; cards: GalleryCardVM[] };
