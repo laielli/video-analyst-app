@@ -101,7 +101,10 @@ export default function Page() {
 
       <main className="app">
         <header className="bar">
-          <div className="eyebrow"><span className="dot" /> Glass-Box Video Analyst · Portfolio Demo</div>
+          <div className="eyebrow">
+            <span className="dot" /> Glass-Box Video Analyst · Portfolio Demo
+            <a className="browse-link" href="/gallery" style={{ marginLeft: "auto" }}>Browse all runs →</a>
+          </div>
           <div className="query-row">
             <h1 className="query">{heading}</h1>
             <div className="controls">
