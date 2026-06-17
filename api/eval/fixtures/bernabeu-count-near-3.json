@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "count",
+      "id": "count_people",
       "op": "count",
       "args": {
         "items": "people"
@@ -34,14 +34,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "count",
+        "from": "count_people",
         "question": "Count the players in view."
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "a3cca197c2ee4155",
+  "prompt_version": "4ff106e7528d0de5",
   "model": "gpt-4o",
-  "captured_at": "2026-06-13T00:44:32Z"
+  "captured_at": "2026-06-17T03:06:12Z"
 }

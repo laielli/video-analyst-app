@@ -39,7 +39,7 @@
       }
     },
     {
-      "id": "filtered",
+      "id": "player_10",
       "op": "filter",
       "args": {
         "items": "numbers",
@@ -53,7 +53,7 @@
       "id": "ordered",
       "op": "temporal_order",
       "args": {
-        "events": "filtered",
+        "events": "player_10",
         "by": "timestamp"
       }
     },
@@ -68,7 +68,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "edf7859f70e1e410",
+  "prompt_version": "ee7136e6ee7ad184",
   "model": "gpt-4o",
-  "captured_at": "2026-06-13T00:43:18Z"
+  "captured_at": "2026-06-17T03:03:32Z"
 }

@@ -1,8 +1,8 @@
 {
   "fixture_format": 1,
-  "case_id": "single-goal-presence-near-1",
+  "case_id": "single-goal-scene-near-1",
   "clip_id": "single-goal",
-  "question": "Is there a player visible on screen?",
+  "question": "What is going on in this clip?",
   "raw_program": [
     {
       "id": "frames",
@@ -14,21 +14,18 @@
       }
     },
     {
-      "id": "people",
-      "op": "detect",
+      "id": "scene",
+      "op": "describe_scene",
       "args": {
-        "frames": "frames",
-        "classes": [
-          "person"
-        ]
+        "frames": "frames"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "people",
-        "question": "Is there a player visible on screen?"
+        "from": "scene",
+        "question": "What is going on in this clip?"
       }
     }
   ],
@@ -36,5 +33,5 @@
   "usage": null,
   "prompt_version": "ee7136e6ee7ad184",
   "model": "gpt-4o",
-  "captured_at": "2026-06-17T03:03:47Z"
+  "captured_at": "2026-06-17T03:03:57Z"
 }
