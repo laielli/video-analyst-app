@@ -191,6 +191,54 @@ h1.query {
 .stage.empty .node { border-color: var(--muted); color: var(--muted); }
 .stage.viewing .nm { text-decoration: underline; text-underline-offset: 3px; }
 
+/* ---------- Gallery / demo front door ---------- */
+/* Responsive down to mobile (single-column below 1024px) — NOT the analyst's desktop gate. All
+   tokens reused from above; no new color/font/radius tokens. */
+.gallery { max-width: 1320px; margin: 0 auto; padding: 24px clamp(16px, 3vw, 36px) 48px; }
+.gallery .query-row { align-items: center; }
+.gx-back { font-weight: 600; text-decoration: none; }
+.gx-back:hover { border-color: var(--accent); color: var(--accent); }
+.gx-lede { margin: 12px 0 0; color: var(--muted); font-size: 14px; max-width: 64ch; }
+
+.gx-section { margin-top: 28px; }
+.gx-shape {
+  font-family: var(--ff-display); font-weight: 600; font-size: 20px; color: var(--ink);
+  margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); letter-spacing: -0.01em;
+}
+.gx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+@media (max-width: 1023px) { .gx-grid { grid-template-columns: 1fr; } }
+
+.gx-card {
+  display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--paper); overflow: hidden; text-decoration: none; color: inherit;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.gx-card:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.gx-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.gx-thumb { position: relative; width: 100%; aspect-ratio: 16/9; background: var(--panel); border-bottom: 1px solid var(--line-2); }
+.gx-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Token-built placeholder for clips with no committed still — mirrors .frame-empty's posture. */
+.gx-thumb-ph {
+  position: absolute; inset: 0; display: grid; place-items: center; gap: 6px; align-content: center;
+  background: var(--panel); border-radius: var(--radius-s); padding: 16px; text-align: center;
+}
+.gx-ph-clip { font-family: var(--ff-display); font-size: 15px; color: var(--ink); line-height: 1.2; }
+.gx-ph-shape { font-family: var(--ff-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+.gx-body { padding: 13px 15px 15px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.gx-q { font-family: var(--ff-display); font-weight: 600; font-size: 18px; line-height: 1.18; color: var(--ink); margin: 0; }
+.gx-tags { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+.gx-shape-pill {
+  font-family: var(--ff-mono); font-size: 11px; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+}
+.gx-clip { font-family: var(--ff-ui); font-size: 12px; color: var(--muted); }
+
+/* analyst header -> gallery link (bidirectional nav). */
+.gx-browse { font-weight: 600; text-decoration: none; }
+.gx-browse:hover { border-color: var(--accent); color: var(--accent); }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }

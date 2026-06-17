@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRun, fetchCatalog, shareLink } from "@/lib/useRun";
 import type { CatalogQuery } from "@/lib/types";
 import ProgramPanel from "@/components/ProgramPanel";
@@ -101,7 +102,10 @@ export default function Page() {
 
       <main className="app">
         <header className="bar">
-          <div className="eyebrow"><span className="dot" /> Glass-Box Video Analyst · Portfolio Demo</div>
+          <div className="eyebrow">
+            <span className="dot" /> Glass-Box Video Analyst · Portfolio Demo
+            <Link className="btn gx-browse" href="/gallery" style={{ marginLeft: "auto" }}>Browse all runs →</Link>
+          </div>
           <div className="query-row">
             <h1 className="query">{heading}</h1>
             <div className="controls">

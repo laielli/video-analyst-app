@@ -72,3 +72,36 @@ export type Meta = {
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };
+
+// ---- Gallery (the demo front door) ----------------------------------------------------
+// A single entry of the static curation bundled into the export (web/lib/curated.json). It is
+// the gallery's ONLY data source — no runtime fetch. Each entry carries its own clip label +
+// machine `shape` so cards resolve with zero API coupling; the backend parity test
+// (api/tests/test_gallery_curation_parity.py) keeps it from drifting off canned.QUERIES + the
+// eval bank. `clipLabel` is optional only for defensive fallback in clipLabel() — every
+// committed entry carries it (parity-tested).
+export type CurationEntry = {
+  id: string;
+  text: string;
+  clip: string;
+  clipLabel?: string;
+  shape: string;
+};
+
+// The thumbnail view-model: a committed still (`img`) or a token-built placeholder (no
+// bernabeu still exists in the repo — see Phase 2). Exercises both branches of thumbFor.
+export type GalleryThumb = { kind: "img"; src: string } | { kind: "placeholder" };
+
+// The card view-model GalleryCard consumes — fully resolved, no DOM, no fetch.
+export type GalleryCard = {
+  queryId: string;
+  clipId: string;
+  clipLabel: string;
+  text: string;
+  shape: string; // lowercase machine shape; mapped to display text only at render time
+  href: string; // "/?query=<encoded id>" — links into the analyst's existing load path
+  thumb: GalleryThumb;
+};
+
+// A shape section: a machine shape + the cards under it (empty groups suppressed upstream).
+export type GallerySection = { shape: string; cards: GalleryCard[] };
