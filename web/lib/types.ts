@@ -72,3 +72,34 @@ export type Meta = {
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };
+
+// ---------- Gallery (front-door) ----------
+// The static curation entry — one per canned query, build-imported from web/lib/curated.json
+// (no runtime fetch). `shape` is the lowercase machine label the repo already uses (count,
+// first-goal, scorer-number, scene); `clipLabel` is the human clip string. Both are parity-tested
+// against canned.QUERIES / canned.CLIPS / the eval bank by api/tests/test_gallery_curation_parity.py.
+export type CuratedEntry = {
+  id: string;
+  text: string;
+  clip: string;
+  clipLabel: string;
+  shape: string;
+};
+
+// A card thumbnail is either a committed still or a token-driven CSS placeholder (no bernabeu
+// still exists in the repo). Discriminated so GalleryCard exercises both branches.
+export type GalleryThumb = { kind: "img"; src: string } | { kind: "placeholder" };
+
+// The view-model GalleryCard consumes. Pure data assembled by web/lib/gallery.ts (no DOM).
+export type GalleryCardVM = {
+  queryId: string;
+  clipId: string;
+  clipLabel: string;
+  text: string;
+  shape: string; // machine label; mapped to display text only at render time
+  href: string; // `/?query=<id>` (URL-encoded) — links into the analyst's canned load path
+  thumb: GalleryThumb;
+};
+
+// A shape section: a machine shape label + the cards under it. Empty groups are suppressed.
+export type GallerySection = { shape: string; cards: GalleryCardVM[] };
