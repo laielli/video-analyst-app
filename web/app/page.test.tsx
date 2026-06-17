@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, waitFor, cleanup } from "@testing-library/react";
+import { render, waitFor, cleanup, screen } from "@testing-library/react";
 import Page from "./page";
 import { API_BASE } from "@/lib/useRun";
 import { MockEventSource } from "@/vitest.setup";
@@ -79,5 +79,11 @@ describe("page load URL params", () => {
     expect(MockEventSource.last.url).toBe(
       `${API_BASE}/api/run?pace_ms=1200&query=hero-10-first-goal`,
     );
+  });
+
+  it("the analyst header links to the gallery (bidirectional nav)", () => {
+    render(<Page />);
+    const browse = screen.getByRole("link", { name: "Browse all runs →" });
+    expect(browse).toHaveAttribute("href", "/gallery");
   });
 });

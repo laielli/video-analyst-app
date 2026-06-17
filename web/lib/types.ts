@@ -72,3 +72,35 @@ export type Meta = {
 };
 
 export type CatalogQuery = { id: string; text: string; clip: string };
+
+// ---- Gallery (the static front-door curation; no /api/catalog coupling — see plan Resolved #4) ----
+// One entry per canned query, committed in web/lib/curated.json and build-imported by gallery.ts.
+// `shape` is the lowercase machine label the repo already uses (count/first-goal/scorer-number/
+// scene); display text is minted only at render time. `clipLabel` is the human string from
+// canned.CLIPS[clip].label — carried here so cards resolve labels with zero API coupling. Both
+// are kept honest by api/tests/test_gallery_curation_parity.py.
+export type CurationEntry = {
+  id: string;
+  text: string;
+  clip: string;
+  clipLabel: string;
+  shape: string;
+};
+
+// A card's thumbnail: a committed still (`img`) or a token-built CSS placeholder for a clip with
+// no committed frame (the bernabeu-counter cards — see plan Phase 2 / R1).
+export type GalleryThumb = { kind: "img"; src: string } | { kind: "placeholder" };
+
+// The presentational view-model GalleryCard consumes — fully resolved, no registry lookups in JSX.
+export type GalleryCard = {
+  queryId: string;
+  clipId: string;
+  clipLabel: string;
+  text: string;
+  shape: string;
+  href: string;
+  thumb: GalleryThumb;
+};
+
+// A shape section: a machine shape label + its cards (empty groups suppressed by groupByShape).
+export type GallerySection = { shape: string; cards: GalleryCard[] };
