@@ -39,7 +39,11 @@ def _canonical_shape_by_question() -> dict[tuple[str, str], str]:
     bank = json.loads(BANK.read_text())
     out: dict[tuple[str, str], str] = {}
     for case in bank["cases"]:
-        out[(case["clip_id"], case["question"])] = case["shape"]
+        # Canonical cases only (cherry-picked from PR #59): a future paraphrase/adversarial
+        # case reusing the same question text with a different shape must not shadow the
+        # canonical shape, so the anti-drift guard stays correct as the bank grows.
+        if case.get("distance") == "canonical" or case.get("phrasing_class") == "canonical":
+            out[(case["clip_id"], case["question"])] = case["shape"]
     return out
 
 

@@ -8,7 +8,7 @@ import { displayShape } from "@/lib/gallery";
 // to `/?query=<id>` so it self-plays that canned query (real navigation survives static export).
 export default function GalleryCard({ card }: { card: GalleryCardVM }) {
   return (
-    <a className="gx-card" href={card.href}>
+    <a className="gx-card" href={card.href} aria-label={`Open analyst: ${card.text}`}>
       <div className="gx-thumb">
         {card.thumb.kind === "img" ? (
           // eslint-disable-next-line @next/next/no-img-element
