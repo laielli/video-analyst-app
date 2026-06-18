@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, waitFor, cleanup } from "@testing-library/react";
+import { render, waitFor, cleanup, screen } from "@testing-library/react";
 import Page from "./page";
 import { API_BASE } from "@/lib/useRun";
 import { MockEventSource } from "@/vitest.setup";
@@ -79,5 +79,26 @@ describe("page load URL params", () => {
     expect(MockEventSource.last.url).toBe(
       `${API_BASE}/api/run?pace_ms=1200&query=hero-10-first-goal`,
     );
+  });
+});
+
+
+// The analyst header carries a "Browse all runs →" link to /gallery so navigation is bidirectional.
+describe("analyst header bidirectional nav", () => {
+  beforeEach(() => {
+    stubCatalog();
+    setSearch("");
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
+    Object.defineProperty(window, "location", { configurable: true, value: realLocation });
+  });
+
+  it('renders a "Browse all runs →" link to /gallery', () => {
+    render(<Page />);
+    const link = screen.getByRole("link", { name: "Browse all runs →" });
+    expect(link).toHaveAttribute("href", "/gallery");
   });
 });
