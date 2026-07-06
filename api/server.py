@@ -90,10 +90,28 @@ def _set_serve_meta(serve_meta: dict | None, *, cached: bool, run_id: str | None
 
 app = FastAPI(title="Glass-Box Video Analyst API", version="0.1.0")
 
-# Dev CORS: the Next.js dev server runs on a different origin. Tighten for production.
+# CORS: the Next.js client runs on a different origin — the dev server (localhost) or the
+# deployed Static Web App. Dev localhost origins are always allowed (regex covers any port);
+# production origins are supplied via ALLOWED_ORIGINS (comma-separated, e.g.
+# "https://glassbox-web.azurestaticapps.net"). EventSource/SSE issues cross-origin GETs,
+# so the deployed web origin MUST appear here or the live run stream is blocked.
+_DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+def _parse_prod_origins(raw: str) -> list[str]:
+    """Parse ALLOWED_ORIGINS (comma-separated) into a clean origin list.
+
+    Whitespace is trimmed and blank entries dropped, so an unset/empty env var yields
+    [] (dev-only CORS — the pre-deploy default) and sloppy deploy config (stray spaces,
+    a blank entry, a trailing comma) never produces a bogus "" origin.
+    """
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+_PROD_ORIGINS = _parse_prod_origins(os.environ.get("ALLOWED_ORIGINS", ""))
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_DEV_ORIGINS + _PROD_ORIGINS,
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_methods=["GET"],
     allow_headers=["*"],
