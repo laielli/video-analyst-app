@@ -69,11 +69,15 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ github.sha }}"
+          # `az acr build` resolves --file relative to the CWD, not the context arg, so run from
+          # api/ with context '.'. The context stays scoped to api/ (the repo's big .mov files
+          # live at root and stay out) while the Dockerfile is actually found.
+          cd api
           az acr build \
             --registry "${{ steps.infra.outputs.acrName }}" \
             --image "${IMAGE_REPO}:${TAG}" \
             --file Dockerfile \
-            api
+            .
           echo "ref=${{ steps.infra.outputs.acrLoginServer }}/${IMAGE_REPO}:${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Roll API to the new image + lock CORS to the web origin
