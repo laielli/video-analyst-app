@@ -1,0 +1,14 @@
+# Keep the build context (and image) lean. The runtime server needs only the Python
+# source + committed cache/example JSON; everything below is dev-only or regenerable.
+.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.run_cache/
+tests/
+.env
+.env.*
+Dockerfile
+.dockerignore
