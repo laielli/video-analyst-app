@@ -31,6 +31,17 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Register resource providers (first-run, idempotent)
+        run: |
+          set -euo pipefail
+          # A brand-new subscription hasn't registered these RP namespaces, so the Bicep deploy
+          # would fail with MissingSubscriptionRegistration. `register --wait` is a fast no-op once
+          # they're registered, so this only costs a few minutes on the very first deploy.
+          for ns in Microsoft.ContainerRegistry Microsoft.App Microsoft.Web \
+                    Microsoft.OperationalInsights Microsoft.ManagedIdentity; do
+            az provider register --namespace "$ns" --wait
+          done
+
       - name: Provision infrastructure (Bicep)
         id: infra
         run: |
