@@ -20,9 +20,9 @@ production** — vision runs only in the offline `scripts/precompute.py` pipelin
 > non-disruptive: the provision step reads the live image + CORS and passes them back through, so
 > the running app is never reset to the placeholder — the new image rolls in as one extra revision.
 >
-> On a **brand-new subscription**, the workflow first registers the resource providers it needs
-> (`ContainerRegistry`, `App`, `Web`, `OperationalInsights`, `ManagedIdentity`). This adds a few
-> minutes to the *first* deploy only; it's a fast no-op once they're registered.
+> On a **brand-new subscription**, register the resource providers once during setup (step 1
+> below). The RG-scoped deploy principal can't self-register them (that's a subscription-level
+> action), so a human with subscription rights does it once up front.
 
 ---
 
@@ -31,10 +31,18 @@ production** — vision runs only in the offline `scripts/precompute.py` pipelin
 Prereqs: `az` CLI logged in (`az login`), `gh` CLI logged in, Owner on the subscription (or
 rights to create a resource group + a role assignment).
 
-### 1. Resource group
+### 1. Resource group + resource providers
 
 ```bash
 az group create --name glass-box-rg --location eastus2
+
+# One-time per subscription: register the resource providers the deploy uses. A brand-new
+# subscription hasn't registered these, and the RG-scoped deploy principal (step 2) can't do it
+# itself, so register them here with your subscription rights. Fast no-op if already registered.
+for ns in Microsoft.ContainerRegistry Microsoft.App Microsoft.Web \
+          Microsoft.OperationalInsights Microsoft.ManagedIdentity; do
+  az provider register --namespace "$ns" --wait
+done
 ```
 
 ### 2. GitHub OIDC identity (no stored client secret)
