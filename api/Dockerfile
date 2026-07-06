@@ -7,8 +7,9 @@
 # files, the frame stills, or Azure Vision — those belong to the offline precompute pipeline,
 # and the stills are served by the static web app. So the image stays small.
 #
-# Build context is the api/ directory (keeps the repo's 180MB .mov files out of the context):
-#   az acr build --registry <acr> --image glass-box-api:<tag> --file Dockerfile api
+# Build context is the api/ directory (keeps the repo's 180MB .mov files out of the context).
+# NOTE: az acr build resolves --file relative to the CWD, so build from api/ with context '.':
+#   (cd api && az acr build --registry <acr> --image glass-box-api:<tag> --file Dockerfile .)
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
