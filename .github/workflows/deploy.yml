@@ -1,0 +1,113 @@
+name: deploy
+
+# Manual, gated deploy to Azure. Run from a CI-green main (ci.yml is the test gate).
+# One-time setup (OIDC federated credential + the secrets/vars below) is in DEPLOY.md.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you deploying?"
+        required: false
+        default: "manual deploy"
+
+permissions:
+  id-token: write # OIDC -> azure/login, no stored client secret
+  contents: read
+
+env:
+  IMAGE_REPO: glass-box-api
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production # gate/approval + the OIDC subject the federated cred must match
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Provision infrastructure (Bicep)
+        id: infra
+        run: |
+          set -euo pipefail
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          APP="${{ vars.NAME_PREFIX }}-api"
+          PLACEHOLDER="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+          # Idempotency: on a re-deploy, read the live image + CORS and pass them back through so
+          # the Bicep PUT doesn't reset the running app to its placeholder-image / empty-CORS
+          # defaults for the image-build window. First deploy: the app doesn't exist yet, so both
+          # fall back to the defaults and the later steps roll in the real image + origin.
+          CUR_IMAGE=$(az containerapp show -n "$APP" -g "$RG" \
+            --query "properties.template.containers[0].image" -o tsv 2>/dev/null || echo "$PLACEHOLDER")
+          [ -n "$CUR_IMAGE" ] || CUR_IMAGE="$PLACEHOLDER"
+          CUR_ORIGINS=$(az containerapp show -n "$APP" -g "$RG" \
+            --query "properties.template.containers[0].env[?name=='ALLOWED_ORIGINS'].value | [0]" \
+            -o tsv 2>/dev/null || echo "")
+          az deployment group create \
+            --resource-group "$RG" \
+            --name "deploy-${{ github.run_id }}" \
+            --template-file infra/main.bicep \
+            --parameters \
+              namePrefix="${{ vars.NAME_PREFIX }}" \
+              apiImage="$CUR_IMAGE" \
+              allowedOrigins="$CUR_ORIGINS" \
+              azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT }}" \
+              azureOpenAiKey="${{ secrets.AZURE_OPENAI_KEY }}" \
+              azureOpenAiDeployment="${{ vars.AZURE_OPENAI_DEPLOYMENT }}" \
+            --query properties.outputs -o json > outputs.json
+          for k in acrName acrLoginServer apiAppName apiUrl swaName swaUrl; do
+            echo "$k=$(jq -r ".$k.value" outputs.json)" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Build & push API image (ACR cloud build)
+        id: image
+        run: |
+          set -euo pipefail
+          TAG="${{ github.sha }}"
+          az acr build \
+            --registry "${{ steps.infra.outputs.acrName }}" \
+            --image "${IMAGE_REPO}:${TAG}" \
+            --file Dockerfile \
+            api
+          echo "ref=${{ steps.infra.outputs.acrLoginServer }}/${IMAGE_REPO}:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Roll API to the new image + lock CORS to the web origin
+        run: |
+          set -euo pipefail
+          az containerapp update \
+            --name "${{ steps.infra.outputs.apiAppName }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ steps.image.outputs.ref }}" \
+            --set-env-vars "ALLOWED_ORIGINS=${{ steps.infra.outputs.swaUrl }}"
+
+      - name: Build web (static export, API URL baked in)
+        run: |
+          set -euo pipefail
+          cd web
+          npm ci
+          NEXT_PUBLIC_API_BASE="${{ steps.infra.outputs.apiUrl }}" npm run build
+
+      - name: Deploy web to Static Web Apps
+        run: |
+          set -euo pipefail
+          TOKEN=$(az staticwebapp secrets list \
+            --name "${{ steps.infra.outputs.swaName }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query "properties.apiKey" -o tsv)
+          echo "::add-mask::$TOKEN"   # keep the deployment token out of any later log line
+          npm install -g @azure/static-web-apps-cli
+          swa deploy web/out --deployment-token "$TOKEN" --env production
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deploy result"
+            echo "- API:  ${{ steps.infra.outputs.apiUrl }}"
+            echo "- Web:  ${{ steps.infra.outputs.swaUrl }}"
+          } >> "$GITHUB_STEP_SUMMARY"
