@@ -10,5 +10,6 @@
 tests/
 .env
 .env.*
-Dockerfile
-.dockerignore
+# Do NOT ignore Dockerfile/.dockerignore here: `az acr build` packs this context honoring
+# .dockerignore, then looks for the Dockerfile INSIDE the uploaded context — excluding it
+# breaks the cloud build ("Unable to find 'Dockerfile'"). Both are tiny + harmless in the image.

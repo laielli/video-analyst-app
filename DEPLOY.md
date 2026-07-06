@@ -19,6 +19,10 @@ production** — vision runs only in the offline `scripts/precompute.py` pipelin
 > the freshly-built ACR image and sets `ALLOWED_ORIGINS` to the Static Web App's URL. Re-runs are
 > non-disruptive: the provision step reads the live image + CORS and passes them back through, so
 > the running app is never reset to the placeholder — the new image rolls in as one extra revision.
+>
+> On a **brand-new subscription**, the workflow first registers the resource providers it needs
+> (`ContainerRegistry`, `App`, `Web`, `OperationalInsights`, `ManagedIdentity`). This adds a few
+> minutes to the *first* deploy only; it's a fast no-op once they're registered.
 
 ---
 
