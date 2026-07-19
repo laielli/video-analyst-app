@@ -100,6 +100,68 @@ Create a `production` environment on the repo (Settings → Environments) — op
 required reviewer so deploys need approval. The federated-credential subject above already
 targets this environment.
 
+### 5. Custom domain (optional)
+
+Puts the gallery behind your own domain (**live: `glassbox.video`**, registered via Cloudflare)
+instead of the `*.azurestaticapps.net` default. Additive — doesn't touch the API's default
+hostname.
+
+**If your domain's DNS is hosted at Cloudflare** (true for anything registered through Cloudflare
+Registrar — it auto-creates a zone there), skip Azure DNS entirely: Cloudflare supports CNAME
+flattening at the zone apex, so a plain CNAME record works at the root, no ALIAS/A-record trick
+needed.
+
+```bash
+DOMAIN="glassbox.video"
+RG="glass-box-rg"
+SWA="glassbox-web"
+
+# a) Apex (root) domain: start TXT validation, fetch the token (can take a few minutes to generate)
+az staticwebapp hostname set -n "$SWA" -g "$RG" --hostname "$DOMAIN" \
+  --validation-method dns-txt-token --no-wait
+TOKEN=$(az staticwebapp hostname show -n "$SWA" -g "$RG" --hostname "$DOMAIN" \
+  --query "validationToken" -o tsv)
+echo "$TOKEN"
+```
+
+In the Cloudflare dashboard (DNS → Records for the zone), add:
+
+| Type | Name | Content | Proxy status |
+|---|---|---|---|
+| TXT | `_dnsauth` | `$TOKEN` | — |
+| CNAME | `@` | `<SWA defaultHostname, e.g. zealous-tree-....azurestaticapps.net>` | **DNS only** (grey cloud) |
+
+The CNAME **must** be DNS-only, not proxied — an orange-clouded record puts Cloudflare's edge in
+front of Azure's, which breaks both domain validation and Azure's automatic TLS cert issuance.
+
+```bash
+# Azure auto-validates once it sees the TXT record (usually within minutes — Cloudflare's zone is
+# already live, so there's no NS-delegation propagation wait).
+# Poll: az staticwebapp hostname show -n "$SWA" -g "$RG" --hostname "$DOMAIN" --query status
+
+# b) Optional: also bind www.<domain> — add a second Cloudflare CNAME (name "www", same target,
+#    also DNS-only), then a plain cname-delegation bind (no token needed):
+az staticwebapp hostname set -n "$SWA" -g "$RG" --hostname "www.$DOMAIN"
+
+# c) Tell the deploy workflow to allow the new origin in CORS
+gh variable set CUSTOM_WEB_DOMAIN --body "$DOMAIN"
+```
+
+> Registered elsewhere and want DNS in Azure DNS instead? Same idea, but the apex needs an Azure
+> DNS zone + NS delegation at the registrar, and the root record is an ALIAS-style `az network dns
+> record-set a create --target-resource <SWA resource ID>` rather than a CNAME (plain DNS doesn't
+> allow a CNAME at the zone apex — Cloudflare's flattening is what makes the simpler path above
+> possible).
+
+Re-run `gh workflow run deploy.yml` — the CORS step picks up `CUSTOM_WEB_DOMAIN` and adds
+`https://$DOMAIN` (and `https://www.$DOMAIN` if you bound it) alongside the SWA default origin,
+so the gallery's live SSE run-stream keeps working from the custom domain. TLS certs are issued
+and renewed automatically by Static Web Apps once each hostname validates — no cert management.
+
+> The API keeps its default `*.azurecontainerapps.io` hostname; only the gallery is rebranded.
+> Binding a custom domain to Container Apps too (e.g. `api.$DOMAIN`) follows the same DNS-zone
+> pattern via `az containerapp hostname add` + a managed certificate, if you want that later.
+
 ---
 
 ## Deploy

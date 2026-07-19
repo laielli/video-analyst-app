@@ -83,11 +83,17 @@ jobs:
       - name: Roll API to the new image + lock CORS to the web origin
         run: |
           set -euo pipefail
+          ORIGINS="${{ steps.infra.outputs.swaUrl }}"
+          # CUSTOM_WEB_DOMAIN is set once by the one-time custom-domain setup in DEPLOY.md #5;
+          # blank until then, so this is a no-op for deploys that haven't bound a domain.
+          if [ -n "${{ vars.CUSTOM_WEB_DOMAIN }}" ]; then
+            ORIGINS="${ORIGINS},https://${{ vars.CUSTOM_WEB_DOMAIN }},https://www.${{ vars.CUSTOM_WEB_DOMAIN }}"
+          fi
           az containerapp update \
             --name "${{ steps.infra.outputs.apiAppName }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --image "${{ steps.image.outputs.ref }}" \
-            --set-env-vars "ALLOWED_ORIGINS=${{ steps.infra.outputs.swaUrl }}"
+            --set-env-vars "ALLOWED_ORIGINS=${ORIGINS}"
 
       - name: Build web (static export, API URL baked in)
         run: |
@@ -114,4 +120,7 @@ jobs:
             echo "### Deploy result"
             echo "- API:  ${{ steps.infra.outputs.apiUrl }}"
             echo "- Web:  ${{ steps.infra.outputs.swaUrl }}"
+            if [ -n "${{ vars.CUSTOM_WEB_DOMAIN }}" ]; then
+              echo "- Custom domain: https://${{ vars.CUSTOM_WEB_DOMAIN }}"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
