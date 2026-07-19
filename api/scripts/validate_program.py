@@ -190,6 +190,12 @@ def _arg_domain_errors(i: int, sid: str, op: str, args: dict) -> list[str]:
                         f"step[{i}] '{sid}' (detect): a classes element is {len(c)} chars; "
                         f"max is {MAX_STR_ARG_LEN}"
                     )
+        on_pitch = args.get("on_pitch")
+        # optional arg; the schema backs this up (type: boolean), but strict:false makes the
+        # local validator the real gate — a non-bool on_pitch (e.g. a smuggled string/object)
+        # must not silently reach op_detect's truthiness check.
+        if on_pitch is not None and not isinstance(on_pitch, bool):
+            out.append(f"step[{i}] '{sid}' (detect): on_pitch must be a boolean, got {type(on_pitch).__name__}")
     elif op == "filter":
         where = args.get("where", {})
         if isinstance(where, dict):

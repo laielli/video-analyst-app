@@ -12,7 +12,7 @@ function card(partial: Partial<GalleryCardVM> = {}): GalleryCardVM {
     queryId: "hero-10-first-goal",
     clipId: "single-goal",
     clipLabel: "Messi vs Mexico — World Cup 2022",
-    text: "Does #10 score the first goal?",
+    text: "Does #10 score the goal?",
     shape: "first-goal",
     href: "/?query=hero-10-first-goal",
     thumb: { kind: "img", src: "/frames/goal-4000.jpg" },
@@ -23,7 +23,7 @@ function card(partial: Partial<GalleryCardVM> = {}): GalleryCardVM {
 describe("GalleryCard", () => {
   it("renders the query text, the shape tag, and the clip label inside an anchor", () => {
     render(<GalleryCard card={card()} />);
-    expect(screen.getByText("Does #10 score the first goal?")).toBeInTheDocument();
+    expect(screen.getByText("Does #10 score the goal?")).toBeInTheDocument();
     // machine shape -> display text
     expect(screen.getByText("First-goal")).toBeInTheDocument();
     expect(screen.getByText("Messi vs Mexico — World Cup 2022")).toBeInTheDocument();

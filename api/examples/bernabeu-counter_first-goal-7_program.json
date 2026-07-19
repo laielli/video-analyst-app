@@ -1,12 +1,12 @@
 {
-  "_comment": "Pinned program for 'Does #7 score the first goal?' on bernabeu-counter. Same detect->crop->read_text->filter->temporal_order->answer chain shape as the hero, but filters on a DIFFERENT non-hero jersey value (text == 7, the white scorer pinned to p_vini) so the verdict names #7, NOT #10 — proving the subject is DERIVED from the filter, not a hardcoded literal. Window 9000-11000ms @ fps8 (stride 125) covers the legible scorer frame (10000) and the goal moment (10500). Validates against ../schema/dsl.schema.json. end_ms 11000 <= clip duration_ms 30086.",
+  "_comment": "Pinned program for 'Does #7 score the goal?' on bernabeu-counter. Same detect->crop->read_text->filter->temporal_order->answer chain shape as the hero, but filters on a DIFFERENT non-hero jersey value (text == 7, the white scorer pinned to p_vini) so the verdict names #7, NOT #10 — proving the subject is DERIVED from the filter, not a hardcoded literal. Window widened to 9000-14800ms @ fps8 (stride 125) so it CONTAINS the real goal moment (~14250ms, ground-truthed against best-goals-2025-30s.mov; the committed cache's event ts (10500) is a fake-fixture value from before the re-capture and is wrong, but still sits inside this window so the pinned replay still grounds) as well as the legible scorer frame (10000). detect.on_pitch:true drops the off-pitch box (p4, bottom .25) at every sampled frame; p_vini (bottom .7564) stays kept. Validates against ../schema/dsl.schema.json. end_ms 14800 <= clip duration_ms 30086.",
   "program": [
-    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 9000, "end_ms": 11000, "fps": 8 } },
-    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"] } },
+    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 9000, "end_ms": 14800, "fps": 8 } },
+    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"], "on_pitch": true } },
     { "id": "jerseys", "op": "crop", "args": { "detections": "people", "region": "jersey" } },
     { "id": "numbers", "op": "read_text", "args": { "crops": "jerseys" } },
     { "id": "sevens", "op": "filter", "args": { "items": "numbers", "where": { "field": "text", "equals": "7" } } },
     { "id": "ordered", "op": "temporal_order", "args": { "events": "sevens", "by": "timestamp" } },
-    { "id": "result", "op": "answer", "args": { "from": "ordered", "question": "Does #7 score the first goal?" } }
+    { "id": "result", "op": "answer", "args": { "from": "ordered", "question": "Does #7 score the goal?" } }
   ]
 }

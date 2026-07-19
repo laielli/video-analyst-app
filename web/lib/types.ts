@@ -39,6 +39,24 @@ export type ProgramStep = {
 
 export type Clip = { id: string; width: number; height: number; duration_ms: number; fps?: number };
 
+// ---------- Frames manifest (web/lib/frames-manifest.json) ----------
+// The precompute pipeline's contract for per-clip evidence stills + the source clip video. Keyed
+// by clip id. `stills` are the sampled ts (ms) that actually have a still on disk; `still_path`
+// is a template with a single `{ts}` placeholder. `poster_ts` is the still used as a clip-level
+// thumbnail/poster (gallery card, <video poster>). `video.offset_ms` is where this clip's video
+// file starts on the SOURCE timeline — step ts values are source-timeline, so seeking the video
+// requires subtracting offset_ms (see ClipPlayer's jump-to-frame).
+export type ClipVideo = { src: string; offset_ms: number; duration_ms: number };
+export type ClipFrames = {
+  width: number;
+  height: number;
+  stills: number[];
+  still_path: string;
+  poster_ts: number;
+  video: ClipVideo;
+};
+export type FramesManifest = Record<string, ClipFrames>;
+
 export type Findings = {
   // null when grounded === false (the honest "couldn't ground this" state, Q1 -> A).
   answer: string | null;

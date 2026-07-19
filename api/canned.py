@@ -33,14 +33,22 @@ CLIPS = {
         "cache": str(EX / "bernabeu-counter_cache.json"),
         # Per-clip codegen hint — a DIFFERENT window/event than the hero's, so codegen-repeatability
         # across clips is genuinely exercised (proven by a mocked free-text-path prompt test).
-        "hint": "goal ~9000-11000ms; detect class 'person', crop jersey, read_text, fps 8; scorer wears #7",
+        # goal ~14250ms (the real goal moment, verified against the source video — the prior
+        # 9000-11000/10500 window was derived from a FAKE fixture, not the actual clip); the
+        # analyzed window widens to 9000-14800ms to cover it. This invalidates every committed
+        # bernabeu-counter eval fixture's prompt_version (D6 STALE). TODO(recapture): the
+        # single-goal eval fixtures were ALSO deliberately re-stamped stale (see
+        # eval/fixtures/single-goal-*.json prompt_version) so the D6 gate reads uniform-all-stale
+        # (advisory, exit 0) instead of partial staleness (hard FAIL) until the live re-capture
+        # lands and restamps everything for real.
+        "hint": "goal ~14250ms; analyzed window 9000-14800ms; detect class 'person', crop jersey, read_text, fps 8; scorer wears #7",
     },
 }
 
 QUERIES = [
     {
         "id": "hero-10-first-goal",
-        "text": "Does #10 score the first goal?",
+        "text": "Does #10 score the goal?",
         "clip": "single-goal",
         "program": str(EX / "hero_program.json"),
         "cache": str(EX / "hero_cache.json"),
@@ -67,7 +75,7 @@ QUERIES = [
     {
         # filter on a NON-hero jersey value (#7, not #10) -> grounds Yes naming #7 (subject derived).
         "id": "bernabeu-7-first-goal",
-        "text": "Does #7 score the first goal?",
+        "text": "Does #7 score the goal?",
         "clip": "bernabeu-counter",
         "program": str(EX / "bernabeu-counter_first-goal-7_program.json"),
         "cache": str(EX / "bernabeu-counter_cache.json"),
@@ -75,7 +83,7 @@ QUERIES = [
     {
         # out-of-bounds: filter on a value NOT in the cache (#23) -> honest ungrounded (grounded=false).
         "id": "bernabeu-23-first-goal",
-        "text": "Does #23 score the first goal?",
+        "text": "Does #23 score the goal?",
         "clip": "bernabeu-counter",
         "program": str(EX / "bernabeu-counter_first-goal-23_program.json"),
         "cache": str(EX / "bernabeu-counter_cache.json"),

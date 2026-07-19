@@ -1,7 +1,7 @@
 [
   {
     "id": "hero-10-first-goal",
-    "text": "Does #10 score the first goal?",
+    "text": "Does #10 score the goal?",
     "clip": "single-goal",
     "clipLabel": "Messi vs Mexico — World Cup 2022",
     "shape": "first-goal"
@@ -22,14 +22,14 @@
   },
   {
     "id": "bernabeu-7-first-goal",
-    "text": "Does #7 score the first goal?",
+    "text": "Does #7 score the goal?",
     "clip": "bernabeu-counter",
     "clipLabel": "Real Madrid counter — Champions League 2025",
     "shape": "first-goal"
   },
   {
     "id": "bernabeu-23-first-goal",
-    "text": "Does #23 score the first goal?",
+    "text": "Does #23 score the goal?",
     "clip": "bernabeu-counter",
     "clipLabel": "Real Madrid counter — Champions League 2025",
     "shape": "first-goal"

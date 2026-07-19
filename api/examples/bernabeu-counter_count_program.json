@@ -1,8 +1,8 @@
 {
-  "_comment": "Pinned program for the count query 'How many players are visible?' on bernabeu-counter. Hits an op-path the hero chain never does: detect -> count -> answer (no crop/read_text/filter/temporal_order). The window 10000-10001ms @ fps1 samples exactly the single legible frame (10000), whose fixture-derived cache carries 5 person detections, so count grounds to '5'. A wider window would multiply the count across frames; this single-frame window is the count analogue of test_generalized_answer's 4625-4626 probe. Validates against ../schema/dsl.schema.json. end_ms 10001 <= clip duration_ms 30086.",
+  "_comment": "Pinned program for the count query 'How many players are visible?' on bernabeu-counter. Hits an op-path the hero chain never does: detect -> count -> answer (no crop/read_text/filter/temporal_order). The window 10000-10001ms @ fps1 samples exactly the single legible frame (10000), whose fixture-derived cache carries 5 person detections; detect.on_pitch:true drops the off-pitch box (p4, bottom .25), so count grounds to '4' of the 5 raw detections. A wider window would multiply the count across frames; this single-frame window is the count analogue of test_generalized_answer's 4625-4626 probe. Validates against ../schema/dsl.schema.json. end_ms 10001 <= clip duration_ms 30086.",
   "program": [
     { "id": "frames", "op": "sample_frames", "args": { "start_ms": 10000, "end_ms": 10001, "fps": 1 } },
-    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"] } },
+    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"], "on_pitch": true } },
     { "id": "n", "op": "count", "args": { "items": "people" } },
     { "id": "result", "op": "answer", "args": { "from": "n", "question": "How many players are visible?" } }
   ]

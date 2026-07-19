@@ -7,10 +7,14 @@ split run() assembles, and Cache.load() round-tripping a JSON file with its acce
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from interpreter import Cache, Interpreter
+
+API_DIR = Path(__file__).resolve().parent.parent
+EX = API_DIR / "examples"
 
 
 def make_cache(detect=None, read_text=None, events=None):
@@ -107,6 +111,61 @@ def test_run_query_defaults_to_answer_question_when_none():
     ]
     doc = Interpreter(cache).run(program)  # no explicit query
     assert doc["query"] == "the asked question"
+
+
+# ---------------------------------------------------------------------------------------
+# End-to-end: committed programs over their committed caches (on_pitch + evidence-frame fix)
+# ---------------------------------------------------------------------------------------
+
+def _strip_comments(obj):
+    if isinstance(obj, dict):
+        return {k: _strip_comments(v) for k, v in obj.items() if not k.startswith("_")}
+    if isinstance(obj, list):
+        return [_strip_comments(v) for v in obj]
+    return obj
+
+
+def test_hero_program_on_pitch_keeps_three_of_five_detections():
+    # hero_program.json now sets detect.on_pitch:true; the committed hero cache has 5 person
+    # detections at 4625ms, 2 of which (cameraman .518, crowd .25) are off-pitch. The replay
+    # must show 3, not 5 (the customer complaint this whole mission fixes).
+    program = _strip_comments(json.loads((EX / "hero_program.json").read_text()))["program"]
+    doc = Interpreter(Cache.load(EX / "hero_cache.json")).run(program)
+    detect_trace = next(t for t in doc["trace"] if t["op"] == "detect")
+    assert detect_trace["output_label"] == "3 people"
+    assert doc["findings"]["grounded"] is True
+    assert doc["findings"]["answer"] == "Yes"
+
+
+def test_hero_program_answer_step_has_nonzero_evidence_frame():
+    # the LAST step (answer) must never show the black/ts-0 frame when its lineage is real.
+    program = _strip_comments(json.loads((EX / "hero_program.json").read_text()))["program"]
+    doc = Interpreter(Cache.load(EX / "hero_cache.json")).run(program)
+    answer_trace = doc["trace"][-1]
+    assert answer_trace["op"] == "answer"
+    assert answer_trace["evidence"]["frame_ts_ms"] != 0
+    assert answer_trace["evidence"]["overlays"]
+
+
+def test_bernabeu_first_goal_7_still_grounds_over_widened_window():
+    # the widened 9000-14800ms window (containing the real ~14250ms goal) still includes the
+    # legible scorer frame (10000) against the CURRENTLY COMMITTED (fake-fixture) cache, whose
+    # event ts (10500) also sits inside the window, so the replay still grounds. A live
+    # re-capture will replace this cache later; this pins behavior against what's committed now.
+    program = _strip_comments(json.loads((EX / "bernabeu-counter_first-goal-7_program.json").read_text()))["program"]
+    doc = Interpreter(Cache.load(EX / "bernabeu-counter_cache.json")).run(program)
+    assert doc["findings"]["grounded"] is True
+    assert doc["findings"]["answer"] == "Yes"
+    answer_trace = doc["trace"][-1]
+    assert answer_trace["evidence"]["frame_ts_ms"] != 0
+
+
+def test_bernabeu_count_program_on_pitch_drops_one_of_five():
+    # bernabeu-counter_count_program.json now sets detect.on_pitch:true; at 10000ms the cache
+    # carries 5 person detections, 1 of which (p4, bottom .25) is off-pitch.
+    program = _strip_comments(json.loads((EX / "bernabeu-counter_count_program.json").read_text()))["program"]
+    doc = Interpreter(Cache.load(EX / "bernabeu-counter_cache.json")).run(program)
+    assert doc["findings"]["answer"] == "4"
 
 
 # ---------------------------------------------------------------------------------------

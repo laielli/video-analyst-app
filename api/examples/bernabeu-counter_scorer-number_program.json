@@ -1,8 +1,8 @@
 {
-  "_comment": "Pinned program for the readout query 'What number does the scorer wear?' on bernabeu-counter. Hits the read_text -> answer op-path (no filter/temporal_order): op_answer dispatches on the `texts` binding kind and reads back the legible jersey value(s). The cache pins p_vini's jersey OCR to '7', so the verdict reads '7'. Window 9000-11000ms @ fps8 covers the legible scorer frame (10000). Validates against ../schema/dsl.schema.json.",
+  "_comment": "Pinned program for the readout query 'What number does the scorer wear?' on bernabeu-counter. Hits the read_text -> answer op-path (no filter/temporal_order): op_answer dispatches on the `texts` binding kind and reads back the legible jersey value(s). The cache pins p_vini's jersey OCR to '7', so the verdict reads '7'. Window 9000-11000ms @ fps8 covers the legible scorer frame (10000); this query doesn't reason about the goal moment itself (just the OCR readout), so the window is unchanged even though the real goal ground-truths to ~14250ms elsewhere in the clip. detect.on_pitch:true drops the off-pitch box (p4, bottom .25); p_vini (bottom .7564) stays kept so the jersey OCR chain is unaffected. Validates against ../schema/dsl.schema.json.",
   "program": [
     { "id": "frames", "op": "sample_frames", "args": { "start_ms": 9000, "end_ms": 11000, "fps": 8 } },
-    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"] } },
+    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"], "on_pitch": true } },
     { "id": "jerseys", "op": "crop", "args": { "detections": "people", "region": "jersey" } },
     { "id": "numbers", "op": "read_text", "args": { "crops": "jerseys" } },
     { "id": "result", "op": "answer", "args": { "from": "numbers", "question": "What number does the scorer wear?" } }

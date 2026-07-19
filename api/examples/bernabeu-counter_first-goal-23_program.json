@@ -1,12 +1,12 @@
 {
-  "_comment": "Pinned program for the OUT-OF-BOUNDS query 'Does #23 score the first goal?' on bernabeu-counter. Same chain as the #7 program but filters on a value NOT present in the cache (text == 23). The filter matches nobody -> empty subject -> even though a first goal exists, op_answer grounds out HONESTLY (grounded=false, reason='no-grounded-answer') rather than fabricating a 'No' about a player it never located (the honesty path proven in test_generalized_answer.py). Validates against ../schema/dsl.schema.json.",
+  "_comment": "Pinned program for the OUT-OF-BOUNDS query 'Does #23 score the goal?' on bernabeu-counter. Same chain as the #7 program but filters on a value NOT present in the cache (text == 23). The filter matches nobody -> empty subject -> even though a first goal exists, op_answer grounds out HONESTLY (grounded=false, reason='no-grounded-answer') rather than fabricating a 'No' about a player it never located (the honesty path proven in test_generalized_answer.py). Window widened to 9000-14800ms @ fps8 to match the #7 program (CONTAINS the real goal moment ~14250ms; the committed cache's event ts (10500) is a fake-fixture value and is wrong, though still inside this window). detect.on_pitch:true drops the off-pitch box (p4, bottom .25). Validates against ../schema/dsl.schema.json.",
   "program": [
-    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 9000, "end_ms": 11000, "fps": 8 } },
-    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"] } },
+    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 9000, "end_ms": 14800, "fps": 8 } },
+    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"], "on_pitch": true } },
     { "id": "jerseys", "op": "crop", "args": { "detections": "people", "region": "jersey" } },
     { "id": "numbers", "op": "read_text", "args": { "crops": "jerseys" } },
     { "id": "absent", "op": "filter", "args": { "items": "numbers", "where": { "field": "text", "equals": "23" } } },
     { "id": "ordered", "op": "temporal_order", "args": { "events": "absent", "by": "timestamp" } },
-    { "id": "result", "op": "answer", "args": { "from": "ordered", "question": "Does #23 score the first goal?" } }
+    { "id": "result", "op": "answer", "args": { "from": "ordered", "question": "Does #23 score the goal?" } }
   ]
 }

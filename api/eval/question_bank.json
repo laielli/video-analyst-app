@@ -1,5 +1,5 @@
 {
-  "bank_version": 3,
+  "bank_version": 4,
   "prompt_version": "1a12f4d66e08159b",
   "cases": [
     {
@@ -8,9 +8,9 @@
       "shape": "first-goal",
       "phrasing_class": "canonical",
       "distance": "canonical",
-      "question": "Does #10 score the first goal?",
+      "question": "Does #10 score the goal?",
       "expect": { "outcome": "grounded", "answer": "Yes", "answer_match": "exact" },
-      "notes": "Verbatim canned.QUERIES['hero-10-first-goal']; #10 is the first scorer per the hero cache -> Yes."
+      "notes": "Verbatim canned.QUERIES['hero-10-first-goal'] (2026-07-19: 'first goal' wording retired repo-wide, single-scorer clip); #10 is the scorer per the hero cache -> Yes."
     },
     {
       "case_id": "single-goal-first-goal-near-1",
@@ -303,9 +303,9 @@
       "shape": "first-goal",
       "phrasing_class": "canonical",
       "distance": "canonical",
-      "question": "Does #7 score the first goal?",
+      "question": "Does #7 score the goal?",
       "expect": { "outcome": "grounded", "answer": "Yes", "answer_match": "exact" },
-      "notes": "Verbatim canned.QUERIES['bernabeu-7-first-goal']. #7 (white scorer p_vini) is the first scorer -> Yes."
+      "notes": "Verbatim canned.QUERIES['bernabeu-7-first-goal'] (2026-07-19: 'first goal' wording retired repo-wide). #7 (white scorer p_vini) is the scorer -> Yes. TODO(recapture): this fixture + every other bernabeu-counter fixture went STALE when canned.CLIPS['bernabeu-counter'].hint moved to the corrected goal/window (~14250ms; 9000-14800ms) -- pending the orchestrator's live re-capture."
     },
     {
       "case_id": "bernabeu-first-goal-7-near-1",
@@ -415,9 +415,9 @@
       "shape": "first-goal",
       "phrasing_class": "canonical",
       "distance": "canonical",
-      "question": "Does #23 score the first goal?",
+      "question": "Does #23 score the goal?",
       "expect": { "outcome": "ungrounded", "answer": null, "answer_match": "any_grounded" },
-      "notes": "Verbatim canned.QUERIES['bernabeu-23-first-goal']. #23 is NOT in the cache -> honest grounded=false. The pinned out-of-bounds anchor: a correct program is honestly ungrounded, which scores PASS."
+      "notes": "Verbatim canned.QUERIES['bernabeu-23-first-goal'] (2026-07-19: 'first goal' wording retired repo-wide). #23 is NOT in the cache -> honest grounded=false. The pinned out-of-bounds anchor: a correct program is honestly ungrounded, which scores PASS."
     },
     {
       "case_id": "bernabeu-first-goal-23-near-1",

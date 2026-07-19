@@ -374,7 +374,9 @@ def test_codegen_prompt_injects_new_clip_hint():
     assert clip["hint"] in msg
     # the new clip's hint is DISTINCT from the hero's (a genuinely different window/event).
     assert clip["hint"] != canned.CLIPS["single-goal"]["hint"]
-    assert "9000-11000ms" in msg
+    # 2026-07-19: window widened 9000-11000 -> 9000-14800ms (real goal is ~14250ms; the prior
+    # 9000-11000/10500 window was derived from a fake fixture, not the source video).
+    assert "9000-14800ms" in msg
 
 
 def test_free_text_path_compiles_new_clip_program_against_its_hint(mock_codegen):

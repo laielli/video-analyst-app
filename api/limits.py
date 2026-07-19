@@ -63,6 +63,17 @@ MAX_CAPTION_LEN = 256
 # rejected structurally before the count math even runs. Kept in sync with the schema.
 MAX_TIME_MS = 86_400_000  # 24h in ms — a generous absolute ceiling, never a real clip length
 
+# detect.on_pitch filter threshold (normalized 0-1 frame coords): a detection is kept only when
+# its box BOTTOM edge (y+h) >= this value. Broadcast-framing heuristic: in these wide broadcast
+# angles the pitch horizon sits roughly mid-frame, so a person actually standing/playing ON the
+# pitch has their box bottom in the lower portion of the frame, while spectators/cameramen/staff
+# in the stands (above the pitch horizon) have box bottoms well above it. Using the bottom edge
+# (not the box center) also keeps players whose box is cropped at the top of the frame (tall/near
+# camera). Verified against the real hero frame (4625ms, single-goal.mov): Messi .8167, the diving
+# keeper .8292, and the left-edge player .8081 are all KEPT; the cameraman .5183 and a crowd member
+# .2505 are DROPPED. 0.55 sits strictly between the lowest kept bottom and the highest dropped one.
+ON_PITCH_MIN_BOTTOM_Y = 0.55
+
 
 class ProgramLimitExceeded(ValueError):
     """A (pre-)validated program would exceed a resource cap at runtime. Subclasses ValueError

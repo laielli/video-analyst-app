@@ -1,0 +1,18 @@
+{
+  "single-goal": {
+    "width": 1872,
+    "height": 1042,
+    "stills": [3500, 3625, 3750, 3875, 4000, 4125, 4250, 4375, 4500, 4625, 4750, 4875, 5000],
+    "still_path": "/frames/single-goal/f{ts}.jpg",
+    "poster_ts": 4625,
+    "video": { "src": "/clips/single-goal.mp4", "offset_ms": 0, "duration_ms": 5067 }
+  },
+  "bernabeu-counter": {
+    "width": 2636,
+    "height": 1474,
+    "stills": [9000, 9125, 9250, 9375, 9500, 9625, 9750, 9875, 10000, 10125, 10250, 10375, 10500, 10625, 10750, 10875, 11000, 11125, 11250, 11375, 11500, 11625, 11750, 11875, 12000, 12125, 12250, 12375, 12500, 12625, 12750, 12875, 13000, 13125, 13250, 13375, 13500, 13625, 13750, 13875, 14000, 14125, 14250, 14375, 14500, 14625, 14750],
+    "still_path": "/frames/bernabeu-counter/f{ts}.jpg",
+    "poster_ts": 10000,
+    "video": { "src": "/clips/bernabeu-counter.mp4", "offset_ms": 7870, "duration_ms": 6950 }
+  }
+}

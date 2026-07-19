@@ -14,7 +14,7 @@ from interpreter.primitives import (
     op_sample_frames, op_detect, op_describe_scene, op_crop, op_read_text,
     op_filter, op_count, op_temporal_order, op_answer, _subject_label,
 )
-from limits import MAX_CAPTION_LEN
+from limits import MAX_CAPTION_LEN, ON_PITCH_MIN_BOTTOM_Y
 
 
 def make_cache(detect=None, read_text=None, events=None, captions=None):
@@ -114,6 +114,76 @@ def test_detect_empty_carries_note_and_empty_status():
     # focus falls back to the last frame ts, no overlays.
     assert result["evidence"]["frame_ts_ms"] == 999
     assert result["evidence"]["overlays"] == []
+
+
+# ---------------------------------------------------------------------------------------
+# op_detect — on_pitch filter (customer complaint: crowd/cameramen contaminating person dets)
+# ---------------------------------------------------------------------------------------
+
+def test_detect_on_pitch_default_false_keeps_everything():
+    # default (arg absent) is unchanged behavior -- off-pitch boxes are NOT filtered.
+    cache = make_cache(detect={"100": [
+        {"det_id": "onpitch", "cls": "person", "confidence": 0.9, "box": _box(y=0.6, h=0.3)},   # bottom .9
+        {"det_id": "crowd", "cls": "person", "confidence": 0.5, "box": _box(y=0.0, h=0.25)},      # bottom .25
+    ]})
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": 100}]}}
+    step = {"id": "people", "op": "detect", "args": {"frames": "frames", "classes": ["person"]}}
+    binding, _ = op_detect(step, env, cache)
+    assert len(binding["items"]) == 2
+
+
+def test_detect_on_pitch_true_drops_off_pitch_boxes():
+    cache = make_cache(detect={"100": [
+        {"det_id": "onpitch", "cls": "person", "confidence": 0.9, "box": _box(y=0.6, h=0.3)},   # bottom .9 -> kept
+        {"det_id": "crowd", "cls": "person", "confidence": 0.5, "box": _box(y=0.0, h=0.25)},      # bottom .25 -> dropped
+    ]})
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": 100}]}}
+    step = {"id": "people", "op": "detect", "args": {"frames": "frames", "classes": ["person"], "on_pitch": True}}
+    binding, result = op_detect(step, env, cache)
+    assert [d["det_id"] for d in binding["items"]] == ["onpitch"]
+    assert result["output_label"] == "1 people"
+    # overlays/count reflect the KEPT detection only.
+    assert len(result["evidence"]["overlays"]) == 1
+
+
+def test_detect_on_pitch_boundary_bottom_exactly_threshold_is_kept():
+    # bottom == ON_PITCH_MIN_BOTTOM_Y exactly must be KEPT (the filter is >=, not >).
+    y = 0.0
+    h = ON_PITCH_MIN_BOTTOM_Y  # y + h == threshold exactly
+    cache = make_cache(detect={"100": [
+        {"det_id": "boundary", "cls": "person", "confidence": 0.7, "box": _box(y=y, h=h)},
+    ]})
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": 100}]}}
+    step = {"id": "people", "op": "detect", "args": {"frames": "frames", "classes": ["person"], "on_pitch": True}}
+    binding, _ = op_detect(step, env, cache)
+    assert [d["det_id"] for d in binding["items"]] == ["boundary"]
+
+
+def test_detect_on_pitch_boundary_just_below_threshold_is_dropped():
+    y = 0.0
+    h = ON_PITCH_MIN_BOTTOM_Y - 0.001  # y + h just under threshold
+    cache = make_cache(detect={"100": [
+        {"det_id": "boundary", "cls": "person", "confidence": 0.7, "box": _box(y=y, h=h)},
+    ]})
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": 100}]}}
+    step = {"id": "people", "op": "detect", "args": {"frames": "frames", "classes": ["person"], "on_pitch": True}}
+    binding, result = op_detect(step, env, cache)
+    assert binding["items"] == []
+    assert result["status"] == "empty"
+
+
+def test_detect_on_pitch_all_dropped_gets_diagnostic_note():
+    # honest diagnostic-empty (D-DR5): detections existed but were all off-pitch, distinct from
+    # "no detections in the sampled frames" (which would be misleading here).
+    cache = make_cache(detect={"100": [
+        {"det_id": "crowd", "cls": "person", "confidence": 0.5, "box": _box(y=0.0, h=0.25)},
+    ]})
+    env = {"frames": {"kind": "frames", "items": [{"frame_ts_ms": 100}]}}
+    step = {"id": "people", "op": "detect", "args": {"frames": "frames", "classes": ["person"], "on_pitch": True}}
+    _, result = op_detect(step, env, cache)
+    assert result["status"] == "empty"
+    assert "no on-pitch detections" in result["note"]
+    assert "1 matched the class filter" in result["note"]
 
 
 # ---------------------------------------------------------------------------------------
@@ -463,14 +533,16 @@ def test_answer_ungrounded_unsupported_kind():
 
 def test_answer_ordered_grounded_skips_overlay_when_no_cached_detection():
     # Grounded temporal answer whose scorer det_id has no cached detection -> still grounded,
-    # but no scorer overlay (the re-read finds nothing). Proves the overlay path is conditional.
+    # no scorer BOX overlay (the re-read finds nothing) -- but the goal event itself still
+    # carries a real frame timestamp (first["ts_ms"]=4000), so evidence must show THAT frame
+    # instead of silently falling back to ts 0 (the black-evidence-frame bug, Task 3).
     cache = make_cache(detect={})  # no detect entries at all
     env = _ordered_env(first_scorer="p_messi", subject_dets=("p_messi",))
     binding, result = op_answer(
         {"id": "r", "op": "answer", "args": {"from": "ordered", "question": "q"}}, env, cache)
     assert binding["value"]["grounded"] is True
     assert result["evidence"]["overlays"] == []
-    assert result["evidence"]["frame_ts_ms"] == 0
+    assert result["evidence"]["frame_ts_ms"] == 4000
 
 
 # ---------------------------------------------------------------------------------------
@@ -546,6 +618,68 @@ def test_answer_caption_output_label_is_readout():
         {"id": "r", "op": "answer", "args": {"from": "scene", "question": "q"}}, env, make_cache())
     assert result["output_label"] == "A goal is scored"
     assert result["output_label"] != "No"
+
+
+# ---------------------------------------------------------------------------------------
+# Task 3 regression: a grounded answer step must carry a real evidence frame (not ts 0 / a
+# black frame) whenever its source binding has frame-derived items. Covers every kind
+# op_answer dispatches on that wasn't already exercised by the "ordered" tests above.
+# ---------------------------------------------------------------------------------------
+
+def test_answer_number_evidence_inherits_count_derived_frame():
+    # op_count now carries frame_ts_ms/overlays as extra keys on the `number` binding; op_answer
+    # must use them instead of hardcoding ts 0 for a count-shaped answer.
+    env = {"n": {"kind": "number", "value": 4, "frame_ts_ms": 10000,
+                 "overlays": [{"box": _box(), "label": "person 0.70", "tone": "teal", "kind": "box"}]}}
+    _, result = op_answer({"id": "r", "op": "answer", "args": {"from": "n", "question": "how many?"}},
+                           env, make_cache())
+    assert result["evidence"]["frame_ts_ms"] == 10000
+    assert result["evidence"]["overlays"]
+
+
+def test_answer_number_evidence_ts_0_when_count_had_no_frame_lineage():
+    # A `number` binding with no frame_ts_ms/overlays (e.g. counting over an empty/frame-less
+    # collection) legitimately keeps ts 0 -- there is no frame-derived input to show.
+    env = {"n": {"kind": "number", "value": 0}}
+    # value 0 would ground out (no-grounded-answer), so use a nonzero value with no frame info.
+    env["n"]["value"] = 3
+    _, result = op_answer({"id": "r", "op": "answer", "args": {"from": "n", "question": "how many?"}},
+                           env, make_cache())
+    assert result["evidence"]["frame_ts_ms"] == 0
+    assert result["evidence"]["overlays"] == []
+
+
+def test_answer_texts_evidence_uses_last_item_frame():
+    env = {"t": {"kind": "texts", "items": [
+        {"text": "10", "crop_box": _box(0.1), "frame_ts_ms": 100},
+        {"text": "7", "crop_box": _box(0.6), "frame_ts_ms": 200},
+    ]}}
+    _, result = op_answer({"id": "r", "op": "answer", "args": {"from": "t", "question": "what numbers?"}},
+                           env, make_cache())
+    assert result["evidence"]["frame_ts_ms"] == 200
+    assert result["evidence"]["overlays"][0]["box"] == _box(0.6)
+    assert result["evidence"]["overlays"][0]["label"] == "#7"
+
+
+def test_answer_presence_detections_evidence_uses_last_item_frame():
+    env = {"d": {"kind": "detections", "items": [
+        {"det_id": "a", "cls": "person", "confidence": 0.9, "box": _box(0.1), "frame_ts_ms": 300},
+        {"det_id": "b", "cls": "person", "confidence": 0.6, "box": _box(0.5), "frame_ts_ms": 400},
+    ]}}
+    _, result = op_answer({"id": "r", "op": "answer", "args": {"from": "d", "question": "is there a player?"}},
+                           env, make_cache())
+    assert result["evidence"]["frame_ts_ms"] == 400
+    assert len(result["evidence"]["overlays"]) == 1
+    assert result["evidence"]["overlays"][0]["box"] == _box(0.5)
+
+
+def test_answer_caption_evidence_uses_item_frame():
+    env = {"scene": {"kind": "captions", "items": [
+        {"text": "A goal is scored", "confidence": 0.9, "box": _box(0, 0, 1, 1), "frame_ts_ms": 2000}]}}
+    _, result = op_answer({"id": "r", "op": "answer", "args": {"from": "scene", "question": "what is happening?"}},
+                           env, make_cache())
+    assert result["evidence"]["frame_ts_ms"] == 2000
+    assert result["evidence"]["overlays"][0]["box"] == _box(0, 0, 1, 1)
 
 
 def test_answer_caption_empty_grounds_out():
