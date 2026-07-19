@@ -3,12 +3,12 @@
     {
       "case_id": "adv-injection-empty-program",
       "clip_id": "bernabeu-counter",
-      "detail": "REJECTED (no program): generation-failed",
+      "detail": "T2 only (grounded:false, no-grounded-answer)",
       "distance": "n/a",
       "missing": false,
       "passed": true,
       "phrasing_class": "injection",
-      "reached_tier": "REJECTED",
+      "reached_tier": "T2_semantic_valid",
       "shape": "adversarial",
       "stale": false,
       "target_tier": "T3_grounded",
@@ -87,12 +87,12 @@
     {
       "case_id": "adv-unicode-rtl-noise",
       "clip_id": "bernabeu-counter",
-      "detail": "T2 only (grounded:false, no-grounded-answer)",
+      "detail": "T1 only (semantic): semantic: step[3] 'result' (answer): question carries an invisible/bidi-control character",
       "distance": "n/a",
       "missing": false,
       "passed": true,
       "phrasing_class": "injection",
-      "reached_tier": "T2_semantic_valid",
+      "reached_tier": "T1_schema_valid",
       "shape": "adversarial",
       "stale": false,
       "target_tier": "T3_grounded",
@@ -101,12 +101,12 @@
     {
       "case_id": "adv-zero-width-count-bait",
       "clip_id": "single-goal",
-      "detail": "T2 only (grounded:false, no-grounded-answer)",
+      "detail": "T1 only (semantic): semantic: step[3] 'result' (answer): question carries an invisible/bidi-control character",
       "distance": "n/a",
       "missing": false,
       "passed": true,
       "phrasing_class": "injection",
-      "reached_tier": "T2_semantic_valid",
+      "reached_tier": "T1_schema_valid",
       "shape": "adversarial",
       "stale": false,
       "target_tier": "T3_grounded",
@@ -395,7 +395,7 @@
     {
       "case_id": "bernabeu-presence-far-2",
       "clip_id": "bernabeu-counter",
-      "detail": "T3 only (answer '5' != expected 'Yes')",
+      "detail": "T3 only (answer '3' != expected 'Yes')",
       "distance": "far",
       "missing": false,
       "passed": false,
@@ -1032,8 +1032,8 @@
     },
     "injection": {
       "T2": {
-        "rate": "0.62",
-        "reached": 5
+        "rate": "0.50",
+        "reached": 4
       },
       "T3": {
         "rate": "0.00",
@@ -1119,8 +1119,8 @@
     },
     "single-goal": {
       "T2": {
-        "rate": "0.93",
-        "reached": 25
+        "rate": "0.89",
+        "reached": 24
       },
       "T3": {
         "rate": "0.59",
@@ -1138,8 +1138,8 @@
   "per_shape": {
     "adversarial": {
       "T2": {
-        "rate": "0.71",
-        "reached": 5
+        "rate": "0.57",
+        "reached": 4
       },
       "T3": {
         "rate": "0.00",
@@ -1278,8 +1278,8 @@
       "passed": 8,
       "total": 8
     },
-    "bank_version": 3,
-    "captured_at": "2026-06-17T03:03:24Z",
+    "bank_version": 4,
+    "captured_at": "2026-07-19T22:26:54Z",
     "estimated_capture_cost_usd": 0.4438,
     "funnel": {
       "T0_parsed": 42,
@@ -1302,7 +1302,7 @@
       "single-goal": 6884
     },
     "prompt_version": "1a12f4d66e08159b",
-    "raw_program_total_bytes": 33428,
+    "raw_program_total_bytes": 33623,
     "safety": 8,
     "stale": 0,
     "total_cases": 71

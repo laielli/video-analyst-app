@@ -69,7 +69,7 @@ def test_replay_over_regenerated_seeds_reaches_targets(tmp_path):
         assert scoring.TIER_RANK[r.reached_tier] >= scoring.TIER_RANK[r.target_tier], \
             f"{r.case_id} reached {r.reached_tier}, target {r.target_tier}"
     # Spot-check the pinned answers over the regenerated seeds.
-    assert by_id["bernabeu-count-canonical"].answer == "5"
+    assert by_id["bernabeu-count-canonical"].answer == "3"
     assert by_id["single-goal-first-goal-canonical"].answer == "Yes"
     assert by_id["bernabeu-scorer-number-canonical"].answer == "7"
 

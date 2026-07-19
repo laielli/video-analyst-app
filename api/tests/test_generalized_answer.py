@@ -5,7 +5,7 @@ of always emitting the hardcoded #10 first-scorer verdict.
 
 These tests run small DSL programs through the real Interpreter over the committed hero cache,
 exercising op_answer's dispatch on the `from` binding kind (ordered / number / texts / detections)
-and the honesty regression: a counting question NEVER emits "#10 scored the first goal".
+and the honesty regression: a counting question NEVER emits "#10 scored the goal".
 
 Pattern mirror: test_precompute.py (Cache.load + Interpreter().run over the hero cache).
 """
@@ -51,11 +51,12 @@ def test_count_question_answers_count_not_hero_verdict():
     doc = _run(program, "how many players are visible?")
     f = doc["findings"]
     assert f["grounded"] is True
-    # the hero cache has 5 person detections at 4625; the answer is about the count.
-    assert f["answer"] == "5"
+    # the real hero cache has 3 person detections at 4625 (no on_pitch filter here); the answer
+    # is about the count.
+    assert f["answer"] == "3"
     # NEVER the hardcoded hero verdict.
-    assert "#10 scored the first goal" not in (f["verdict"] or "")
-    assert "10" not in (f["answer"] or "") or f["answer"] == "5"  # answer is the count, not a jersey
+    assert "#10 scored the goal" not in (f["verdict"] or "")
+    assert "10" not in (f["answer"] or "") or f["answer"] == "3"  # answer is the count, not a jersey
 
 
 # --------------------------------------------------------------------------------------
@@ -75,7 +76,7 @@ def test_temporal_answer_derives_subject_from_filter():
     doc10 = _run(program10, "did #10 score first?")
     f10 = doc10["findings"]
     assert f10["grounded"] is True
-    assert f10["verdict"] == "Yes — #10 scored the first goal"  # subject DERIVED from filter == 10
+    assert f10["verdict"] == "Yes — #10 scored the goal"  # subject DERIVED from filter == 10
 
     # Cross-check the derivation is NOT a literal: filtering on a number NOT in the cache (#7)
     # matches nobody, so op_temporal_order produces an empty subject (subject_label is None).
@@ -112,7 +113,7 @@ def test_hero_question_still_grounds_to_ten():
     doc = _run(program, "Does #10 score the first goal?")
     f = doc["findings"]
     assert f["grounded"] is True
-    assert f["verdict"] == "Yes — #10 scored the first goal"
+    assert f["verdict"] == "Yes — #10 scored the goal"
 
 
 # --------------------------------------------------------------------------------------
@@ -147,7 +148,7 @@ def test_text_readout_question():
     assert f["grounded"] is True
     # the cache pins p_messi's jersey OCR to "10".
     assert "10" in f["answer"]
-    assert "#10 scored the first goal" not in (f["verdict"] or "")
+    assert "#10 scored the goal" not in (f["verdict"] or "")
 
 
 # --------------------------------------------------------------------------------------
@@ -184,4 +185,4 @@ def test_scene_question_grounds_to_caption():
     assert f["answer"] and "pitch" in f["answer"].lower() or f["answer"]  # the caption text
     assert f["verdict"].startswith("Scene:")
     # NEVER the hardcoded hero verdict.
-    assert "#10 scored the first goal" not in (f["verdict"] or "")
+    assert "#10 scored the goal" not in (f["verdict"] or "")

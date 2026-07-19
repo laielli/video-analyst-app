@@ -1,100 +1,300 @@
 {
-  "_comment": "Worked run-doc for the hero query, the contract the UI renders (formal STAGES). The `people` step uses the REAL normalized boxes Azure AI Vision detect returned for single-goal.mov @ 4.6s. `numbers` (read_text) is source:pinned — Azure Read misreads the stylized WC font (it called Lozano's 22 a 77) and gpt-4o vision is quota-blocked, so the hand-verified 10 is pinned and disclosed (demo honesty). Every other step is live local compute or cached real Azure output. Validate with scripts/validate_run_doc.py.",
   "schema_version": "1",
-  "query": "Does #10 score the first goal?",
-  "clip": { "id": "single-goal", "width": 1872, "height": 1042, "duration_ms": 5067, "fps": 60 },
+  "query": "Does #10 score the goal?",
+  "clip": {
+    "id": "single-goal",
+    "width": 1872,
+    "height": 1042,
+    "duration_ms": 5067,
+    "fps": 60
+  },
   "program": [
-    { "id": "frames", "op": "sample_frames", "args": { "start_ms": 3500, "end_ms": 5000, "fps": 8 } },
-    { "id": "people", "op": "detect", "args": { "frames": "frames", "classes": ["person"] } },
-    { "id": "jerseys", "op": "crop", "args": { "detections": "people", "region": "jersey" } },
-    { "id": "numbers", "op": "read_text", "args": { "crops": "jerseys" } },
-    { "id": "tens", "op": "filter", "args": { "items": "numbers", "where": { "field": "text", "equals": "10" } } },
-    { "id": "ordered", "op": "temporal_order", "args": { "events": "tens", "by": "timestamp" } },
-    { "id": "result", "op": "answer", "args": { "from": "ordered", "question": "Does #10 score the first goal?" } }
+    {
+      "id": "frames",
+      "op": "sample_frames",
+      "args": {
+        "start_ms": 3500,
+        "end_ms": 5000,
+        "fps": 8
+      }
+    },
+    {
+      "id": "people",
+      "op": "detect",
+      "args": {
+        "frames": "frames",
+        "classes": [
+          "person"
+        ],
+        "on_pitch": true
+      }
+    },
+    {
+      "id": "jerseys",
+      "op": "crop",
+      "args": {
+        "detections": "people",
+        "region": "jersey"
+      }
+    },
+    {
+      "id": "numbers",
+      "op": "read_text",
+      "args": {
+        "crops": "jerseys"
+      }
+    },
+    {
+      "id": "tens",
+      "op": "filter",
+      "args": {
+        "items": "numbers",
+        "where": {
+          "field": "text",
+          "equals": "10"
+        }
+      }
+    },
+    {
+      "id": "ordered",
+      "op": "temporal_order",
+      "args": {
+        "events": "tens",
+        "by": "timestamp"
+      }
+    },
+    {
+      "id": "result",
+      "op": "answer",
+      "args": {
+        "from": "ordered",
+        "question": "Does #10 score the goal?"
+      }
+    }
   ],
   "trace": [
     {
-      "id": "frames", "op": "sample_frames", "producer": "sample_frames", "status": "done", "source": "live",
-      "inputs": [], "input_label": "clip 3500-5000ms", "output_label": "12 frames @ 8fps",
+      "id": "frames",
+      "op": "sample_frames",
+      "producer": "sample_frames",
+      "status": "done",
+      "source": "live",
+      "inputs": [],
+      "input_label": "clip 3500-5000ms",
+      "output_label": "13 frames @ 8fps",
       "confidence": null,
-      "evidence": { "frame_ts_ms": 4600, "overlays": [] }
+      "evidence": {
+        "frame_ts_ms": 4250,
+        "overlays": []
+      }
     },
     {
-      "id": "people", "op": "detect", "producer": "Azure AI Vision · detect", "status": "done", "source": "cached",
-      "inputs": ["frames"], "input_label": "frames @ 4600ms", "output_label": "5 people",
-      "confidence": 0.75,
+      "id": "people",
+      "op": "detect",
+      "producer": "Azure AI Vision · detect",
+      "status": "done",
+      "source": "cached",
+      "inputs": [
+        "frames"
+      ],
+      "input_label": "13 frames",
+      "output_label": "23 people",
+      "confidence": 0.818,
       "evidence": {
-        "frame_ts_ms": 4600,
+        "frame_ts_ms": 5000,
         "overlays": [
-          { "box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 }, "label": "person 0.75", "confidence": 0.75, "tone": "teal", "kind": "box" },
-          { "box": { "x": 0.2452, "y": 0.5739, "w": 0.2618, "h": 0.2553 }, "label": "person 0.60", "confidence": 0.60, "tone": "azure", "kind": "box" },
-          { "box": { "x": 0.7959, "y": 0.2649, "w": 0.1277, "h": 0.2534 }, "label": "person 0.63", "confidence": 0.63, "tone": "azure", "kind": "box" },
-          { "box": { "x": 0.8793, "y": 0.0, "w": 0.1122, "h": 0.2505 }, "label": "person 0.57", "confidence": 0.57, "tone": "azure", "kind": "box" },
-          { "box": { "x": 0.0, "y": 0.0355, "w": 0.0705, "h": 0.7726 }, "label": "person 0.56", "confidence": 0.56, "tone": "azure", "kind": "box" }
+          {
+            "box": {
+              "x": 0.0828,
+              "y": 0.1027,
+              "w": 0.3146,
+              "h": 0.7687
+            },
+            "label": "person 0.79",
+            "confidence": 0.79,
+            "tone": "azure",
+            "kind": "box"
+          },
+          {
+            "box": {
+              "x": 0.3339,
+              "y": 0.6699,
+              "w": 0.2965,
+              "h": 0.2025
+            },
+            "label": "person 0.58",
+            "confidence": 0.581,
+            "tone": "azure",
+            "kind": "box"
+          }
         ]
       }
     },
     {
-      "id": "jerseys", "op": "crop", "producer": "crop_jersey", "status": "done", "source": "cached",
-      "inputs": ["people"], "input_label": "5 person boxes", "output_label": "5 jersey crops",
+      "id": "jerseys",
+      "op": "crop",
+      "producer": "crop_jersey",
+      "status": "done",
+      "source": "live",
+      "inputs": [
+        "people"
+      ],
+      "input_label": "23 boxes",
+      "output_label": "23 jersey crops",
       "confidence": null,
       "evidence": {
-        "frame_ts_ms": 4600,
+        "frame_ts_ms": 5000,
         "overlays": [
-          { "box": { "x": 0.07, "y": 0.30, "w": 0.13, "h": 0.18 }, "label": "crop_jersey", "tone": "teal", "kind": "crop" }
+          {
+            "box": {
+              "x": 0.152,
+              "y": 0.1796,
+              "w": 0.1762,
+              "h": 0.1691
+            },
+            "label": "crop_jersey",
+            "tone": "teal",
+            "kind": "crop"
+          },
+          {
+            "box": {
+              "x": 0.3991,
+              "y": 0.6902,
+              "w": 0.166,
+              "h": 0.0446
+            },
+            "label": "crop_jersey",
+            "tone": "teal",
+            "kind": "crop"
+          }
         ]
       }
     },
     {
-      "id": "numbers", "op": "read_text", "producer": "read_text", "status": "done", "source": "pinned",
-      "inputs": ["jerseys"], "input_label": "crop_jersey(messi)", "output_label": "10",
+      "id": "numbers",
+      "op": "read_text",
+      "producer": "read_text",
+      "status": "done",
+      "source": "live",
+      "inputs": [
+        "jerseys"
+      ],
+      "input_label": "23 crops",
+      "output_label": "10",
       "confidence": null,
-      "note": "Hand-verified. Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision pending TPM quota. The 10 is human-legible and pinned for the hero query (disclosed in the demo).",
       "evidence": {
-        "frame_ts_ms": 4600,
+        "frame_ts_ms": 4625,
         "overlays": [
-          { "box": { "x": 0.10, "y": 0.30, "w": 0.07, "h": 0.10 }, "label": "read_text -> 10", "tone": "teal", "kind": "crop" }
+          {
+            "box": {
+              "x": 0.0831,
+              "y": 0.2402,
+              "w": 0.1244,
+              "h": 0.1379
+            },
+            "label": "read_text -> 10",
+            "confidence": null,
+            "tone": "teal",
+            "kind": "crop"
+          }
+        ]
+      },
+      "note": "gpt-4o read of the full player crop at precompute; expectation disclosed and verified"
+    },
+    {
+      "id": "tens",
+      "op": "filter",
+      "producer": "filter",
+      "status": "done",
+      "source": "live",
+      "inputs": [
+        "numbers"
+      ],
+      "input_label": "texts where text == 10",
+      "output_label": "1 match · #10",
+      "confidence": null,
+      "evidence": {
+        "frame_ts_ms": 4625,
+        "overlays": [
+          {
+            "box": {
+              "x": 0.0342,
+              "y": 0.1775,
+              "w": 0.2222,
+              "h": 0.6267
+            },
+            "label": "#10",
+            "tone": "teal",
+            "kind": "box"
+          }
         ]
       }
     },
     {
-      "id": "tens", "op": "filter", "producer": "filter", "status": "done", "source": "live",
-      "inputs": ["numbers"], "input_label": "numbers where text == 10", "output_label": "1 match · #10",
-      "confidence": null,
-      "evidence": {
-        "frame_ts_ms": 4600,
-        "overlays": [
-          { "box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 }, "label": "#10 (Messi)", "tone": "teal", "kind": "box" }
-        ]
-      }
-    },
-    {
-      "id": "ordered", "op": "temporal_order", "producer": "temporal_order", "status": "done", "source": "live",
-      "inputs": ["tens"], "input_label": "#10 events", "output_label": "goal @ 4000ms (first)",
+      "id": "ordered",
+      "op": "temporal_order",
+      "producer": "temporal_order",
+      "status": "done",
+      "source": "live",
+      "inputs": [
+        "tens"
+      ],
+      "input_label": "1 subject(s) + 1 goal(s)",
+      "output_label": "goal @ 4000ms (first)",
       "confidence": null,
       "evidence": {
         "frame_ts_ms": 4000,
         "overlays": [
-          { "box": { "x": 0.86, "y": 0.34, "w": 0.10, "h": 0.34 }, "label": "goal 4000ms", "tone": "green", "kind": "goal" }
+          {
+            "box": {
+              "x": 0.86,
+              "y": 0.34,
+              "w": 0.1,
+              "h": 0.34
+            },
+            "label": "goal 4000ms",
+            "tone": "green",
+            "kind": "goal"
+          }
         ]
       }
     },
     {
-      "id": "result", "op": "answer", "producer": "answer_question", "status": "done", "source": "live",
-      "inputs": ["ordered"], "input_label": "ordered events", "output_label": "Yes",
+      "id": "result",
+      "op": "answer",
+      "producer": "answer_question",
+      "status": "done",
+      "source": "live",
+      "inputs": [
+        "ordered"
+      ],
+      "input_label": "ordered binding",
+      "output_label": "Yes",
       "confidence": null,
       "evidence": {
-        "frame_ts_ms": 4600,
+        "frame_ts_ms": 4625,
         "overlays": [
-          { "box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 }, "label": "#10 scored", "tone": "green", "kind": "box" }
+          {
+            "box": {
+              "x": 0.0342,
+              "y": 0.1775,
+              "w": 0.2222,
+              "h": 0.6267
+            },
+            "label": "#10 scored",
+            "tone": "green",
+            "kind": "box"
+          }
         ]
       }
     }
   ],
   "findings": {
     "answer": "Yes",
-    "verdict": "Yes — #10 scored the first goal",
-    "supporting_step": "ordered",
-    "partial": false
+    "verdict": "Yes — #10 scored the goal",
+    "grounded": true,
+    "reason": null,
+    "partial": false,
+    "supporting_step": "ordered"
   }
 }

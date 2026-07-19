@@ -22,6 +22,8 @@ The defaults sit comfortably above the legitimate full-clip sweep while rejectin
 """
 from __future__ import annotations
 
+import re
+
 # Raw codegen output cap, checked BEFORE any json.loads / schema walk. The jsonschema pass is
 # superlinear on hostile input (an 8-way anyOf per program item), so the validator itself is a
 # DoS vector on an unbounded blob — it must never see one. Enforced in codegen.generate
@@ -51,6 +53,24 @@ MAX_SCENE_CAPTIONS = 16
 # Length cap for free-string args (detect.classes[] elements, filter.where.field/equals,
 # answer.question; crop.region/temporal_order.by enums are already constrained structurally).
 MAX_STR_ARG_LEN = 256
+
+# Invisible / bidirectional-control code points banned from EVERY free-string arg in a program
+# (detect.classes[] elements, filter.where.field/equals, answer.question): C0+C1 controls,
+# zero-width & directional marks (U+200B-U+200F), bidi embeddings/overrides (U+202A-U+202E),
+# invisible operators + bidi isolates (U+2060-U+2069), and the BOM/ZWNBSP (U+FEFF). None of
+# these can appear in a legitimate question about a clip, but all are classic smuggling /
+# display-spoofing vectors — an answer.question carrying an RTL override would RENDER in the
+# web UI differently than it executes, exactly the lie a glass-box demo cannot allow. Programs
+# carrying them are rejected at the validator, so a noise-salted query grounds out honestly
+# (noise-precedence) instead of being answered as if it were clean.
+BANNED_STR_CHARS = re.compile(
+    "[\\x00-\\x1f\\x7f-\\x9f\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2069\\ufeff]"
+)
+
+
+def has_banned_str_chars(s: str) -> bool:
+    """True when a free-string program arg carries an invisible/bidi-control code point."""
+    return bool(BANNED_STR_CHARS.search(s))
 
 # Per-caption text-length cap: captions are model-generated free text; bound the STRING that
 # enters a binding/answer/run-doc BEFORE it does (run_doc.schema.json has no maxLength on labels).

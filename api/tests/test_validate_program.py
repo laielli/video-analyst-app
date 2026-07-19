@@ -140,6 +140,50 @@ def test_non_string_classes_element_rejected():
     assert any("not a string" in e for e in sem)
 
 
+def test_banned_invisible_chars_rejected_everywhere():
+    # Trust-boundary guard (2026-07-19): zero-width / RTL-override / control chars in ANY
+    # free-string arg are rejected — a question rendered with a bidi override would display
+    # differently than it executes, and a noise-salted query must ground out (noise-precedence),
+    # not be answered as if clean. Mirrors the live adv-unicode-rtl-noise / adv-zero-width-
+    # count-bait fixtures, which replay through this exact rejection to an honest ungrounded.
+    def _prog(question="how many players are visible?", cls="person", equals=None):
+        steps = [
+            {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}},
+            {"id": "d", "op": "detect", "args": {"frames": "f", "classes": [cls]}},
+        ]
+        if equals is not None:
+            steps.append({"id": "g", "op": "filter",
+                          "args": {"items": "d", "where": {"field": "cls", "equals": equals}}})
+        steps.append({"id": "r", "op": "answer",
+                      "args": {"from": steps[-1]["id"], "question": question}})
+        return steps
+
+    # RTL override in answer.question (the adv-unicode-rtl-noise shape).
+    sem = semantic_errors(_prog(question="How many players ‮erehtsi‬ are visible?"))
+    assert any("invisible/bidi-control" in e and "(answer)" in e for e in sem)
+    # Zero-width space in answer.question (the adv-zero-width-count-bait shape).
+    sem = semantic_errors(_prog(question="How​ many​ players?"))
+    assert any("invisible/bidi-control" in e for e in sem)
+    # C0 control smuggled into a detect class.
+    sem = semantic_errors(_prog(cls="per\x07son"))
+    assert any("invisible/bidi-control" in e and "(detect)" in e for e in sem)
+    # Bidi isolate smuggled into filter.where.equals.
+    sem = semantic_errors(_prog(equals="⁦person⁩"))
+    assert any("invisible/bidi-control" in e and "(filter)" in e for e in sem)
+
+
+def test_legit_unicode_survives_banned_char_guard():
+    # No overfitting: real-world typography (№, em-dash, curly quotes, accents) must pass —
+    # the ban covers only invisible/control/bidi code points, never visible characters.
+    sem = semantic_errors([
+        {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}},
+        {"id": "d", "op": "detect", "args": {"frames": "f", "classes": ["person"]}},
+        {"id": "r", "op": "answer",
+         "args": {"from": "d", "question": "Does №10 — the 'capitán' — score?"}},
+    ])
+    assert not any("invisible/bidi-control" in e for e in sem)
+
+
 def test_unserializable_doc_fails_closed():
     # A doc that can't be json-serialized is treated as oversized (fails closed), not a crash.
     class _Unserializable:

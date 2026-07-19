@@ -174,7 +174,7 @@ def test_hero_cache_replays_to_grounded_answer(tmp_path, manifest, fake_frame_pr
     # subject_is_first_scorer is True (via temporal_order binding semantics)
     answer = next(t for t in run_doc["trace"] if t["op"] == "answer")
     assert answer["output_label"] == "Yes"
-    assert run_doc["findings"]["verdict"] == "Yes — #10 scored the first goal"
+    assert run_doc["findings"]["verdict"] == "Yes — #10 scored the goal"
 
     # run-doc validates against the schema.
     import jsonschema
@@ -917,4 +917,4 @@ def test_bernabeu_precompute_replays_grounded_with_local_program(tmp_path):
         program_path=program_path, emit_frames=False,
     )
     assert rep["exit"] == 0
-    assert rep["verdict"] == "Yes — #7 scored the first goal"
+    assert rep["verdict"] == "Yes — #7 scored the goal"

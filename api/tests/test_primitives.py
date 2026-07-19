@@ -420,7 +420,7 @@ def test_answer_ordered_grounded_yes():
     assert v["grounded"] is True
     assert v["yes"] is True
     assert v["answer"] == "Yes"
-    assert v["verdict"] == "Yes — #10 scored the first goal"
+    assert v["verdict"] == "Yes — #10 scored the goal"
     assert result["status"] == "done"
     assert result["output_label"] == "Yes"
     # scorer overlay drawn from the re-read cache.
@@ -437,7 +437,7 @@ def test_answer_ordered_grounded_no():
     assert v["grounded"] is True
     assert v["yes"] is False
     assert v["answer"] == "No"
-    assert v["verdict"] == "No — the first goal was not scored by #10"
+    assert v["verdict"] == "No — the goal was not scored by #10"
     assert result["output_label"] == "No"
 
 

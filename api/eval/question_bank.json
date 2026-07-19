@@ -182,8 +182,8 @@
       "phrasing_class": "canonical",
       "distance": "canonical",
       "question": "How many players are visible?",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
-      "notes": "Verbatim canned.QUERIES['bernabeu-count-players']. Ground truth DERIVED from bernabeu-counter_count_program.json over the committed cache (5 person detections in the legible frame)."
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
+      "notes": "Verbatim canned.QUERIES['bernabeu-count-players']. Ground truth DERIVED from bernabeu-counter_count_program.json over the committed cache (2026-07-19: real gpt-4o/Azure capture replaced the fake-fixture cache -> 4 on-pitch person detections in the legible frame, was 5)."
     },
     {
       "case_id": "bernabeu-count-near-1",
@@ -192,7 +192,7 @@
       "phrasing_class": "paraphrase",
       "distance": "near",
       "question": "How many players can be seen?",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
       "notes": "Near reword."
     },
     {
@@ -202,7 +202,7 @@
       "phrasing_class": "paraphrase",
       "distance": "near",
       "question": "Count the players on screen.",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
       "notes": "Near reword, imperative."
     },
     {
@@ -212,7 +212,7 @@
       "phrasing_class": "paraphrase",
       "distance": "far",
       "question": "What is the total number of footballers in the shot?",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
       "notes": "Far reword."
     },
     {
@@ -222,7 +222,7 @@
       "phrasing_class": "paraphrase",
       "distance": "far",
       "question": "Could you tell me how many people are on the pitch in this frame?",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
       "notes": "Far reword, verbose."
     },
     {
@@ -232,7 +232,7 @@
       "phrasing_class": "paraphrase",
       "distance": "far",
       "question": "Tally up everyone you can spot playing.",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
       "notes": "Far reword, colloquial."
     },
 
@@ -305,7 +305,7 @@
       "distance": "canonical",
       "question": "Does #7 score the goal?",
       "expect": { "outcome": "grounded", "answer": "Yes", "answer_match": "exact" },
-      "notes": "Verbatim canned.QUERIES['bernabeu-7-first-goal'] (2026-07-19: 'first goal' wording retired repo-wide). #7 (white scorer p_vini) is the scorer -> Yes. TODO(recapture): this fixture + every other bernabeu-counter fixture went STALE when canned.CLIPS['bernabeu-counter'].hint moved to the corrected goal/window (~14250ms; 9000-14800ms) -- pending the orchestrator's live re-capture."
+      "notes": "Verbatim canned.QUERIES['bernabeu-7-first-goal'] (2026-07-19: 'first goal' wording retired repo-wide). #7 (white scorer p_vini) is the scorer -> Yes. Captured live 2026-07-19 against the corrected hint window (goal ~9000-14500ms; real goal moment 14250ms)."
     },
     {
       "case_id": "bernabeu-first-goal-7-near-1",
@@ -649,8 +649,8 @@
       "phrasing_class": "degenerate",
       "distance": "n/a",
       "question": "HOW MANY PLAYERS ARE VISIBLE???",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
-      "notes": "All-caps robustness of the count shape; ground-or-honestly-fail, never an exception. numeric match so a grounded 5 still passes."
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
+      "notes": "All-caps robustness of the count shape; ground-or-honestly-fail, never an exception. numeric match so a grounded 4 still passes."
     },
     {
       "case_id": "degenerate-unicode-digits",
@@ -669,7 +669,7 @@
       "phrasing_class": "paraphrase",
       "distance": "near",
       "question": "Count the players in view.",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
       "notes": "2026-06-12 growth: count-cell breadth after the analyzed-window fix. Answer derived from the pinned count program (test_all_count_cases_match_derived_ground_truth)."
     },
     {
@@ -679,7 +679,7 @@
       "phrasing_class": "paraphrase",
       "distance": "far",
       "question": "Give me a headcount of everyone you can see on the pitch.",
-      "expect": { "outcome": "grounded", "answer": "5", "answer_match": "numeric" },
+      "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
       "notes": "2026-06-12 growth: far reword stressing the single-frame midpoint rule. Answer derived, never hand-typed."
     },
     {

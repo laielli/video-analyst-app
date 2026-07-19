@@ -78,7 +78,7 @@ def test_scoring_tiers_monotone():
     # T4: the four pinned grounded programs reach T4 with their known answers.
     for case_id, clip_id, shape, q, ans, match, prog in (
         ("hero", "single-goal", "first-goal", "Does #10 score the first goal?", "Yes", "exact", "hero_program.json"),
-        ("count", ber, "count", "How many players?", "5", "numeric", "bernabeu-counter_count_program.json"),
+        ("count", ber, "count", "How many players?", "3", "numeric", "bernabeu-counter_count_program.json"),
         ("seven", ber, "first-goal", "Does #7 score the first goal?", "Yes", "exact", "bernabeu-counter_first-goal-7_program.json"),
         ("scorer", ber, "scorer-number", "What number does the scorer wear?", "7", "ci_contains", "bernabeu-counter_scorer-number_program.json"),
     ):

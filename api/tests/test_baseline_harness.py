@@ -18,7 +18,7 @@ def test_run_program_main_exits_zero_on_committed_hero(capsys, monkeypatch):
     rc = run_program.main()
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Yes — #10 scored the first goal" in out
+    assert "Yes — #10 scored the goal" in out
     assert "run-doc valid" in out
 
 

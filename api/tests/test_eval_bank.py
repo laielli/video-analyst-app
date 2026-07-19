@@ -90,7 +90,7 @@ def test_count_ground_truth_derived_from_pinned():
         API_DIR / "examples" / "bernabeu-counter_count_program.json", ber["cache"])
     cases = bank.load_bank()
     canonical_count = next(c for c in cases if c["case_id"] == "bernabeu-count-canonical")
-    assert canonical_count["expect"]["answer"] == derived == "5"
+    assert canonical_count["expect"]["answer"] == derived == "3"
 
 
 def test_presence_ground_truth_derived_from_pinned():

@@ -28,20 +28,17 @@ CLIPS = {
         "id": "bernabeu-counter",
         "label": "Real Madrid counter — Champions League 2025",
         "width": 2636, "height": 1474, "duration_ms": 30086,
-        # Second clip's replay cache (Alt C: DERIVED from clips/bernabeu-counter/manifest.json +
-        # api/tests/fixtures/fake_detect_bernabeu.json by scripts/precompute.py, not hand-authored).
+        # Second clip's replay cache — REAL Azure detect output captured by scripts/precompute.py
+        # over best-goals-2025-30s.mov (the pre-2026-07-19 cache was derived from a fake fixture).
         "cache": str(EX / "bernabeu-counter_cache.json"),
         # Per-clip codegen hint — a DIFFERENT window/event than the hero's, so codegen-repeatability
         # across clips is genuinely exercised (proven by a mocked free-text-path prompt test).
-        # goal ~14250ms (the real goal moment, verified against the source video — the prior
-        # 9000-11000/10500 window was derived from a FAKE fixture, not the actual clip); the
-        # analyzed window widens to 9000-14800ms to cover it. This invalidates every committed
-        # bernabeu-counter eval fixture's prompt_version (D6 STALE). TODO(recapture): the
-        # single-goal eval fixtures were ALSO deliberately re-stamped stale (see
-        # eval/fixtures/single-goal-*.json prompt_version) so the D6 gate reads uniform-all-stale
-        # (advisory, exit 0) instead of partial staleness (hard FAIL) until the live re-capture
-        # lands and restamps everything for real.
-        "hint": "goal ~14250ms; analyzed window 9000-14800ms; detect class 'person', crop jersey, read_text, fps 8; scorer wears #7",
+        # Window choice is load-bearing three ways: it must CONTAIN the real goal moment (14250ms,
+        # verified against the source video; the prior 9000-11000/10500 window came from the fake
+        # fixture) and the legible #7 read frame (10000ms), and SYSTEM_PROMPT's count rule samples
+        # the single midpoint frame t=(A+B)/2 — 9000-14500 puts that at 11750, a close-up whose 3
+        # real detections all align with the 3 visible players (and all sit on the fps-8 cache grid).
+        "hint": "goal ~9000-14500ms; detect class 'person', crop jersey, read_text, fps 8; scorer wears #7",
     },
 }
 

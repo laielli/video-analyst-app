@@ -108,7 +108,7 @@
       "description": "The evidence-grounded verdict. The `grounded` discriminator (Q1 -> A) distinguishes a real answer from an honest 'couldn't ground this' state: when grounded=false the run produced no answer for the question asked (narrow cache, codegen miss, unsupported question shape), so `answer`/`verdict` are null and `reason` carries a fixed enum. A grounded run carries non-null `answer`/`verdict` and null `reason`. `partial` (weakly grounded) is NOT overloaded for this — ungrounded is its own bit.",
       "properties": {
         "answer": { "type": ["string", "null"], "description": "Short answer, e.g. 'Yes'. null when grounded=false." },
-        "verdict": { "type": ["string", "null"], "description": "Full sentence, e.g. 'Yes — #10 scored the first goal'. null when grounded=false." },
+        "verdict": { "type": ["string", "null"], "description": "Full sentence, e.g. 'Yes — #10 scored the goal'. null when grounded=false." },
         "grounded": { "type": "boolean", "description": "True if the run produced an answer to the question asked; false for the honest 'couldn't ground this' state." },
         "reason": {
           "type": ["string", "null"],

@@ -351,9 +351,9 @@ def _answer_temporal(src, q):
         return None, None, None, "no-grounded-answer"
     yes = bool(v.get("subject_is_first_scorer"))
     if yes:
-        verdict = f"Yes — {subj} scored the first goal"
+        verdict = f"Yes — {subj} scored the goal"
     else:
-        verdict = f"No — the first goal was not scored by {subj}"
+        verdict = f"No — the goal was not scored by {subj}"
     return ("Yes" if yes else "No"), verdict, yes, None
 
 

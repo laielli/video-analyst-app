@@ -9,7 +9,7 @@
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
-        "end_ms": 11000,
+        "end_ms": 14500,
         "fps": 8
       }
     },
@@ -50,7 +50,7 @@
       }
     },
     {
-      "id": "ordered",
+      "id": "ordered_events",
       "op": "temporal_order",
       "args": {
         "events": "filter_number_7",
@@ -61,14 +61,14 @@
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "ordered",
+        "from": "ordered_events",
         "question": "Does number 7 score the first goal?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "4ff106e7528d0de5",
+  "prompt_version": "44f0f483aae6e447",
   "model": "gpt-4o",
-  "captured_at": "2026-06-17T03:04:35Z"
+  "captured_at": "2026-07-19T22:34:55Z"
 }

@@ -2,14 +2,14 @@
   "fixture_format": 1,
   "case_id": "bernabeu-first-goal-23-canonical",
   "clip_id": "bernabeu-counter",
-  "question": "Does #23 score the first goal?",
+  "question": "Does #23 score the goal?",
   "raw_program": [
     {
       "id": "frames",
       "op": "sample_frames",
       "args": {
         "start_ms": 9000,
-        "end_ms": 11000,
+        "end_ms": 14500,
         "fps": 8
       }
     },
@@ -39,7 +39,7 @@
       }
     },
     {
-      "id": "filtered",
+      "id": "filter_23",
       "op": "filter",
       "args": {
         "items": "numbers",
@@ -53,7 +53,7 @@
       "id": "ordered",
       "op": "temporal_order",
       "args": {
-        "events": "filtered",
+        "events": "filter_23",
         "by": "timestamp"
       }
     },
@@ -62,13 +62,13 @@
       "op": "answer",
       "args": {
         "from": "ordered",
-        "question": "Does #23 score the first goal?"
+        "question": "Does #23 score the goal?"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "4ff106e7528d0de5",
+  "prompt_version": "44f0f483aae6e447",
   "model": "gpt-4o",
-  "captured_at": "2026-06-17T03:04:59Z"
+  "captured_at": "2026-07-19T22:35:08Z"
 }

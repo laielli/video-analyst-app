@@ -125,14 +125,16 @@ def _strip_comments(obj):
     return obj
 
 
-def test_hero_program_on_pitch_keeps_three_of_five_detections():
-    # hero_program.json now sets detect.on_pitch:true; the committed hero cache has 5 person
-    # detections at 4625ms, 2 of which (cameraman .518, crowd .25) are off-pitch. The replay
-    # must show 3, not 5 (the customer complaint this whole mission fixes).
+def test_hero_program_on_pitch_drops_off_pitch_detections():
+    # hero_program.json sets detect.on_pitch:true. The committed (REAL Azure) hero cache carries
+    # 33 raw person detections across the full 3500-5000ms/8fps window, 10 of which are off-pitch
+    # (crowd/camera-operator boxes whose bottom edge never reaches the pitch horizon); the replay
+    # must show the 23 on-pitch survivors, not the raw 33 (the customer complaint this whole
+    # mission fixes).
     program = _strip_comments(json.loads((EX / "hero_program.json").read_text()))["program"]
     doc = Interpreter(Cache.load(EX / "hero_cache.json")).run(program)
     detect_trace = next(t for t in doc["trace"] if t["op"] == "detect")
-    assert detect_trace["output_label"] == "3 people"
+    assert detect_trace["output_label"] == "23 people"
     assert doc["findings"]["grounded"] is True
     assert doc["findings"]["answer"] == "Yes"
 
@@ -148,10 +150,8 @@ def test_hero_program_answer_step_has_nonzero_evidence_frame():
 
 
 def test_bernabeu_first_goal_7_still_grounds_over_widened_window():
-    # the widened 9000-14800ms window (containing the real ~14250ms goal) still includes the
-    # legible scorer frame (10000) against the CURRENTLY COMMITTED (fake-fixture) cache, whose
-    # event ts (10500) also sits inside the window, so the replay still grounds. A live
-    # re-capture will replace this cache later; this pins behavior against what's committed now.
+    # the widened 9000-14800ms window contains both the legible scorer frame (10000) and the
+    # REAL goal moment (ts 14250, from the live-captured committed cache), so the replay grounds.
     program = _strip_comments(json.loads((EX / "bernabeu-counter_first-goal-7_program.json").read_text()))["program"]
     doc = Interpreter(Cache.load(EX / "bernabeu-counter_cache.json")).run(program)
     assert doc["findings"]["grounded"] is True
@@ -160,12 +160,16 @@ def test_bernabeu_first_goal_7_still_grounds_over_widened_window():
     assert answer_trace["evidence"]["frame_ts_ms"] != 0
 
 
-def test_bernabeu_count_program_on_pitch_drops_one_of_five():
-    # bernabeu-counter_count_program.json now sets detect.on_pitch:true; at 10000ms the cache
-    # carries 5 person detections, 1 of which (p4, bottom .25) is off-pitch.
+def test_bernabeu_count_program_on_pitch_keeps_all_three():
+    # bernabeu-counter_count_program.json sets detect.on_pitch:true and samples the single
+    # hint-window midpoint frame 11750ms (t=(9000+14500)/2 — the same frame SYSTEM_PROMPT's
+    # count rule makes the free-text path sample, so canned and live counts agree). The real
+    # committed cache carries 3 person detections there (Vinicius, the defender, the keeper),
+    # all on-pitch (every box bottom clears the pitch-horizon threshold), so on_pitch drops
+    # none and count grounds to '3'.
     program = _strip_comments(json.loads((EX / "bernabeu-counter_count_program.json").read_text()))["program"]
     doc = Interpreter(Cache.load(EX / "bernabeu-counter_cache.json")).run(program)
-    assert doc["findings"]["answer"] == "4"
+    assert doc["findings"]["answer"] == "3"
 
 
 # ---------------------------------------------------------------------------------------
