@@ -91,7 +91,7 @@
     {
       "id": "people",
       "op": "detect",
-      "producer": "Azure AI Vision · detect",
+      "producer": "Azure AI Vision \u00b7 detect",
       "status": "done",
       "source": "cached",
       "inputs": [
@@ -147,10 +147,10 @@
         "overlays": [
           {
             "box": {
-              "x": 0.152,
-              "y": 0.1796,
-              "w": 0.1762,
-              "h": 0.1691
+              "x": 0.0671,
+              "y": 0.0643,
+              "w": 0.3461,
+              "h": 0.8456
             },
             "label": "crop_jersey",
             "tone": "teal",
@@ -158,10 +158,10 @@
           },
           {
             "box": {
-              "x": 0.3991,
-              "y": 0.6902,
-              "w": 0.166,
-              "h": 0.0446
+              "x": 0.3191,
+              "y": 0.6598,
+              "w": 0.3261,
+              "h": 0.2228
             },
             "label": "crop_jersey",
             "tone": "teal",
@@ -187,10 +187,10 @@
         "overlays": [
           {
             "box": {
-              "x": 0.0831,
-              "y": 0.2402,
-              "w": 0.1244,
-              "h": 0.1379
+              "x": 0.0231,
+              "y": 0.1462,
+              "w": 0.2444,
+              "h": 0.6894
             },
             "label": "read_text -> 10",
             "confidence": null,
@@ -211,7 +211,7 @@
         "numbers"
       ],
       "input_label": "texts where text == 10",
-      "output_label": "1 match · #10",
+      "output_label": "1 match \u00b7 #10",
       "confidence": null,
       "evidence": {
         "frame_ts_ms": 4625,
@@ -291,7 +291,7 @@
   ],
   "findings": {
     "answer": "Yes",
-    "verdict": "Yes — #10 scored the goal",
+    "verdict": "Yes \u2014 #10 scored the goal",
     "grounded": true,
     "reason": null,
     "partial": false,

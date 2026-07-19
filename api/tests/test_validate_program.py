@@ -172,6 +172,19 @@ def test_banned_invisible_chars_rejected_everywhere():
     assert any("invisible/bidi-control" in e and "(filter)" in e for e in sem)
 
 
+def test_tags_block_ascii_smuggling_rejected():
+    # Plane-14 Tags (U+E0001..E007F) are invisible copies of ASCII — the "ASCII smuggling"
+    # injection vector distinct from zero-width/bidi noise. A question salted with tag chars
+    # must be rejected like any other invisible-char payload.
+    smuggled = "How many players are visible?" + "\U000e0068\U000e0069"  # invisible "hi"
+    sem = semantic_errors([
+        {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}},
+        {"id": "d", "op": "detect", "args": {"frames": "f", "classes": ["person"]}},
+        {"id": "r", "op": "answer", "args": {"from": "d", "question": smuggled}},
+    ])
+    assert any("invisible/bidi-control" in e for e in sem)
+
+
 def test_legit_unicode_survives_banned_char_guard():
     # No overfitting: real-world typography (№, em-dash, curly quotes, accents) must pass —
     # the ban covers only invisible/control/bidi code points, never visible characters.
@@ -179,7 +192,7 @@ def test_legit_unicode_survives_banned_char_guard():
         {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}},
         {"id": "d", "op": "detect", "args": {"frames": "f", "classes": ["person"]}},
         {"id": "r", "op": "answer",
-         "args": {"from": "d", "question": "Does №10 — the 'capitán' — score?"}},
+         "args": {"from": "d", "question": "Does №10 — the 'capitán' — score? ⚽️"}},
     ])
     assert not any("invisible/bidi-control" in e for e in sem)
 

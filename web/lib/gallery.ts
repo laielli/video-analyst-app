@@ -22,7 +22,7 @@ export const SHAPE_ORDER = ["count", "first-goal", "scorer-number", "scene"] as 
 // mints title-cased labels). Unknown shapes pass through unchanged.
 const SHAPE_DISPLAY: Record<string, string> = {
   count: "Count",
-  "first-goal": "First-goal",
+  "first-goal": "Goal", // display-only rename (2026-07-19): the machine slug stays "first-goal" (parity-tested against the eval bank), but the customer-facing label drops "first" with the question rewording
   "scorer-number": "Scorer-number",
   scene: "Scene",
 };

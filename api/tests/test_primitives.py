@@ -191,6 +191,9 @@ def test_detect_on_pitch_all_dropped_gets_diagnostic_note():
 # ---------------------------------------------------------------------------------------
 
 def test_crop_jersey_region_box_math():
+    # 2026-07-19: the jersey crop is the FULL person box + 5% margin per side, clamped to [0,1]
+    # (mirrors precompute.full_person_crop_box — the region the number reader actually sees).
+    # A full-frame person box clamps to the full frame...
     b = {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}
     env = {"people": {"kind": "detections", "items": [
         {"det_id": "d0", "cls": "person", "confidence": 0.8, "box": b, "frame_ts_ms": 300},
@@ -198,13 +201,19 @@ def test_crop_jersey_region_box_math():
     step = {"id": "jerseys", "op": "crop", "args": {"detections": "people", "region": "jersey"}}
     binding, result = op_crop(step, env, make_cache())
     c = binding["items"][0]
-    # jersey offsets: x+0.22w, y+0.10h, 0.56w, 0.22h.
-    assert c["box"] == {"x": 0.22, "y": 0.10, "w": 0.56, "h": 0.22}
+    assert c["box"] == {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}
     assert c["crop_id"] == "c0"
     assert c["det_id"] == "d0"
     assert c["person_box"] == b
     assert c["person_conf"] == 0.8
     assert result["status"] == "done"
+    # ...and an interior box grows by the 5% margin on every side (no clamping in play).
+    b2 = {"x": 0.4, "y": 0.4, "w": 0.2, "h": 0.4}
+    env2 = {"people": {"kind": "detections", "items": [
+        {"det_id": "d0", "cls": "person", "confidence": 0.8, "box": b2, "frame_ts_ms": 300},
+    ]}}
+    binding2, _ = op_crop(step, {"people": env2["people"]}, make_cache())
+    assert binding2["items"][0]["box"] == {"x": 0.39, "y": 0.38, "w": 0.22, "h": 0.44}
     assert result["producer"] == "crop_jersey"
     assert result["output_label"] == "1 jersey crops"
     # overlay labelled crop_jersey on the focus frame.

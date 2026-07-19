@@ -151,8 +151,18 @@ def op_crop(step, env, cache):
     for i, d in enumerate(dets):
         b = d["box"]
         if region == "jersey":
-            box = {"x": round(b["x"] + 0.22 * b["w"], 4), "y": round(b["y"] + 0.10 * b["h"], 4),
-                   "w": round(0.56 * b["w"], 4), "h": round(0.22 * b["h"], 4)}
+            # 2026-07-19: the crop handed to the number reader is the FULL person box + 5% margin
+            # (clamped), not a fixed torso sub-rectangle — a torso heuristic breaks on divers /
+            # horizontal players and was a live-demo complaint. This mirrors precompute's
+            # full-person VLM crop exactly, so the box drawn in the EVIDENCE panel is the region
+            # the reader model actually sees.
+            m = 0.05
+            x0 = max(0.0, b["x"] - m * b["w"])
+            y0 = max(0.0, b["y"] - m * b["h"])
+            x1 = min(1.0, b["x"] + b["w"] * (1 + m))
+            y1 = min(1.0, b["y"] + b["h"] * (1 + m))
+            box = {"x": round(x0, 4), "y": round(y0, 4),
+                   "w": round(x1 - x0, 4), "h": round(y1 - y0, 4)}
         else:
             box = dict(b)
         crops.append({"crop_id": f"c{i}", "det_id": d["det_id"], "box": box,

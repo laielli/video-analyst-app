@@ -183,7 +183,7 @@
       "distance": "canonical",
       "question": "How many players are visible?",
       "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
-      "notes": "Verbatim canned.QUERIES['bernabeu-count-players']. Ground truth DERIVED from bernabeu-counter_count_program.json over the committed cache (2026-07-19: real gpt-4o/Azure capture replaced the fake-fixture cache -> 4 on-pitch person detections in the legible frame, was 5)."
+      "notes": "Verbatim canned.QUERIES['bernabeu-count-players']. Ground truth DERIVED from bernabeu-counter_count_program.json over the committed cache (2026-07-19: real gpt-4o/Azure capture replaced the fake-fixture cache; the count program samples the hint-window midpoint frame 11750ms -> 3 on-pitch person detections, was 5 at the fake-fixture frame)."
     },
     {
       "case_id": "bernabeu-count-near-1",
@@ -650,7 +650,7 @@
       "distance": "n/a",
       "question": "HOW MANY PLAYERS ARE VISIBLE???",
       "expect": { "outcome": "grounded", "answer": "3", "answer_match": "numeric" },
-      "notes": "All-caps robustness of the count shape; ground-or-honestly-fail, never an exception. numeric match so a grounded 4 still passes."
+      "notes": "All-caps robustness of the count shape; ground-or-honestly-fail, never an exception. numeric match so a grounded 3 still passes."
     },
     {
       "case_id": "degenerate-unicode-digits",

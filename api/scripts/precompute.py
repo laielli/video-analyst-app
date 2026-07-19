@@ -430,8 +430,10 @@ def run_describe_scene(manifest: dict, timestamps: list[int], *, frame_provider,
 # --------------------------------------------------------------------------------------
 
 def crop_jersey_box(person_box: dict) -> dict:
-    """op_crop jersey math (primitives.py:77-79), normalized. NOT used by the precompute VLM
-    reads any more (see full_person_crop_box) — kept for op_crop parity elsewhere."""
+    """The RETIRED torso-heuristic crop. No production caller as of 2026-07-19 — both the
+    precompute VLM read AND op_crop's drawn evidence box use full_person_crop_box now (a fixed
+    torso sub-rectangle breaks on divers/horizontal players; live-demo complaint). Kept only as
+    the contrast baseline the precompute tests assert the full-person crop differs from."""
     return {
         "x": round(person_box["x"] + 0.22 * person_box["w"], 4),
         "y": round(person_box["y"] + 0.10 * person_box["h"], 4),

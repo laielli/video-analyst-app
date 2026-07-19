@@ -25,7 +25,7 @@ describe("GalleryCard", () => {
     render(<GalleryCard card={card()} />);
     expect(screen.getByText("Does #10 score the goal?")).toBeInTheDocument();
     // machine shape -> display text
-    expect(screen.getByText("First-goal")).toBeInTheDocument();
+    expect(screen.getByText("Goal")).toBeInTheDocument();
     expect(screen.getByText("Messi vs Mexico — World Cup 2022")).toBeInTheDocument();
     const link = screen.getByRole("link");
     expect(link).toHaveAttribute("href", "/?query=hero-10-first-goal");

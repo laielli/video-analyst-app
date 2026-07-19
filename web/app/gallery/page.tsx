@@ -23,7 +23,7 @@ export default function Gallery() {
           <a className="gx-back" href="/">← Open the analyst</a>
         </div>
         <p className="gx-lede">
-          The analyst answers a fixed catalog of questions about two clips — counts, first-goal
+          The analyst answers a fixed catalog of questions about two clips — counts, goal
           checks, a scorer readout, a whole-scene description. Pick any run to watch the generated
           program execute over the video, step by step.
         </p>

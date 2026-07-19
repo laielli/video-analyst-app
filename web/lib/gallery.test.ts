@@ -100,7 +100,7 @@ describe("shapeFor + displayShape", () => {
   it("displayShape maps machine -> display text (render-time only); unknown passes through", () => {
     expect(displayShape("count")).toBe("Count");
     expect(displayShape("scene")).toBe("Scene");
-    expect(displayShape("first-goal")).toBe("First-goal");
+    expect(displayShape("first-goal")).toBe("Goal");
     expect(displayShape("scorer-number")).toBe("Scorer-number");
     expect(displayShape("mystery")).toBe("mystery");
   });
