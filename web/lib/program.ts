@@ -29,17 +29,53 @@ function call(id: string, fnName: string, groups: Tok[][]): Tok[] {
   return out;
 }
 
-export const COMMENTS: Record<string, string> = {
-  sample_frames: "# sample frames around the goal moment",
-  detect: "# find every player on the pitch",
-  describe_scene: "# describe what's happening in the scene",
-  crop: "# isolate each jersey-number region",
-  read_text: "# OCR the number off each shirt",
-  filter: "# keep only player #10",
-  count: "# how many?",
-  temporal_order: "# order events — was it the FIRST goal?",
-  answer: "# answer the question from the evidence",
-};
+// Per-step comment for the PROGRAM panel, derived ONLY from this step's own (already-trusted)
+// args — never from the question text, the clip, or which canned demo this resembles. The panel
+// is captioned "AI reasoning", so a comment that guesses at INTENT ("around the goal moment",
+// "keep only player #10") is a lie the moment the same op appears in a different program (a
+// free-text "at the start of the video?" query, or a filter on #7/#23) — this happened in
+// production. Comments here describe MECHANICALLY what the step computes, which is true for
+// every program that could ever produce this op with these args.
+function sampledFrameCount(startMs: number, endMs: number, fps: number): number {
+  // Mirrors interpreter/primitives.py:op_sample_frames's stride math exactly (len(range(start,
+  // end+1, stride)) with stride = max(1, round(1000/fps))) so the count quoted here is never
+  // off from what the step actually samples.
+  const stride = Math.max(1, Math.round(1000 / fps));
+  return Math.floor((endMs - startMs) / stride) + 1;
+}
+
+export function commentFor(s: ProgramStep): string {
+  const a = s.args as Args;
+  switch (s.op) {
+    case "sample_frames": {
+      const n = sampledFrameCount(Number(a.start_ms), Number(a.end_ms), Number(a.fps));
+      return n <= 1 ? "# sample a single frame" : `# sample ${n} frames across the window`;
+    }
+    case "detect": {
+      const cls = ((a.classes as string[]) || []).join(", ") || "objects";
+      const onPitch = a.on_pitch ? ", keeping only on-pitch boxes" : "";
+      return `# detect ${cls} in each frame${onPitch}`;
+    }
+    case "describe_scene":
+      return "# caption each sampled frame";
+    case "crop":
+      return `# crop the "${a.region}" region from each detection`;
+    case "read_text":
+      return "# read text out of each crop";
+    case "filter": {
+      const where = a.where as Args;
+      return `# keep items where ${where.field} == "${where.equals}"`;
+    }
+    case "count":
+      return "# count the items";
+    case "temporal_order":
+      return `# order events by ${a.by}`;
+    case "answer":
+      return "# answer the question from the evidence";
+    default:
+      return `# ${s.op}`;
+  }
+}
 
 function lineFor(s: ProgramStep): Tok[] {
   const a = s.args as Args;
