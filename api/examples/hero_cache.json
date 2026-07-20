@@ -1,24 +1,579 @@
 {
-  "_comment": "Per-clip replay cache for single-goal.mov — the precomputed vision evidence the interpreter replays with zero live Azure calls (design D1 hero path). `detect` holds the REAL Azure AI Vision boxes returned at the 4.625s sampled frame (5 people; p_messi is the conf-0.75 left box). `read_text` is the hand-verified pin for the hero #10 (source:pinned) because Azure Read misreads the WC font and gpt-4o vision is quota-blocked. `events` is the known goal moment. `captions` is the hand-verified scene caption for the describe_scene primitive (Azure Image Analysis CAPTION; one whole-image caption + full-frame box, keyed by sampled-frame ms) — pinned here for the scene-description demo until a live CAPTION re-capture lands (disclosed in the demo). Keys in `detect`/`captions` are sampled-frame timestamps in ms.",
-  "clip": { "id": "single-goal", "width": 1872, "height": 1042, "duration_ms": 5067, "fps": 60 },
+  "clip": {
+    "id": "single-goal",
+    "width": 1872,
+    "height": 1042,
+    "duration_ms": 5067,
+    "fps": 60
+  },
   "detect": {
+    "3500": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.742,
+        "box": {
+          "x": 0.274,
+          "y": 0.1939,
+          "w": 0.1827,
+          "h": 0.5864
+        }
+      }
+    ],
+    "3625": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.73,
+        "box": {
+          "x": 0.2473,
+          "y": 0.1843,
+          "w": 0.1822,
+          "h": 0.5912
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.616,
+        "box": {
+          "x": 0.3146,
+          "y": 0.4712,
+          "w": 0.3082,
+          "h": 0.2975
+        }
+      }
+    ],
+    "3750": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.761,
+        "box": {
+          "x": 0.1912,
+          "y": 0.1641,
+          "w": 0.1955,
+          "h": 0.6123
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.568,
+        "box": {
+          "x": 0.2671,
+          "y": 0.4415,
+          "w": 0.3221,
+          "h": 0.3263
+        }
+      }
+    ],
+    "3875": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.741,
+        "box": {
+          "x": 0.1255,
+          "y": 0.1324,
+          "w": 0.1522,
+          "h": 0.6679
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.579,
+        "box": {
+          "x": 0.2505,
+          "y": 0.4415,
+          "w": 0.3098,
+          "h": 0.3292
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.555,
+        "box": {
+          "x": 0.8515,
+          "y": 0.3378,
+          "w": 0.094,
+          "h": 0.1939
+        }
+      }
+    ],
+    "4000": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.674,
+        "box": {
+          "x": 0.0951,
+          "y": 0.0729,
+          "w": 0.1613,
+          "h": 0.7121
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.586,
+        "box": {
+          "x": 0.8766,
+          "y": 0.0211,
+          "w": 0.1122,
+          "h": 0.3541
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.556,
+        "box": {
+          "x": 0.8125,
+          "y": 0.2889,
+          "w": 0.1277,
+          "h": 0.239
+        }
+      },
+      {
+        "det_id": "p3",
+        "cls": "person",
+        "confidence": 0.547,
+        "box": {
+          "x": 0.2179,
+          "y": 0.4223,
+          "w": 0.3114,
+          "h": 0.3522
+        }
+      }
+    ],
+    "4125": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.714,
+        "box": {
+          "x": 0.0176,
+          "y": 0.0432,
+          "w": 0.1517,
+          "h": 0.7572
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.577,
+        "box": {
+          "x": 0.7911,
+          "y": 0.2841,
+          "w": 0.125,
+          "h": 0.2361
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.564,
+        "box": {
+          "x": 0.1181,
+          "y": 0.2207,
+          "w": 0.1544,
+          "h": 0.5451
+        }
+      }
+    ],
+    "4250": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.75,
+        "box": {
+          "x": 0.0027,
+          "y": 0.0221,
+          "w": 0.133,
+          "h": 0.7812
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.629,
+        "box": {
+          "x": 0.7863,
+          "y": 0.2793,
+          "w": 0.1165,
+          "h": 0.2361
+        }
+      }
+    ],
+    "4375": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.694,
+        "box": {
+          "x": 0.7927,
+          "y": 0.2726,
+          "w": 0.1191,
+          "h": 0.2428
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.671,
+        "box": {
+          "x": 0.0,
+          "y": 0.0336,
+          "w": 0.1031,
+          "h": 0.7668
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.636,
+        "box": {
+          "x": 0.0529,
+          "y": 0.2054,
+          "w": 0.1928,
+          "h": 0.5749
+        }
+      }
+    ],
+    "4500": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.677,
+        "box": {
+          "x": 0.797,
+          "y": 0.2706,
+          "w": 0.1234,
+          "h": 0.2476
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.636,
+        "box": {
+          "x": 0.0,
+          "y": 0.0298,
+          "w": 0.0844,
+          "h": 0.785
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.632,
+        "box": {
+          "x": 0.0358,
+          "y": 0.1795,
+          "w": 0.2142,
+          "h": 0.6171
+        }
+      }
+    ],
     "4625": [
-      { "det_id": "p_messi", "cls": "person", "confidence": 0.753, "box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 } },
-      { "det_id": "p1", "cls": "person", "confidence": 0.598, "box": { "x": 0.2452, "y": 0.5739, "w": 0.2618, "h": 0.2553 } },
-      { "det_id": "p2", "cls": "person", "confidence": 0.629, "box": { "x": 0.7959, "y": 0.2649, "w": 0.1277, "h": 0.2534 } },
-      { "det_id": "p3", "cls": "person", "confidence": 0.567, "box": { "x": 0.8793, "y": 0.0, "w": 0.1122, "h": 0.2505 } },
-      { "det_id": "p4", "cls": "person", "confidence": 0.562, "box": { "x": 0.0, "y": 0.0355, "w": 0.0705, "h": 0.7726 } }
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.617,
+        "box": {
+          "x": 0.8034,
+          "y": 0.2687,
+          "w": 0.1325,
+          "h": 0.2543
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.604,
+        "box": {
+          "x": 0.2361,
+          "y": 0.5787,
+          "w": 0.273,
+          "h": 0.2582
+        }
+      },
+      {
+        "det_id": "p_messi",
+        "cls": "person",
+        "confidence": 0.73,
+        "box": {
+          "x": 0.0342,
+          "y": 0.1775,
+          "w": 0.2222,
+          "h": 0.6267
+        }
+      }
+    ],
+    "4750": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.62,
+        "box": {
+          "x": 0.8435,
+          "y": 0.239,
+          "w": 0.1223,
+          "h": 0.2937
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.585,
+        "box": {
+          "x": 0.2639,
+          "y": 0.6084,
+          "w": 0.2901,
+          "h": 0.2428
+        }
+      }
+    ],
+    "4875": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.818,
+        "box": {
+          "x": 0.0363,
+          "y": 0.1104,
+          "w": 0.2986,
+          "h": 0.7476
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.687,
+        "box": {
+          "x": 0.8718,
+          "y": 0.2361,
+          "w": 0.1255,
+          "h": 0.2965
+        }
+      },
+      {
+        "det_id": "p2",
+        "cls": "person",
+        "confidence": 0.537,
+        "box": {
+          "x": 0.3077,
+          "y": 0.6727,
+          "w": 0.2917,
+          "h": 0.1977
+        }
+      }
+    ],
+    "5000": [
+      {
+        "det_id": "p0",
+        "cls": "person",
+        "confidence": 0.79,
+        "box": {
+          "x": 0.0828,
+          "y": 0.1027,
+          "w": 0.3146,
+          "h": 0.7687
+        }
+      },
+      {
+        "det_id": "p1",
+        "cls": "person",
+        "confidence": 0.581,
+        "box": {
+          "x": 0.3339,
+          "y": 0.6699,
+          "w": 0.2965,
+          "h": 0.2025
+        }
+      }
     ]
   },
   "read_text": {
-    "p_messi": { "text": "10", "confidence": null, "source": "pinned", "note": "Hand-verified. Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision pending TPM quota. The 10 is human-legible and pinned for the hero query (disclosed in the demo)." }
-  },
-  "captions": {
-    "4625": [
-      { "text": "A soccer player in a red and white jersey runs across the pitch as the ball goes into the goal", "confidence": 0.78, "box": { "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0 } }
-    ]
+    "p_messi": {
+      "text": "10",
+      "confidence": null,
+      "source": "live",
+      "note": "gpt-4o read of the full player crop at precompute; expectation disclosed and verified"
+    }
   },
   "events": [
-    { "ts_ms": 4000, "type": "goal", "scorer_det": "p_messi", "box": { "x": 0.86, "y": 0.34, "w": 0.10, "h": 0.34 } }
-  ]
+    {
+      "ts_ms": 4000,
+      "type": "goal",
+      "scorer_det": "p_messi",
+      "box": {
+        "x": 0.86,
+        "y": 0.34,
+        "w": 0.1,
+        "h": 0.34
+      }
+    }
+  ],
+  "captions": {
+    "3500": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.7219,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "3625": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.7594,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "3750": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.7145,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "3875": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.7775,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "4000": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.7545,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "4125": [
+      {
+        "text": "a football player falling into the air with a football ball in the air",
+        "confidence": 0.7025,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "4250": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.7929,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "4375": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.769,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "4500": [
+      {
+        "text": "a football player falling into the air",
+        "confidence": 0.6998,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "4625": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.7776,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "4750": [
+      {
+        "text": "a football player falling into a goal",
+        "confidence": 0.7524,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "4875": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.7995,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    "5000": [
+      {
+        "text": "a football player falling on the ground",
+        "confidence": 0.8263,
+        "box": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ]
+  }
 }

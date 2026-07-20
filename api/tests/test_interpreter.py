@@ -7,10 +7,14 @@ split run() assembles, and Cache.load() round-tripping a JSON file with its acce
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from interpreter import Cache, Interpreter
+
+API_DIR = Path(__file__).resolve().parent.parent
+EX = API_DIR / "examples"
 
 
 def make_cache(detect=None, read_text=None, events=None):
@@ -107,6 +111,65 @@ def test_run_query_defaults_to_answer_question_when_none():
     ]
     doc = Interpreter(cache).run(program)  # no explicit query
     assert doc["query"] == "the asked question"
+
+
+# ---------------------------------------------------------------------------------------
+# End-to-end: committed programs over their committed caches (on_pitch + evidence-frame fix)
+# ---------------------------------------------------------------------------------------
+
+def _strip_comments(obj):
+    if isinstance(obj, dict):
+        return {k: _strip_comments(v) for k, v in obj.items() if not k.startswith("_")}
+    if isinstance(obj, list):
+        return [_strip_comments(v) for v in obj]
+    return obj
+
+
+def test_hero_program_on_pitch_drops_off_pitch_detections():
+    # hero_program.json sets detect.on_pitch:true. The committed (REAL Azure) hero cache carries
+    # 33 raw person detections across the full 3500-5000ms/8fps window, 10 of which are off-pitch
+    # (crowd/camera-operator boxes whose bottom edge never reaches the pitch horizon); the replay
+    # must show the 23 on-pitch survivors, not the raw 33 (the customer complaint this whole
+    # mission fixes).
+    program = _strip_comments(json.loads((EX / "hero_program.json").read_text()))["program"]
+    doc = Interpreter(Cache.load(EX / "hero_cache.json")).run(program)
+    detect_trace = next(t for t in doc["trace"] if t["op"] == "detect")
+    assert detect_trace["output_label"] == "23 people"
+    assert doc["findings"]["grounded"] is True
+    assert doc["findings"]["answer"] == "Yes"
+
+
+def test_hero_program_answer_step_has_nonzero_evidence_frame():
+    # the LAST step (answer) must never show the black/ts-0 frame when its lineage is real.
+    program = _strip_comments(json.loads((EX / "hero_program.json").read_text()))["program"]
+    doc = Interpreter(Cache.load(EX / "hero_cache.json")).run(program)
+    answer_trace = doc["trace"][-1]
+    assert answer_trace["op"] == "answer"
+    assert answer_trace["evidence"]["frame_ts_ms"] != 0
+    assert answer_trace["evidence"]["overlays"]
+
+
+def test_bernabeu_first_goal_7_still_grounds_over_widened_window():
+    # the widened 9000-14800ms window contains both the legible scorer frame (10000) and the
+    # REAL goal moment (ts 14250, from the live-captured committed cache), so the replay grounds.
+    program = _strip_comments(json.loads((EX / "bernabeu-counter_first-goal-7_program.json").read_text()))["program"]
+    doc = Interpreter(Cache.load(EX / "bernabeu-counter_cache.json")).run(program)
+    assert doc["findings"]["grounded"] is True
+    assert doc["findings"]["answer"] == "Yes"
+    answer_trace = doc["trace"][-1]
+    assert answer_trace["evidence"]["frame_ts_ms"] != 0
+
+
+def test_bernabeu_count_program_on_pitch_keeps_all_three():
+    # bernabeu-counter_count_program.json sets detect.on_pitch:true and samples the single
+    # hint-window midpoint frame 11750ms (t=(9000+14500)/2 — the same frame SYSTEM_PROMPT's
+    # count rule makes the free-text path sample, so canned and live counts agree). The real
+    # committed cache carries 3 person detections there (Vinicius, the defender, the keeper),
+    # all on-pitch (every box bottom clears the pitch-horizon threshold), so on_pitch drops
+    # none and count grounds to '3'.
+    program = _strip_comments(json.loads((EX / "bernabeu-counter_count_program.json").read_text()))["program"]
+    doc = Interpreter(Cache.load(EX / "bernabeu-counter_cache.json")).run(program)
+    assert doc["findings"]["answer"] == "3"
 
 
 # ---------------------------------------------------------------------------------------

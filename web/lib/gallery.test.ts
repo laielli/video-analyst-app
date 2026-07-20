@@ -3,6 +3,7 @@ import {
   buildCards,
   groupByShape,
   clipLabel,
+  clipLabelForId,
   thumbFor,
   shapeFor,
   hrefFor,
@@ -15,7 +16,7 @@ import type { CuratedEntry } from "@/lib/types";
 // no DOM, no fetch). Mirrors program.test.ts: one case per helper / branch.
 
 const SG_FIRST: CuratedEntry = {
-  id: "hero-10-first-goal", text: "Does #10 score the first goal?",
+  id: "hero-10-first-goal", text: "Does #10 score the goal?",
   clip: "single-goal", clipLabel: "Messi vs Mexico — World Cup 2022", shape: "first-goal",
 };
 const BERN_COUNT: CuratedEntry = {
@@ -39,11 +40,12 @@ describe("buildCards", () => {
       queryId: "hero-10-first-goal",
       clipId: "single-goal",
       clipLabel: "Messi vs Mexico — World Cup 2022",
-      text: "Does #10 score the first goal?",
+      text: "Does #10 score the goal?",
       shape: "first-goal",
       href: "/?query=hero-10-first-goal",
     });
-    expect(card.thumb).toEqual({ kind: "img", src: "/frames/goal-4000.jpg" });
+    // thumb is the CLIP's poster still (frames-manifest.json), not a per-query pin.
+    expect(card.thumb).toEqual({ kind: "img", src: "/frames/single-goal/f4625.jpg" });
   });
 });
 
@@ -98,7 +100,7 @@ describe("shapeFor + displayShape", () => {
   it("displayShape maps machine -> display text (render-time only); unknown passes through", () => {
     expect(displayShape("count")).toBe("Count");
     expect(displayShape("scene")).toBe("Scene");
-    expect(displayShape("first-goal")).toBe("First-goal");
+    expect(displayShape("first-goal")).toBe("Goal");
     expect(displayShape("scorer-number")).toBe("Scorer-number");
     expect(displayShape("mystery")).toBe("mystery");
   });
@@ -115,15 +117,31 @@ describe("clipLabel — falls back to raw clip id when missing", () => {
   });
 });
 
-describe("thumbFor — both branches (committed still vs token placeholder)", () => {
-  it("returns the committed still for a single-goal query", () => {
-    expect(thumbFor(SG_FIRST)).toEqual({ kind: "img", src: "/frames/goal-4000.jpg" });
+describe("thumbFor — per-clip poster still, with a placeholder fallback", () => {
+  it("returns the clip's poster still for a single-goal query", () => {
+    expect(thumbFor(SG_FIRST)).toEqual({ kind: "img", src: "/frames/single-goal/f4625.jpg" });
+    // same clip, different query -> same poster (thumb is per-CLIP, not per-query).
     expect(thumbFor({ ...SG_FIRST, id: "single-goal-scene" })).toEqual({
-      kind: "img", src: "/frames/scorer-4625.jpg",
+      kind: "img", src: "/frames/single-goal/f4625.jpg",
     });
   });
 
-  it("returns a token placeholder for a bernabeu-counter query (no committed still)", () => {
-    expect(thumbFor(BERN_COUNT)).toEqual({ kind: "placeholder" });
+  it("returns a real thumb for a bernabeu-counter query too (no more hero-only stills)", () => {
+    expect(thumbFor(BERN_COUNT)).toEqual({ kind: "img", src: "/frames/bernabeu-counter/f10000.jpg" });
+  });
+
+  it("returns a token placeholder for a clip the frames manifest doesn't know about (defensive)", () => {
+    expect(thumbFor({ ...BERN_COUNT, clip: "no-such-clip" })).toEqual({ kind: "placeholder" });
+  });
+});
+
+describe("clipLabelForId — label lookup by bare clip id", () => {
+  it("finds the label from the first curated entry over that clip", () => {
+    expect(clipLabelForId("single-goal")).toBe("Messi vs Mexico — World Cup 2022");
+    expect(clipLabelForId("bernabeu-counter")).toBe("Real Madrid counter — Champions League 2025");
+  });
+
+  it("falls back to the raw id for a clip with no curated entry", () => {
+    expect(clipLabelForId("no-such-clip")).toBe("no-such-clip");
   });
 });

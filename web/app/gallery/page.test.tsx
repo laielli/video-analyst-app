@@ -40,7 +40,7 @@ describe("Gallery route", () => {
   it("groups cards under shape sections in deterministic order with no hollow group", () => {
     render(<Gallery />);
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(["Count", "First-goal", "Scorer-number", "Scene"]);
+    expect(headings).toEqual(["Count", "Goal", "Scorer-number", "Scene"]);
   });
 
   it("links bidirectionally back to the analyst", () => {

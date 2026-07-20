@@ -28,6 +28,20 @@ describe("programToLines", () => {
     expect(s).toContain("people = detect(");
     expect(s).toContain("frames");
     expect(s).toContain('"person", "ball"');
+    // no on_pitch arg -> no on_pitch token (the arg is optional and off by default)
+    expect(s).not.toContain("on_pitch");
+  });
+
+  it("renders detect's on_pitch crowd-filter arg when present", () => {
+    // Surfacing on_pitch in the rendered program is the point of the arg — the glass box
+    // shows HOW spectators/staff get excluded from "person" detections, not just that they are.
+    const step: ProgramStep = {
+      id: "people", op: "detect",
+      args: { frames: "frames", classes: ["person"], on_pitch: true },
+    };
+    const [line] = programToLines([step]);
+    const s = tokens(line);
+    expect(s).toContain("on_pitch=True");
   });
 
   it("renders describe_scene with frames (and optional max_captions)", () => {

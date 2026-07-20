@@ -36,6 +36,7 @@ from limits import (  # noqa: E402
     MAX_SCENE_CAPTIONS,
     MAX_STEPS,
     MAX_STR_ARG_LEN,
+    has_banned_str_chars,
     sampled_frame_count,
 )
 
@@ -190,6 +191,17 @@ def _arg_domain_errors(i: int, sid: str, op: str, args: dict) -> list[str]:
                         f"step[{i}] '{sid}' (detect): a classes element is {len(c)} chars; "
                         f"max is {MAX_STR_ARG_LEN}"
                     )
+                elif has_banned_str_chars(c):
+                    out.append(
+                        f"step[{i}] '{sid}' (detect): a classes element carries an "
+                        f"invisible/bidi-control character"
+                    )
+        on_pitch = args.get("on_pitch")
+        # optional arg; the schema backs this up (type: boolean), but strict:false makes the
+        # local validator the real gate — a non-bool on_pitch (e.g. a smuggled string/object)
+        # must not silently reach op_detect's truthiness check.
+        if on_pitch is not None and not isinstance(on_pitch, bool):
+            out.append(f"step[{i}] '{sid}' (detect): on_pitch must be a boolean, got {type(on_pitch).__name__}")
     elif op == "filter":
         where = args.get("where", {})
         if isinstance(where, dict):
@@ -200,6 +212,11 @@ def _arg_domain_errors(i: int, sid: str, op: str, args: dict) -> list[str]:
                         f"step[{i}] '{sid}' (filter): where.{f} is {len(v)} chars; "
                         f"max is {MAX_STR_ARG_LEN}"
                     )
+                elif isinstance(v, str) and has_banned_str_chars(v):
+                    out.append(
+                        f"step[{i}] '{sid}' (filter): where.{f} carries an "
+                        f"invisible/bidi-control character"
+                    )
     elif op == "describe_scene":
         mc = args.get("max_captions")
         # optional arg; bound it to 1..MAX_SCENE_CAPTIONS when present (the schema backs this up,
@@ -208,6 +225,16 @@ def _arg_domain_errors(i: int, sid: str, op: str, args: dict) -> list[str]:
             out.append(
                 f"step[{i}] '{sid}' (describe_scene): max_captions {mc} out of "
                 f"[1, {MAX_SCENE_CAPTIONS}]"
+            )
+    elif op == "answer":
+        q = args.get("question")
+        # answer.question stays length-exempt (see the note below) but is NOT spoofing-exempt:
+        # a question carrying zero-width/RTL-override noise would render in the UI differently
+        # than it executes, and the honest outcome for a noise-salted query is ungrounded
+        # (noise-precedence), not a clean answer to the de-noised text.
+        if isinstance(q, str) and has_banned_str_chars(q):
+            out.append(
+                f"step[{i}] '{sid}' (answer): question carries an invisible/bidi-control character"
             )
     # answer.question is deliberately NOT length-capped here: it is the user's query passed
     # through verbatim, already bounded by MAX_QUERY_TEXT_LEN (500) at the route AND by

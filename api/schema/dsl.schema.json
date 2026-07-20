@@ -72,6 +72,10 @@
               "maxItems": 16,
               "description": "Object classes to keep, e.g. [\"person\",\"ball\"]. Azure tags are matched case-insensitively. minItems/maxItems/maxLength are the trust-boundary arg-domain caps (MAX_DETECT_CLASSES / MAX_STR_ARG_LEN in api/limits.py).",
               "items": { "type": "string", "maxLength": 256 }
+            },
+            "on_pitch": {
+              "type": "boolean",
+              "description": "Optional. Default false (unchanged behavior). When true, keep only detections whose box BOTTOM edge (y+h) >= ON_PITCH_MIN_BOTTOM_Y (api/limits.py, 0.55): the broadcast-framing heuristic that people standing on the pitch have box bottoms in the lower frame, while crowd/staff in the stands sit above the pitch horizon. Filters spectators/cameramen out of person detections."
             }
           }
         }

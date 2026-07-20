@@ -8,9 +8,9 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 3500,
-        "end_ms": 5000,
-        "fps": 8
+        "start_ms": 4283,
+        "end_ms": 4284,
+        "fps": 1
       }
     },
     {
@@ -24,36 +24,17 @@
       }
     },
     {
-      "id": "jerseys",
-      "op": "crop",
+      "id": "count_people",
+      "op": "count",
       "args": {
-        "detections": "people",
-        "region": "jersey"
-      }
-    },
-    {
-      "id": "numbers",
-      "op": "read_text",
-      "args": {
-        "crops": "jerseys"
-      }
-    },
-    {
-      "id": "absent",
-      "op": "filter",
-      "args": {
-        "items": "numbers",
-        "where": {
-          "field": "text",
-          "equals": "99"
-        }
+        "items": "people"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "absent",
+        "from": "count_people",
         "question": "How many people are in the crowd?"
       }
     }
@@ -62,5 +43,5 @@
   "usage": null,
   "prompt_version": "ee7136e6ee7ad184",
   "model": "gpt-4o",
-  "captured_at": "2026-06-17T03:05:36Z"
+  "captured_at": "2026-07-19T22:28:05Z"
 }

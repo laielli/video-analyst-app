@@ -8,9 +8,9 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 9000,
-        "end_ms": 11000,
-        "fps": 8
+        "start_ms": 11750,
+        "end_ms": 11751,
+        "fps": 1
       }
     },
     {
@@ -24,43 +24,24 @@
       }
     },
     {
-      "id": "jerseys",
-      "op": "crop",
+      "id": "count_people",
+      "op": "count",
       "args": {
-        "detections": "people",
-        "region": "jersey"
-      }
-    },
-    {
-      "id": "numbers",
-      "op": "read_text",
-      "args": {
-        "crops": "jerseys"
-      }
-    },
-    {
-      "id": "absent",
-      "op": "filter",
-      "args": {
-        "items": "numbers",
-        "where": {
-          "field": "text",
-          "equals": "99"
-        }
+        "items": "people"
       }
     },
     {
       "id": "result",
       "op": "answer",
       "args": {
-        "from": "absent",
-        "question": "How many players ‮erehtsi‬  are visible?"
+        "from": "count_people",
+        "question": "How many players ‮erehtsi‬ \u0007‏ are visible? \u0000"
       }
     }
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "4ff106e7528d0de5",
+  "prompt_version": "44f0f483aae6e447",
   "model": "gpt-4o",
-  "captured_at": "2026-06-17T03:06:01Z"
+  "captured_at": "2026-07-19T22:35:27Z"
 }

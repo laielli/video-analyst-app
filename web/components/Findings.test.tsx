@@ -20,9 +20,9 @@ describe("Findings", () => {
   });
 
   it("resolved done shows the verdict", () => {
-    const findings: F = { answer: "Yes", verdict: "Yes — #10 scored the first goal", grounded: true };
+    const findings: F = { answer: "Yes", verdict: "Yes — #10 scored the goal", grounded: true };
     render(<Findings status="done" findings={findings} stepCount={7} total={7} />);
-    expect(screen.getByText("Yes — #10 scored the first goal")).toBeInTheDocument();
+    expect(screen.getByText("Yes — #10 scored the goal")).toBeInTheDocument();
     expect(document.querySelector(".findings.resolved")).toBeInTheDocument();
   });
 

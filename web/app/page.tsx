@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRun, fetchCatalog, shareLink } from "@/lib/useRun";
 import type { CatalogQuery } from "@/lib/types";
+import { clipLabelForId } from "@/lib/gallery";
 import ProgramPanel from "@/components/ProgramPanel";
 import EvidencePanel from "@/components/EvidencePanel";
+import ClipPlayer from "@/components/ClipPlayer";
 import StepTracker from "@/components/StepTracker";
 import Findings from "@/components/Findings";
 
@@ -59,8 +61,12 @@ export default function Page() {
   }, [queryId]);
 
   const selected = queries.find((q) => q.id === queryId);
-  // v1 has a single clip; carry its id so a free-text question runs against the right clip.
-  const clipId = selected?.clip;
+  // The clip a free-text question runs against, AND the clip EvidencePanel/ClipPlayer scope
+  // their frames to. A run doc's own clip block (once meta arrives) is authoritative — it's the
+  // clip that was ACTUALLY analyzed; pre-run/idle falls back to the selected catalog clip so the
+  // player has something to show before the first run completes.
+  const runClipId = run.meta?.clip?.id;
+  const clipId = runClipId ?? selected?.clip;
 
   // Submit the typed question (no-op on empty/whitespace). The streamed meta.query then reflects
   // the user's words, so the heading shows the typed question rather than the canned label.
@@ -150,8 +156,16 @@ export default function Page() {
 
         <div className="panels">
           <ProgramPanel program={program} steps={run.steps} current={run.current} />
-          <EvidencePanel step={currentStep} programSource={run.meta?.program_source} />
+          <EvidencePanel step={currentStep} programSource={run.meta?.program_source} clipId={clipId} />
         </div>
+
+        {/* The reviewer's top complaint: "I should be able to view the original clip." Its own
+            row below the PROGRAM/EVIDENCE panels — never crowds them. */}
+        <ClipPlayer
+          clipId={clipId}
+          clipLabel={clipId ? clipLabelForId(clipId) : undefined}
+          focusTs={currentStep?.evidence?.frame_ts_ms}
+        />
 
         <section className="tracker" aria-label="Execution pipeline">
           <div className="tracker-top">

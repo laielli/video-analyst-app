@@ -1,5 +1,5 @@
 {
-  "_comment": "Second clip's ingest manifest — a Real Madrid counterattack from best-goals-2025-30s.mov (a DIFFERENT real goal than the hero, so the codegen hint genuinely differs). Mirrors clips/single-goal/manifest.json field-for-field. `source` resolves relative to this dir. The sampling window 9000-11000ms at fps 8 -> stride 125, so the scorer's legible frame (10000 = 9000 + 8*125) and the goal moment (10500 = 9000 + 12*125) are both sampled, exactly as the hero clip aligns its 4625 frame. The scorer is the white-shirted #7 (Vinicius) running with the ball at the Bernabeu; Azure detect supplies the boxes, the #7 read is human-pinned (same disclosure posture as the hero #10), and the goal event makes the positive temporal claim the 'Does #7 score the first goal?' query grounds against. The COMMITTED cache (api/examples/bernabeu-counter_cache.json) is DERIVED by running scripts/precompute.py over api/tests/fixtures/fake_detect_bernabeu.json under a configurable FakeAzureVision (Alt C, no creds) — not hand-authored.",
+  "_comment": "Second clip's ingest manifest — a Real Madrid counterattack from best-goals-2025-30s.mov (a DIFFERENT real goal than the hero, so the codegen hint genuinely differs). Mirrors clips/single-goal/manifest.json field-for-field. `source` resolves relative to this dir. Ground truth was re-established by watching the source video directly: the counterattack segment runs ~7870-14820ms (see `video`), the scorer (white-shirted #7, Vinicius) is legible at 10000ms, and the REAL goal moment is ~14250ms — a PRIOR revision of this manifest carried a fake-fixture-derived goal@10500 and a stale nearest_box that came from that same fake fixture; both were wrong and are corrected here. The sampling window 9000-14800ms at fps 8 -> stride 125, so both the legible scorer frame (10000 = 9000 + 8*125) and the real goal moment (14250 = 9000 + 42*125) are sampled. No jersey digit is ever hand-typed into the cache: the pin below only DISCLOSES the expected read ('7'); scripts/precompute.py requires a REAL gpt-4o VLM read of the full-person crop to agree before writing read_text, hard-failing (GroundingError) on a mismatch.",
   "clip": {
     "id": "bernabeu-counter",
     "source": "../../best-goals-2025-30s.mov",
@@ -10,41 +10,31 @@
   },
   "sampling": {
     "start_ms": 9000,
-    "end_ms": 11000,
+    "end_ms": 14800,
     "fps": 8
   },
   "detect_classes": ["person"],
+  "poster_ts": 10000,
+  "video": { "cut_start_ms": 7870, "cut_end_ms": 14820 },
   "pins": [
     {
-      "_comment": "Renames the detection nearest this box (at the legible 10.0s frame) to the semantic id `p_vini` AND pins its jersey read to '7'. The match box is the white #7 scorer's person box at 10000ms (matches the fixture's highest-confidence box).",
-      "match": { "frame_ts_ms": 10000, "nearest_box": { "x": 0.2902, "y": 0.3046, "w": 0.1142, "h": 0.4518 } },
+      "_comment": "Renames the detection nearest this box (at the legible 10.0s frame) to the semantic id `p_vini`. The match box is the real (re-verified against the source video) white #7 scorer's person box at 10000ms. The read is DISCLOSED, not hardcoded: precompute.py requires a live gpt-4o VLM read of the FULL-PERSON crop (not the jersey box) to actually read '7' before it will write read_text for p_vini — a mismatch hard-fails the precompute run (GroundingError), the honest human-verification gate. (A prior revision's nearest_box was derived from a fake fixture and is retired.)",
+      "match": { "frame_ts_ms": 10000, "nearest_box": { "x": 0.35, "y": 0.30, "w": 0.06, "h": 0.33 } },
       "det_id": "p_vini",
-      "read_text": {
-        "text": "7",
-        "confidence": null,
-        "source": "pinned",
-        "note": "Hand-verified. The white #7 is human-legible at 10.0s; pinned for the #7 query (gpt-4o vision pending TPM quota; Azure Read is deliberately not a rung). Disclosed in the demo, same posture as the hero #10."
+      "read": {
+        "mode": "live_vlm",
+        "expected_text": "7",
+        "note": "The white #7 is human-legible at 10.0s; gpt-4o vision reads the full-person crop and is expected (and verified live) to read 7."
       }
     }
   ],
   "events": [
     {
-      "_comment": "The known goal moment of this counterattack. scorer_pin refers to the pin det_id (p_vini); the pipeline derives events[].scorer_det FROM the pin resolution so the join key stays byte-identical across detect/read_text/events.",
-      "ts_ms": 10500,
+      "_comment": "The REAL goal moment of this counterattack, established by watching the source video (best-goals-2025-30s.mov) directly. scorer_pin refers to the pin det_id (p_vini); the pipeline derives events[].scorer_det FROM the pin resolution so the join key stays byte-identical across detect/read_text/events. (A prior revision carried ts_ms=10500 and a matching box, both derived from a fake fixture — that goal moment was never real and is retired.)",
+      "ts_ms": 14250,
       "type": "goal",
       "scorer_pin": "p_vini",
-      "box": { "x": 0.29, "y": 0.31, "w": 0.11, "h": 0.45 }
-    }
-  ],
-  "evidence_frames": [
-    {
-      "_comment": "Stills the pipeline emits for completeness. NOTE: EvidencePanel.frameSrc hardcodes the HERO's two stills keyed purely on ts (ts<=4200), so these will NOT render in the current UI — generalizing that lookup is out of scope (see PR body). Filenames carried so a creds-enabled live build emits them.",
-      "ts_ms": 10500,
-      "filename": "counter-goal-10500.jpg"
-    },
-    {
-      "ts_ms": 10000,
-      "filename": "counter-scorer-10000.jpg"
+      "box": { "x": 0.06, "y": 0.27, "w": 0.20, "h": 0.20 }
     }
   ]
 }

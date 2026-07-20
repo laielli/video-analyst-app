@@ -22,6 +22,8 @@ The defaults sit comfortably above the legitimate full-clip sweep while rejectin
 """
 from __future__ import annotations
 
+import re
+
 # Raw codegen output cap, checked BEFORE any json.loads / schema walk. The jsonschema pass is
 # superlinear on hostile input (an 8-way anyOf per program item), so the validator itself is a
 # DoS vector on an unbounded blob — it must never see one. Enforced in codegen.generate
@@ -52,6 +54,28 @@ MAX_SCENE_CAPTIONS = 16
 # answer.question; crop.region/temporal_order.by enums are already constrained structurally).
 MAX_STR_ARG_LEN = 256
 
+# Invisible / bidirectional-control code points banned from EVERY free-string arg in a program
+# (detect.classes[] elements, filter.where.field/equals, answer.question): C0+C1 controls,
+# zero-width & directional marks (U+200B-U+200F), bidi embeddings/overrides (U+202A-U+202E),
+# invisible operators + bidi isolates (U+2060-U+2069), and the BOM/ZWNBSP (U+FEFF). None of
+# these can appear in a legitimate question about a clip, but all are classic smuggling /
+# display-spoofing vectors — an answer.question carrying an RTL override would RENDER in the
+# web UI differently than it executes, exactly the lie a glass-box demo cannot allow. Programs
+# carrying them are rejected at the validator, so a noise-salted query grounds out honestly
+# (noise-precedence) instead of being answered as if it were clean. Plane-14 Tags + Variation
+# Selectors Supplement (U+E0000-U+E01EF) are the "ASCII smuggling" vector — invisible copies of
+# the ASCII range — and are banned wholesale; the BMP variation selectors (U+FE00-U+FE0F) are
+# deliberately NOT banned (legitimate emoji text, e.g. a soccer-ball emoji, carries U+FE0F).
+BANNED_STR_CHARS = re.compile(
+    "[\\x00-\\x1f\\x7f-\\x9f\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2069\\ufeff"
+    "\\U000E0000-\\U000E01EF]"
+)
+
+
+def has_banned_str_chars(s: str) -> bool:
+    """True when a free-string program arg carries an invisible/bidi-control code point."""
+    return bool(BANNED_STR_CHARS.search(s))
+
 # Per-caption text-length cap: captions are model-generated free text; bound the STRING that
 # enters a binding/answer/run-doc BEFORE it does (run_doc.schema.json has no maxLength on labels).
 # Aligned with MAX_STR_ARG_LEN. Enforced in op_describe_scene (truncation at the boundary) and
@@ -62,6 +86,18 @@ MAX_CAPTION_LEN = 256
 # start_ms/end_ms maximum). Far above any real clip (~30s) but finite, so a 2e9 end_ms is
 # rejected structurally before the count math even runs. Kept in sync with the schema.
 MAX_TIME_MS = 86_400_000  # 24h in ms — a generous absolute ceiling, never a real clip length
+
+# detect.on_pitch filter threshold (normalized 0-1 frame coords): a detection is kept only when
+# its box BOTTOM edge (y+h) >= this value. Broadcast-framing heuristic: in these wide broadcast
+# angles the pitch horizon sits roughly mid-frame, so a person actually standing/playing ON the
+# pitch has their box bottom in the lower portion of the frame, while spectators/cameramen/staff
+# in the stands (above the pitch horizon) have box bottoms well above it. Using the bottom edge
+# (not the box center) also keeps players whose box is cropped at the top of the frame (tall/near
+# camera). Verified against the committed hero cache (2026-07-19 real re-capture of
+# single-goal.mov, 33 raw person detections across the 3500-5000ms window): every dropped box
+# bottom is <= 0.533 (stands/cameraman region) and every kept bottom is >= 0.766 (on the pitch),
+# so 0.55 sits cleanly inside the real gap between the two populations (23 of 33 kept).
+ON_PITCH_MIN_BOTTOM_Y = 0.55
 
 
 class ProgramLimitExceeded(ValueError):

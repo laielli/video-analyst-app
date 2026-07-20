@@ -75,12 +75,18 @@ Every `read_text` key MUST be a real `det_id` present somewhere in `detect`.
 
 | value    | meaning                                                                          |
 | -------- | -------------------------------------------------------------------------------- |
-| `live`   | a real call made **this run** (e.g. the gpt-4o VLM read during precompute).      |
+| `live`   | a real call made **this run** (e.g. the gpt-4o VLM read during precompute — this includes pin-verified reads; see below). |
 | `cached` | precomputed real Azure output replayed from this cache (detections are `cached`).|
-| `pinned` | a hand-verified value (e.g. the hero `#10` OCR pin).                             |
+| `pinned` | reserved for hand-authored fixtures; the live pipeline never writes it (see below). |
 
-The OCR ladder is binding: **pin** (`pinned`) → **gpt-4o VLM** (`live`, accept if digits) →
-**skip** (no entry). Azure Read is deliberately NOT a rung (its 22→77 misread would poison
+A manifest **pin** no longer hardcodes a jersey digit. It DISCLOSES an expected read (e.g.
+`{"mode": "live_vlm", "expected_text": "10"}`), and `scripts/precompute.py`'s `OcrLadder`
+requires a REAL gpt-4o read of the full-person crop to agree with that expectation before
+writing `read_text` — a mismatch is a hard `GroundingError`, never a silent hardcode. The
+written entry is therefore always `source: "live"`, carrying a `note` that discloses the
+human-verified expectation was checked live. The OCR ladder is binding: **pin-verify**
+(`live`, mandatory match) → **gpt-4o VLM** (`live`, accept if digits, no disclosed expectation)
+→ **skip** (no entry). Azure Read is deliberately NOT a rung (its 22→77 misread would poison
 the cache).
 
 ### `events` — `[ event, ... ]`

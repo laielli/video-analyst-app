@@ -140,6 +140,63 @@ def test_non_string_classes_element_rejected():
     assert any("not a string" in e for e in sem)
 
 
+def test_banned_invisible_chars_rejected_everywhere():
+    # Trust-boundary guard (2026-07-19): zero-width / RTL-override / control chars in ANY
+    # free-string arg are rejected — a question rendered with a bidi override would display
+    # differently than it executes, and a noise-salted query must ground out (noise-precedence),
+    # not be answered as if clean. Mirrors the live adv-unicode-rtl-noise / adv-zero-width-
+    # count-bait fixtures, which replay through this exact rejection to an honest ungrounded.
+    def _prog(question="how many players are visible?", cls="person", equals=None):
+        steps = [
+            {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}},
+            {"id": "d", "op": "detect", "args": {"frames": "f", "classes": [cls]}},
+        ]
+        if equals is not None:
+            steps.append({"id": "g", "op": "filter",
+                          "args": {"items": "d", "where": {"field": "cls", "equals": equals}}})
+        steps.append({"id": "r", "op": "answer",
+                      "args": {"from": steps[-1]["id"], "question": question}})
+        return steps
+
+    # RTL override in answer.question (the adv-unicode-rtl-noise shape).
+    sem = semantic_errors(_prog(question="How many players ‮erehtsi‬ are visible?"))
+    assert any("invisible/bidi-control" in e and "(answer)" in e for e in sem)
+    # Zero-width space in answer.question (the adv-zero-width-count-bait shape).
+    sem = semantic_errors(_prog(question="How​ many​ players?"))
+    assert any("invisible/bidi-control" in e for e in sem)
+    # C0 control smuggled into a detect class.
+    sem = semantic_errors(_prog(cls="per\x07son"))
+    assert any("invisible/bidi-control" in e and "(detect)" in e for e in sem)
+    # Bidi isolate smuggled into filter.where.equals.
+    sem = semantic_errors(_prog(equals="⁦person⁩"))
+    assert any("invisible/bidi-control" in e and "(filter)" in e for e in sem)
+
+
+def test_tags_block_ascii_smuggling_rejected():
+    # Plane-14 Tags (U+E0001..E007F) are invisible copies of ASCII — the "ASCII smuggling"
+    # injection vector distinct from zero-width/bidi noise. A question salted with tag chars
+    # must be rejected like any other invisible-char payload.
+    smuggled = "How many players are visible?" + "\U000e0068\U000e0069"  # invisible "hi"
+    sem = semantic_errors([
+        {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}},
+        {"id": "d", "op": "detect", "args": {"frames": "f", "classes": ["person"]}},
+        {"id": "r", "op": "answer", "args": {"from": "d", "question": smuggled}},
+    ])
+    assert any("invisible/bidi-control" in e for e in sem)
+
+
+def test_legit_unicode_survives_banned_char_guard():
+    # No overfitting: real-world typography (№, em-dash, curly quotes, accents) must pass —
+    # the ban covers only invisible/control/bidi code points, never visible characters.
+    sem = semantic_errors([
+        {"id": "f", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}},
+        {"id": "d", "op": "detect", "args": {"frames": "f", "classes": ["person"]}},
+        {"id": "r", "op": "answer",
+         "args": {"from": "d", "question": "Does №10 — the 'capitán' — score? ⚽️"}},
+    ])
+    assert not any("invisible/bidi-control" in e for e in sem)
+
+
 def test_unserializable_doc_fails_closed():
     # A doc that can't be json-serialized is treated as oversized (fails closed), not a crash.
     class _Unserializable:
@@ -240,6 +297,58 @@ def test_filter_and_count_accept_captions():
         {"id": "result", "op": "answer", "args": {"from": "n", "question": "q"}},
     ]}
     assert validation_errors(prog, clip={"duration_ms": 8000}) == []
+
+
+# --------------------------------------------------------------------------------------
+# detect.on_pitch (optional bool arg) — validator acceptance/rejection
+# --------------------------------------------------------------------------------------
+
+def _detect_prog(detect_args):
+    return {"program": [
+        {"id": "frames", "op": "sample_frames", "args": {"start_ms": 0, "end_ms": 100, "fps": 8}},
+        {"id": "people", "op": "detect", "args": {"frames": "frames", **detect_args}},
+        {"id": "result", "op": "answer", "args": {"from": "people", "question": "is there a person?"}},
+    ]}
+
+
+def test_on_pitch_absent_is_valid():
+    # unset (default false, unchanged behavior) must still validate.
+    prog = _detect_prog({"classes": ["person"]})
+    assert validation_errors(prog, clip=canned.clip_by_id("single-goal")) == []
+
+
+def test_on_pitch_true_is_valid():
+    prog = _detect_prog({"classes": ["person"], "on_pitch": True})
+    assert validation_errors(prog, clip=canned.clip_by_id("single-goal")) == []
+
+
+def test_on_pitch_false_is_valid():
+    prog = _detect_prog({"classes": ["person"], "on_pitch": False})
+    assert validation_errors(prog, clip=canned.clip_by_id("single-goal")) == []
+
+
+def test_on_pitch_non_bool_rejected_structurally():
+    # the schema types on_pitch as boolean; a string/number/object must fail structurally.
+    for bad in ("true", 1, {"x": 1}, [True]):
+        prog = _detect_prog({"classes": ["person"], "on_pitch": bad})
+        errs = validation_errors(prog, clip=canned.clip_by_id("single-goal"))
+        assert errs and all(e.startswith("structural:") for e in errs), (bad, errs)
+
+
+def test_on_pitch_non_bool_rejected_semantically_when_structure_bypassed():
+    # the semantic-level arg-domain check fires independently (mirrors test_detect_classes_*
+    # in test_program_limits.py): a caller that only runs semantic_errors must still catch it.
+    prog = _detect_prog({"classes": ["person"], "on_pitch": "yes"})
+    sem = semantic_errors(prog["program"], clip=canned.clip_by_id("single-goal"))
+    assert any("on_pitch must be a boolean" in e for e in sem)
+
+
+def test_pinned_bernabeu_first_goal_programs_pass_with_widened_window():
+    # regression guard: the widened 9000-14800ms windows (containing the real ~14250ms goal
+    # moment) + on_pitch:true still validate against the committed clip duration.
+    for name in ("bernabeu-counter_first-goal-7_program.json", "bernabeu-counter_first-goal-23_program.json"):
+        raw = json.loads((EX / name).read_text())
+        assert validation_errors(raw, clip=canned.clip_by_id("bernabeu-counter")) == [], name
 
 
 def test_scene_pinned_program_validates():

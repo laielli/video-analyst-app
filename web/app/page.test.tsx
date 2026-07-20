@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, waitFor, cleanup, screen } from "@testing-library/react";
+import { render, waitFor, cleanup, screen, act } from "@testing-library/react";
 import Page from "./page";
 import { API_BASE } from "@/lib/useRun";
 import { MockEventSource } from "@/vitest.setup";
@@ -14,7 +14,7 @@ const CATALOG = {
     { id: "bernabeu-counter", label: "Real Madrid counter" },
   ],
   queries: [
-    { id: "hero-10-first-goal", text: "Does #10 score the first goal?", clip: "single-goal" },
+    { id: "hero-10-first-goal", text: "Does #10 score the goal?", clip: "single-goal" },
     { id: "bernabeu-count-players", text: "How many players are visible?", clip: "bernabeu-counter" },
   ],
 };
@@ -100,5 +100,46 @@ describe("analyst header bidirectional nav", () => {
     render(<Page />);
     const link = screen.getByRole("link", { name: "Browse all runs →" });
     expect(link).toHaveAttribute("href", "/gallery");
+  });
+});
+
+// ClipPlayer is clip-aware end to end: pre-run it shows the selected catalog clip (idle default),
+// and once a run's meta.clip arrives it switches to THAT clip — never stuck on a stale/wrong clip
+// (the root-cause bug this mission fixes for EvidencePanel applies equally to the player).
+describe("ClipPlayer wiring", () => {
+  beforeEach(() => {
+    stubCatalog();
+    setSearch("");
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
+    Object.defineProperty(window, "location", { configurable: true, value: realLocation });
+  });
+
+  it("pre-run/idle shows the selected catalog clip's player", async () => {
+    render(<Page />);
+    await waitFor(() => expect(MockEventSource.last).toBeTruthy());
+    const video = document.querySelector("video") as HTMLVideoElement;
+    expect(video).toBeTruthy();
+    expect(video.getAttribute("src")).toBe("/clips/single-goal.mp4");
+  });
+
+  it("once meta.clip arrives, the player switches to the run's clip (not the catalog selection)", async () => {
+    render(<Page />);
+    await waitFor(() => expect(MockEventSource.last).toBeTruthy());
+    act(() => {
+      MockEventSource.last.emit("meta", {
+        query: "q",
+        total_steps: 1,
+        program: [],
+        clip: { id: "bernabeu-counter", width: 2636, height: 1474, duration_ms: 6950 },
+      });
+    });
+    await waitFor(() => {
+      const video = document.querySelector("video") as HTMLVideoElement;
+      expect(video.getAttribute("src")).toBe("/clips/bernabeu-counter.mp4");
+    });
   });
 });

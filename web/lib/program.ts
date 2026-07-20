@@ -46,8 +46,13 @@ function lineFor(s: ProgramStep): Tok[] {
   switch (s.op) {
     case "sample_frames":
       return call(s.id, "sample_frames", [[num(a.start_ms)], [num(a.end_ms)], [kw("fps"), op("="), num(a.fps)]]);
-    case "detect":
-      return call(s.id, "detect", [[nm(String(a.frames))], [op("["), str(`"${((a.classes as string[]) || []).join('", "')}"`), op("]")]]);
+    case "detect": {
+      const groups: Tok[][] = [[nm(String(a.frames))], [op("["), str(`"${((a.classes as string[]) || []).join('", "')}"`), op("]")]];
+      // on_pitch is the crowd-filter arg — surfacing it in the rendered program is the point
+      // (the glass box shows HOW spectators/staff get excluded, not just that they are).
+      if (a.on_pitch != null) groups.push([kw("on_pitch"), op("="), kw(a.on_pitch ? "True" : "False")]);
+      return call(s.id, "detect", groups);
+    }
     case "describe_scene": {
       const groups: Tok[][] = [[nm(String(a.frames))]];
       if (a.max_captions != null) groups.push([kw("max_captions"), op("="), num(a.max_captions)]);

@@ -39,7 +39,7 @@
       }
     },
     {
-      "id": "filtered",
+      "id": "filtered_number",
       "op": "filter",
       "args": {
         "items": "numbers",
@@ -53,7 +53,7 @@
       "id": "ordered",
       "op": "temporal_order",
       "args": {
-        "events": "filtered",
+        "events": "filtered_number",
         "by": "timestamp"
       }
     },
@@ -70,5 +70,5 @@
   "usage": null,
   "prompt_version": "ee7136e6ee7ad184",
   "model": "gpt-4o",
-  "captured_at": "2026-06-17T03:03:43Z"
+  "captured_at": "2026-07-19T22:27:03Z"
 }

@@ -28,19 +28,24 @@ CLIPS = {
         "id": "bernabeu-counter",
         "label": "Real Madrid counter — Champions League 2025",
         "width": 2636, "height": 1474, "duration_ms": 30086,
-        # Second clip's replay cache (Alt C: DERIVED from clips/bernabeu-counter/manifest.json +
-        # api/tests/fixtures/fake_detect_bernabeu.json by scripts/precompute.py, not hand-authored).
+        # Second clip's replay cache — REAL Azure detect output captured by scripts/precompute.py
+        # over best-goals-2025-30s.mov (the pre-2026-07-19 cache was derived from a fake fixture).
         "cache": str(EX / "bernabeu-counter_cache.json"),
         # Per-clip codegen hint — a DIFFERENT window/event than the hero's, so codegen-repeatability
         # across clips is genuinely exercised (proven by a mocked free-text-path prompt test).
-        "hint": "goal ~9000-11000ms; detect class 'person', crop jersey, read_text, fps 8; scorer wears #7",
+        # Window choice is load-bearing three ways: it must CONTAIN the real goal moment (14250ms,
+        # verified against the source video; the prior 9000-11000/10500 window came from the fake
+        # fixture) and the legible #7 read frame (10000ms), and SYSTEM_PROMPT's count rule samples
+        # the single midpoint frame t=(A+B)/2 — 9000-14500 puts that at 11750, a close-up whose 3
+        # real detections all align with the 3 visible players (and all sit on the fps-8 cache grid).
+        "hint": "goal ~9000-14500ms; detect class 'person', crop jersey, read_text, fps 8; scorer wears #7",
     },
 }
 
 QUERIES = [
     {
         "id": "hero-10-first-goal",
-        "text": "Does #10 score the first goal?",
+        "text": "Does #10 score the goal?",
         "clip": "single-goal",
         "program": str(EX / "hero_program.json"),
         "cache": str(EX / "hero_cache.json"),
@@ -67,7 +72,7 @@ QUERIES = [
     {
         # filter on a NON-hero jersey value (#7, not #10) -> grounds Yes naming #7 (subject derived).
         "id": "bernabeu-7-first-goal",
-        "text": "Does #7 score the first goal?",
+        "text": "Does #7 score the goal?",
         "clip": "bernabeu-counter",
         "program": str(EX / "bernabeu-counter_first-goal-7_program.json"),
         "cache": str(EX / "bernabeu-counter_cache.json"),
@@ -75,7 +80,7 @@ QUERIES = [
     {
         # out-of-bounds: filter on a value NOT in the cache (#23) -> honest ungrounded (grounded=false).
         "id": "bernabeu-23-first-goal",
-        "text": "Does #23 score the first goal?",
+        "text": "Does #23 score the goal?",
         "clip": "bernabeu-counter",
         "program": str(EX / "bernabeu-counter_first-goal-23_program.json"),
         "cache": str(EX / "bernabeu-counter_cache.json"),

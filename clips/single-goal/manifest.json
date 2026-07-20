@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-clip ingest config for the hero clip. Carries the HUMAN knowledge the precompute pipeline can't derive from Azure: where the .mov lives, which window to sample, which detection is the scorer, the pinned jersey number, and the goal moment. `source` is resolved relative to this manifest's directory (so canned.py stays unchanged — only ocr_probe.py used to hardcode the path). The pipeline samples on the SAME stride the interpreter uses (op_sample_frames: stride=round(1000/fps)); fps=8 -> stride 125 -> 4625 = 3500 + 9*125 is in the sampled list, so the scorer frame is always covered.",
+  "_comment": "Per-clip ingest config for the hero clip. Carries the HUMAN knowledge the precompute pipeline can't derive from Azure: where the .mov lives, which window to sample, which detection is the scorer, the DISCLOSED jersey-number expectation for the pin, the cut window for the clip video, and the goal moment. `source` is resolved relative to this manifest's directory (so canned.py stays unchanged — only ocr_probe.py used to hardcode the path). The pipeline samples on the SAME stride the interpreter uses (op_sample_frames: stride=round(1000/fps)); fps=8 -> stride 125 -> 4625 = 3500 + 9*125 is in the sampled list, so the scorer frame is always covered. No jersey digit is ever hand-typed into the cache: the pin below only DISCLOSES the expected read ('10'); scripts/precompute.py requires a REAL gpt-4o VLM read of the full-person crop to agree before writing read_text, hard-failing (GroundingError) on a mismatch.",
   "clip": {
     "id": "single-goal",
     "source": "../../single-goal.mov",
@@ -11,19 +11,21 @@
   "sampling": {
     "start_ms": 3500,
     "end_ms": 5000,
-    "fps": 8
+    "fps": 8,
+    "caption_frames": true
   },
   "detect_classes": ["person"],
+  "poster_ts": 4625,
+  "video": { "cut_start_ms": 0, "cut_end_ms": 5067 },
   "pins": [
     {
-      "_comment": "Renames the detection nearest this box (at frame_ts_ms) to the semantic id `p_messi` AND pins its jersey read to '10'. The match box is the scorer's person box at the legible 4.625s frame (matches hero_cache.json's p_messi det box).",
+      "_comment": "Renames the detection nearest this box (at frame_ts_ms) to the semantic id `p_messi`. The match box is the scorer's person box at the legible 4.625s frame. The read is DISCLOSED, not hardcoded: precompute.py requires a live gpt-4o VLM read of the FULL-PERSON crop (not the jersey box) to actually read '10' before it will write read_text for p_messi — a mismatch hard-fails the precompute run (GroundingError), which is the honest human-verification gate.",
       "match": { "frame_ts_ms": 4625, "nearest_box": { "x": 0.0294, "y": 0.1891, "w": 0.2212, "h": 0.6276 } },
       "det_id": "p_messi",
-      "read_text": {
-        "text": "10",
-        "confidence": null,
-        "source": "pinned",
-        "note": "Hand-verified. Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision pending TPM quota. The 10 is human-legible and pinned for the hero query (disclosed in the demo)."
+      "read": {
+        "mode": "live_vlm",
+        "expected_text": "10",
+        "note": "Azure Read misreads the stylized WC numeral (22 -> 77); gpt-4o vision reads the full-person crop and is expected (and verified live) to read 10."
       }
     }
   ],
@@ -34,17 +36,6 @@
       "type": "goal",
       "scorer_pin": "p_messi",
       "box": { "x": 0.86, "y": 0.34, "w": 0.1, "h": 0.34 }
-    }
-  ],
-  "evidence_frames": [
-    {
-      "_comment": "Stills the unchanged EvidencePanel.frameSrc renders. Filenames are reproduced EXACTLY (frameSrc hardcodes ts<=4200 -> goal-4000.jpg else scorer-4625.jpg). Generalizing that lookup is out of scope.",
-      "ts_ms": 4000,
-      "filename": "goal-4000.jpg"
-    },
-    {
-      "ts_ms": 4625,
-      "filename": "scorer-4625.jpg"
     }
   ]
 }

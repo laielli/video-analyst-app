@@ -3,9 +3,10 @@ import { render, screen } from "@testing-library/react";
 import EvidencePanel from "@/components/EvidencePanel";
 import type { StepResult } from "@/lib/types";
 
-// EvidencePanel maps a step's evidence ts to a still (frameSrc): ts 0 -> empty state; ts <= 4200
-// -> goal still; ts > 4200 -> scorer still. Overlays render with a tone class + label, and the
-// program provenance tag renders when programSource is set.
+// EvidencePanel maps a step's (clipId, evidence ts) to a still via lib/frames.ts's clip-scoped
+// frameSrc: ts 0/no clip -> empty state; else the nearest sampled still IN THAT CLIP's manifest.
+// Overlays render with a tone class + label, and the program provenance tag renders when
+// programSource is set.
 
 function step(partial: Partial<StepResult>): StepResult {
   return { id: "s", op: "detect", status: "done", source: "cached", ...partial };
@@ -13,22 +14,34 @@ function step(partial: Partial<StepResult>): StepResult {
 
 describe("EvidencePanel", () => {
   it("ts 0 (no evidence) shows the empty state, no img", () => {
-    render(<EvidencePanel step={step({ evidence: { frame_ts_ms: 0, overlays: [] } })} />);
+    render(<EvidencePanel step={step({ evidence: { frame_ts_ms: 0, overlays: [] } })} clipId="single-goal" />);
     expect(screen.getByText(/No evidence frame for this step/i)).toBeInTheDocument();
     expect(document.querySelector("img")).toBeNull();
   });
 
-  it("ts <= 4200 shows the goal still", () => {
+  it("no clipId (e.g. idle, no catalog clip selected yet) shows the empty state, no img", () => {
     render(<EvidencePanel step={step({ evidence: { frame_ts_ms: 4000, overlays: [] } })} />);
-    const img = document.querySelector("img") as HTMLImageElement;
-    expect(img).toBeTruthy();
-    expect(img.getAttribute("src")).toBe("/frames/goal-4000.jpg");
+    expect(screen.getByText(/No evidence frame for this step/i)).toBeInTheDocument();
+    expect(document.querySelector("img")).toBeNull();
   });
 
-  it("ts > 4200 shows the scorer still", () => {
-    render(<EvidencePanel step={step({ evidence: { frame_ts_ms: 4625, overlays: [] } })} />);
+  it("unknown clipId never falls back to another clip's stills — empty state", () => {
+    render(<EvidencePanel step={step({ evidence: { frame_ts_ms: 4000, overlays: [] } })} clipId="no-such-clip" />);
+    expect(screen.getByText(/No evidence frame for this step/i)).toBeInTheDocument();
+    expect(document.querySelector("img")).toBeNull();
+  });
+
+  it("single-goal clip resolves the nearest sampled still for its ts", () => {
+    render(<EvidencePanel step={step({ evidence: { frame_ts_ms: 4000, overlays: [] } })} clipId="single-goal" />);
     const img = document.querySelector("img") as HTMLImageElement;
-    expect(img.getAttribute("src")).toBe("/frames/scorer-4625.jpg");
+    expect(img).toBeTruthy();
+    expect(img.getAttribute("src")).toBe("/frames/single-goal/f4000.jpg");
+  });
+
+  it("bernabeu-counter clip resolves ITS OWN still, never the hero clip's", () => {
+    render(<EvidencePanel step={step({ evidence: { frame_ts_ms: 10000, overlays: [] } })} clipId="bernabeu-counter" />);
+    const img = document.querySelector("img") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe("/frames/bernabeu-counter/f10000.jpg");
   });
 
   it("renders overlays with tone class + label + box coords", () => {

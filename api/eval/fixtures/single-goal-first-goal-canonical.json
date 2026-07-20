@@ -2,7 +2,7 @@
   "fixture_format": 1,
   "case_id": "single-goal-first-goal-canonical",
   "clip_id": "single-goal",
-  "question": "Does #10 score the first goal?",
+  "question": "Does #10 score the goal?",
   "raw_program": [
     {
       "id": "frames",
@@ -62,7 +62,7 @@
       "op": "answer",
       "args": {
         "from": "ordered",
-        "question": "Does #10 score the first goal?"
+        "question": "Does #10 score the goal?"
       }
     }
   ],
@@ -70,5 +70,5 @@
   "usage": null,
   "prompt_version": "ee7136e6ee7ad184",
   "model": "gpt-4o",
-  "captured_at": "2026-06-17T03:03:24Z"
+  "captured_at": "2026-07-19T22:26:54Z"
 }

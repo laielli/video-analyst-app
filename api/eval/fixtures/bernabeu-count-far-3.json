@@ -8,8 +8,8 @@
       "id": "frames",
       "op": "sample_frames",
       "args": {
-        "start_ms": 10000,
-        "end_ms": 10001,
+        "start_ms": 11750,
+        "end_ms": 11751,
         "fps": 1
       }
     },
@@ -41,7 +41,7 @@
   ],
   "error": null,
   "usage": null,
-  "prompt_version": "4ff106e7528d0de5",
+  "prompt_version": "44f0f483aae6e447",
   "model": "gpt-4o",
-  "captured_at": "2026-06-17T03:04:15Z"
+  "captured_at": "2026-07-19T22:34:45Z"
 }

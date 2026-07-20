@@ -1,5 +1,5 @@
 {
-  "_comment": "Pinned known-good program for the hero query 'Does #10 score the first goal?'. Validates against ../schema/dsl.schema.json. Serves two roles: (1) the golden target the Azure OpenAI codegen should reproduce, (2) the D-DR6 silent fallback if live codegen emits an invalid/non-whitelisted program. The named-binding chain frames->people->jerseys->numbers->tens->ordered->result is the load-bearing detect->crop->read_text association. Window 3500-5000ms covers the locked clip's goal moment (~4.0s) and the legible #10 scorer frame (~4.6s).",
+  "_comment": "Pinned known-good program for the hero query 'Does #10 score the goal?'. Validates against ../schema/dsl.schema.json. Serves two roles: (1) the golden target the Azure OpenAI codegen should reproduce, (2) the D-DR6 silent fallback if live codegen emits an invalid/non-whitelisted program. The named-binding chain frames->people->jerseys->numbers->tens->ordered->result is the load-bearing detect->crop->read_text association. Window 3500-5000ms covers the locked clip's goal moment (~4.0s) and the legible #10 scorer frame (~4.6s). detect.on_pitch:true drops the crowd/staff boxes — over the committed cache (2026-07-19 real re-capture) the full window carries 33 raw person detections of which 23 are kept: every dropped box bottom is <= .533 (stands/cameraman region) and every kept bottom >= .766 (on the pitch), so the .55 threshold sits cleanly in the real gap; at the legible 4625ms frame 2 of 3 detections survive (p_messi .804, keeper .837; a stands box at .523 drops) — customer complaint fix, count/overlays now reflect kept dets only.",
   "program": [
     {
       "id": "frames",
@@ -9,7 +9,7 @@
     {
       "id": "people",
       "op": "detect",
-      "args": { "frames": "frames", "classes": ["person"] }
+      "args": { "frames": "frames", "classes": ["person"], "on_pitch": true }
     },
     {
       "id": "jerseys",
@@ -34,7 +34,7 @@
     {
       "id": "result",
       "op": "answer",
-      "args": { "from": "ordered", "question": "Does #10 score the first goal?" }
+      "args": { "from": "ordered", "question": "Does #10 score the goal?" }
     }
   ]
 }

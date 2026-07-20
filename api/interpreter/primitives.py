@@ -12,7 +12,8 @@ Binding kinds and item shapes:
   captions    items=[{text,confidence,box,frame_ts_ms}]  (scene caption per sampled frame)
   crops       items=[{crop_id,det_id,box,person_box,person_conf,frame_ts_ms}]
   texts       items=[{det_id,text,confidence,source,note?,crop_box,person_box,frame_ts_ms}]
-  number      value=int
+  number      value=int (op_count also carries frame_ts_ms/overlays, derived from its source
+              items, so a downstream answer step inherits real evidence instead of ts 0)
   ordered     value={events,first,subject_dets,subject_label,subject_is_first_scorer}
   answer      value={answer,verdict,question,yes,grounded,reason?}
 """
@@ -22,6 +23,7 @@ from limits import (
     MAX_CAPTION_LEN,
     MAX_SAMPLED_FRAMES,
     MAX_SCENE_CAPTIONS,
+    ON_PITCH_MIN_BOTTOM_Y,
     ProgramLimitExceeded,
     sampled_frame_count,
 )
@@ -60,11 +62,20 @@ def op_detect(step, env, cache):
     a = step["args"]
     frames = env[a["frames"]]["items"]
     classes = [c.lower() for c in a["classes"]]
+    on_pitch = a.get("on_pitch", False)
     dets = []
     for f in frames:
         for d in cache.detections_at(f["frame_ts_ms"]):
             if d["cls"].lower() in classes:
                 dets.append({**d, "frame_ts_ms": f["frame_ts_ms"]})
+    raw_count = len(dets)
+    if on_pitch:
+        # Broadcast-framing heuristic (applied AFTER the class filter, BEFORE focus/overlay
+        # derivation, so overlays/count only ever reflect kept detections): people standing on
+        # the pitch have their box BOTTOM edge (y+h) in the lower portion of the frame; crowd/
+        # camera operators/staff in the stands sit above the pitch horizon. See limits.py for the
+        # threshold derivation against the real hero frame.
+        dets = [d for d in dets if (d["box"]["y"] + d["box"]["h"]) >= ON_PITCH_MIN_BOTTOM_Y]
     focus_ts = dets[-1]["frame_ts_ms"] if dets else (frames[-1]["frame_ts_ms"] if frames else 0)
     overlays = [
         {"box": d["box"], "label": f"{d['cls']} {d['confidence']:.2f}",
@@ -81,7 +92,14 @@ def op_detect(step, env, cache):
         "evidence": _evi(focus_ts, overlays),
     }
     if not dets:
-        result["note"] = "no detections in the sampled frames"
+        if on_pitch and raw_count:
+            # honest diagnostic-empty (D-DR5): detections existed but were all off-pitch, not "none found".
+            result["note"] = (
+                f"no on-pitch detections in the sampled frames ({raw_count} matched the class filter "
+                "but all had box bottoms above the pitch horizon)"
+            )
+        else:
+            result["note"] = "no detections in the sampled frames"
     return {"kind": "detections", "items": dets}, result
 
 
@@ -133,8 +151,18 @@ def op_crop(step, env, cache):
     for i, d in enumerate(dets):
         b = d["box"]
         if region == "jersey":
-            box = {"x": round(b["x"] + 0.22 * b["w"], 4), "y": round(b["y"] + 0.10 * b["h"], 4),
-                   "w": round(0.56 * b["w"], 4), "h": round(0.22 * b["h"], 4)}
+            # 2026-07-19: the crop handed to the number reader is the FULL person box + 5% margin
+            # (clamped), not a fixed torso sub-rectangle — a torso heuristic breaks on divers /
+            # horizontal players and was a live-demo complaint. This mirrors precompute's
+            # full-person VLM crop exactly, so the box drawn in the EVIDENCE panel is the region
+            # the reader model actually sees.
+            m = 0.05
+            x0 = max(0.0, b["x"] - m * b["w"])
+            y0 = max(0.0, b["y"] - m * b["h"])
+            x1 = min(1.0, b["x"] + b["w"] * (1 + m))
+            y1 = min(1.0, b["y"] + b["h"] * (1 + m))
+            box = {"x": round(x0, 4), "y": round(y0, 4),
+                   "w": round(x1 - x0, 4), "h": round(y1 - y0, 4)}
         else:
             box = dict(b)
         crops.append({"crop_id": f"c{i}", "det_id": d["det_id"], "box": box,
@@ -208,16 +236,71 @@ def op_filter(step, env, cache):
     return {"kind": src["kind"], "items": kept}, result
 
 
+def _collection_evidence(items, kind=None):
+    """Derive a focus frame_ts_ms + sensible overlays from a frame-bearing items list (the shape
+    detections/crops/texts/captions/frames all share), using the SAME focus convention every other
+    op uses (the LAST item's frame). Returns (0, []) for an empty/frame-less list — the legitimate
+    ts-0 case (no frame-derived input to show), never a silent black frame when items DO carry
+    frame_ts_ms (the customer-visible bug this closes: op_count/op_answer previously hardcoded
+    _evi(0, []) regardless of what their source items carried). Overlay styling mirrors the
+    convention the PRODUCING op already uses for that kind (op_detect/op_read_text/op_crop/
+    op_describe_scene) so the answer step's evidence looks like a continuation of the chain, not
+    a different visual language."""
+    if not items:
+        return 0, []
+    focus_ts = items[-1].get("frame_ts_ms", 0)
+    overlays = []
+    for it in items:
+        if it.get("frame_ts_ms") != focus_ts:
+            continue
+        if kind == "captions":
+            # mirrors op_describe_scene: whole-frame outline labeled with the caption text.
+            box = it.get("box", {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0})
+            overlays.append({"box": box, "label": it.get("text") or "(no caption)",
+                              "confidence": it.get("confidence"), "tone": "teal", "kind": "crop"})
+            continue
+        if kind == "texts":
+            # mirrors op_filter: the jersey/person box labeled '#<value>'.
+            box = it.get("crop_box") or it.get("person_box") or it.get("box")
+            if not box:
+                continue
+            val = it.get("text")
+            overlays.append({"box": box, "label": f"#{val}" if val not in (None, "") else "read_text",
+                              "confidence": it.get("confidence"), "tone": "teal", "kind": "box"})
+            continue
+        if kind == "crops":
+            box = it.get("box") or it.get("person_box")
+            if not box:
+                continue
+            overlays.append({"box": box, "label": "crop", "tone": "teal", "kind": "crop"})
+            continue
+        # detections (and any other collection carrying a plain box): mirrors op_detect.
+        box = it.get("box")
+        if not box:
+            continue
+        cls, conf = it.get("cls"), it.get("confidence")
+        label = f"{cls} {conf:.2f}" if cls and conf is not None else (cls or "match")
+        overlays.append({"box": box, "label": label, "confidence": conf, "tone": "azure", "kind": "box"})
+    return focus_ts, overlays
+
+
 def op_count(step, env, cache):
     a = step["args"]
     src = env[a["items"]]
-    n = len(src["items"])
+    items = src["items"]
+    n = len(items)
+    # Count is a pure aggregate (no NEW frame of its own), but its INPUT is frame-derived — reuse
+    # that focus instead of always showing ts 0 (the black-evidence-frame bug on count-shaped runs).
+    focus_ts, overlays = _collection_evidence(items, kind=src["kind"])
     result = {
         "id": step["id"], "op": "count", "producer": "count", "status": "done", "source": "live",
         "inputs": [a["items"]], "input_label": src["kind"], "output_label": str(n),
-        "confidence": None, "evidence": _evi(0, []),
+        "confidence": None, "evidence": _evi(focus_ts, overlays),
     }
-    return {"kind": "number", "value": n}, result
+    # Carry the derived focus/overlays on the `number` binding (extra keys beyond kind/value; see
+    # module docstring) so a downstream `answer` step reading a `number` binding — which has no
+    # items of its own to derive evidence from — can inherit them instead of falling back to ts 0.
+    return {"kind": "number", "value": n, "frame_ts_ms": focus_ts, "overlays": overlays}, result
 
 
 def _subject_label(items) -> str | None:
@@ -278,9 +361,9 @@ def _answer_temporal(src, q):
         return None, None, None, "no-grounded-answer"
     yes = bool(v.get("subject_is_first_scorer"))
     if yes:
-        verdict = f"Yes — {subj} scored the first goal"
+        verdict = f"Yes — {subj} scored the goal"
     else:
-        verdict = f"No — the first goal was not scored by {subj}"
+        verdict = f"No — the goal was not scored by {subj}"
     return ("Yes" if yes else "No"), verdict, yes, None
 
 
@@ -344,8 +427,12 @@ def op_answer(step, env, cache):
 
     grounded = reason is None
     overlays, focus_ts = [], 0
-    # Overlay the scorer box only on a grounded temporal answer; label is derived, not '#10'.
+    # The answer step is (almost always) the LAST step of a run, so a black/ts-0 evidence frame
+    # here is the customer-visible "black evidence frame" bug. Every kind below has SOME
+    # frame-derived lineage in its source binding when grounded; only a truly frame-less grounded
+    # answer (there is none today, but future kinds might add one) legitimately keeps ts 0.
     if grounded and kind == "ordered":
+        # Overlay the scorer box on a grounded temporal answer; label is derived, not '#10'.
         first = src["value"].get("first") or {}
         scorer = first.get("scorer_det")
         label = src["value"].get("subject_label") or "subject"
@@ -355,6 +442,18 @@ def op_answer(step, env, cache):
                     if d["det_id"] == scorer:
                         overlays.append({"box": d["box"], "label": f"{label} scored", "tone": "green", "kind": "box"})
                         focus_ts = ts
+        if not overlays and first.get("ts_ms") is not None:
+            # The scorer's det_id has no cached detection to draw a box from (or cache is bare),
+            # but the goal event itself still carries a real frame timestamp — show THAT frame
+            # rather than falling back to ts 0.
+            focus_ts = first["ts_ms"]
+    elif grounded and kind == "number":
+        # `number` bindings (op_count) carry their derived focus/overlays as extra keys precisely
+        # so this doesn't have to fall back to ts 0 just because `number` itself has no items.
+        focus_ts = src.get("frame_ts_ms", 0)
+        overlays = src.get("overlays", [])
+    elif grounded and kind in ("texts", "captions", "detections", "crops", "frames"):
+        focus_ts, overlays = _collection_evidence(src.get("items", []), kind=kind)
 
     if grounded:
         # Use the synthesized answer string for kinds whose answer IS free text/number (number,

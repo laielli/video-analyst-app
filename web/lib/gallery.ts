@@ -11,15 +11,7 @@ import type {
   GalleryThumb,
 } from "./types";
 import curated from "./curated.json";
-
-// The committed stills are BOTH from the single-goal clip (verified: only goal-4000.jpg and
-// scorer-4625.jpg exist under web/public/frames). bernabeu-counter has no committed still, so its
-// cards fall back to a token-driven CSS placeholder. Pinned still assignment keeps thumbnails
-// deterministic (test #5).
-const STILL_BY_QUERY: Record<string, string> = {
-  "hero-10-first-goal": "/frames/goal-4000.jpg",
-  "single-goal-scene": "/frames/scorer-4625.jpg",
-};
+import { posterSrc } from "./frames";
 
 // Deterministic section order over the shapes that ACTUALLY exist in the canned set. The canned
 // set has no `presence` query, so SHAPE_ORDER must not emit a hollow "Presence" section — empty
@@ -30,7 +22,7 @@ export const SHAPE_ORDER = ["count", "first-goal", "scorer-number", "scene"] as 
 // mints title-cased labels). Unknown shapes pass through unchanged.
 const SHAPE_DISPLAY: Record<string, string> = {
   count: "Count",
-  "first-goal": "First-goal",
+  "first-goal": "Goal", // display-only rename (2026-07-19): the machine slug stays "first-goal" (parity-tested against the eval bank), but the customer-facing label drops "first" with the question rewording
   "scorer-number": "Scorer-number",
   scene: "Scene",
 };
@@ -50,9 +42,19 @@ export function clipLabel(entry: CuratedEntry): string {
   return entry.clipLabel || entry.clip;
 }
 
-/** Thumbnail: a committed still when one exists for this query, else a token CSS placeholder. */
+/** Human label for a bare clip id (no CuratedEntry in hand) — the run doc's `Clip` type carries
+ * no label, so ClipPlayer looks it up from the first curated entry over that clip. Falls back to
+ * the raw id when the clip has no curated entry (defensive; every catalog clip has one today). */
+export function clipLabelForId(clipId: string): string {
+  const match = curated.find((q) => q.clip === clipId);
+  return match ? clipLabel(match) : clipId;
+}
+
+/** Thumbnail: the entry's clip's poster still (per-clip, from frames-manifest.json — every
+ * catalog clip has one), else a token CSS placeholder for a clip the manifest doesn't know about
+ * (defensive fallback; not expected to fire for the current catalog). */
 export function thumbFor(entry: CuratedEntry): GalleryThumb {
-  const src = STILL_BY_QUERY[entry.id];
+  const src = posterSrc(entry.clip);
   return src ? { kind: "img", src } : { kind: "placeholder" };
 }
 
