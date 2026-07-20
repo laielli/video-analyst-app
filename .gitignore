@@ -55,6 +55,10 @@ local.settings.json
 *.mov
 *.mp4
 *.mkv
+# EXCEPTION: the small trimmed clips scripts/precompute.py emits for the web ClipPlayer
+# (a few MB each) ARE meant to be tracked — they're served as static assets, unlike the
+# large raw source recordings this rule exists to keep out of git.
+!web/public/clips/*.mp4
 # Local frame-extraction scratch
 /frames/
 *.frames/
