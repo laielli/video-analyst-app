@@ -1,5 +1,5 @@
 import type { ProgramStep, StepResult } from "@/lib/types";
-import { programToLines, COMMENTS } from "@/lib/program";
+import { programToLines, commentFor } from "@/lib/program";
 
 const Check = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
@@ -27,7 +27,7 @@ export default function ProgramPanel({
                 <span className="mk" style={{ color: empty ? "var(--muted)" : "var(--green)" }}>
                   {i < current ? (empty ? "○" : <Check />) : i === current ? "▸" : ""}
                 </span>
-                {COMMENTS[s.op] ?? `# ${s.op}`}
+                {commentFor(s)}
               </div>
               <div className="code-line">
                 {lines[i].map((tok, j) => (

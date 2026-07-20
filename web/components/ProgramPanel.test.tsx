@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import ProgramPanel from "@/components/ProgramPanel";
-import { COMMENTS } from "@/lib/program";
+import { commentFor } from "@/lib/program";
 import type { ProgramStep, StepResult } from "@/lib/types";
 
 // ProgramPanel classes each step block active/done/pending by `current`, shows the empty-step ○
-// marker when a step's status is "empty", and renders the per-op comment from COMMENTS.
+// marker when a step's status is "empty", and renders the per-step comment from commentFor.
 
 const program: ProgramStep[] = [
   { id: "frames", op: "sample_frames", args: { start_ms: 0, end_ms: 100, fps: 8 } },
@@ -35,14 +35,14 @@ describe("ProgramPanel", () => {
     expect(firstMarker.textContent).toBe("○");
   });
 
-  it("derives each comment from COMMENTS, with a `# <op>` fallback for an unknown op", () => {
+  it("derives each comment from commentFor, with a `# <op>` fallback for an unknown op", () => {
     const withUnknown: ProgramStep[] = [...program, { id: "mystery", op: "no_such_op", args: {} }];
     render(<ProgramPanel program={withUnknown} steps={[]} current={-1} />);
-    // each known op renders its COMMENTS entry — tied to the map, not three baked literals.
+    // each known op renders commentFor's derived text — tied to the real function, not baked literals.
     for (const s of program) {
-      expect(screen.getByText(COMMENTS[s.op])).toBeInTheDocument();
+      expect(screen.getByText(commentFor(s))).toBeInTheDocument();
     }
-    // an op absent from COMMENTS falls back to `# <op>`; this only passes if the lookup is real.
+    // an op absent from commentFor's switch falls back to `# <op>`.
     expect(screen.getByText("# no_such_op")).toBeInTheDocument();
   });
 });

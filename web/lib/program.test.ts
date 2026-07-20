@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { programToLines, COMMENTS } from "@/lib/program";
+import { programToLines, commentFor } from "@/lib/program";
 import type { ProgramStep } from "@/lib/types";
 
 // program.ts is pure (it builds colored tokens from the DSL, no parsing). We assert one case per
 // branch in lineFor: sample_frames, detect, describe_scene, filter, answer, and the default
-// fallback — and that COMMENTS covers all 9 ops.
+// fallback — and that commentFor derives an honest, args-driven comment for every op.
 
 function tokens(line: { c: string; t: string }[]) {
   return line.map((tok) => tok.t).join("");
@@ -97,12 +97,52 @@ describe("programToLines", () => {
   });
 });
 
-describe("COMMENTS", () => {
-  it("covers all 9 ops", () => {
-    const ops = ["sample_frames", "detect", "describe_scene", "crop", "read_text", "filter", "count", "temporal_order", "answer"];
-    for (const op of ops) {
-      expect(COMMENTS[op]).toBeTruthy();
-    }
-    expect(Object.keys(COMMENTS).sort()).toEqual([...ops].sort());
+describe("commentFor", () => {
+  // 2026-07-20 fix: comments used to be a static per-op map with baked-in narrative ("around the
+  // goal moment", "keep only player #10") — wrong the moment the same op appeared in a different
+  // program (a free-text "at the start of the video?" query rendered a "goal moment" comment on
+  // production). commentFor derives the comment from THIS step's own args, so it can never claim
+  // an intent the step doesn't actually have.
+
+  it("sample_frames: singular for a one-frame window, plural with the real frame count otherwise", () => {
+    // stride = round(1000/fps); a single-ms window at fps 1 samples exactly one frame.
+    const single: ProgramStep = { id: "f", op: "sample_frames", args: { start_ms: 10000, end_ms: 10001, fps: 1 } };
+    expect(commentFor(single)).toBe("# sample a single frame");
+
+    // 3500-5000ms @ fps 8 -> stride 125 -> 13 frames (matches the real hero-clip capture).
+    const many: ProgramStep = { id: "f", op: "sample_frames", args: { start_ms: 3500, end_ms: 5000, fps: 8 } };
+    expect(commentFor(many)).toBe("# sample 13 frames across the window");
+  });
+
+  it("detect: names the real classes, and only mentions on_pitch when the arg is set", () => {
+    const bare: ProgramStep = { id: "d", op: "detect", args: { frames: "f", classes: ["person"] } };
+    expect(commentFor(bare)).toBe("# detect person in each frame");
+
+    const onPitch: ProgramStep = { id: "d", op: "detect", args: { frames: "f", classes: ["person"], on_pitch: true } };
+    expect(commentFor(onPitch)).toBe("# detect person in each frame, keeping only on-pitch boxes");
+  });
+
+  it("describe_scene, crop, read_text, count, answer: fixed mechanical descriptions", () => {
+    expect(commentFor({ id: "s", op: "describe_scene", args: { frames: "f" } })).toBe("# caption each sampled frame");
+    expect(commentFor({ id: "c", op: "crop", args: { detections: "d", region: "jersey" } }))
+      .toBe('# crop the "jersey" region from each detection');
+    expect(commentFor({ id: "t", op: "read_text", args: { crops: "c" } })).toBe("# read text out of each crop");
+    expect(commentFor({ id: "n", op: "count", args: { items: "d" } })).toBe("# count the items");
+    expect(commentFor({ id: "r", op: "answer", args: { from: "n", question: "anything at all?" } }))
+      .toBe("# answer the question from the evidence");
+  });
+
+  it("filter and temporal_order: echo the real field/equals/by values, not a baked #10 or 'FIRST goal'", () => {
+    const filterSeven: ProgramStep = {
+      id: "sevens", op: "filter", args: { items: "numbers", where: { field: "text", equals: "7" } },
+    };
+    expect(commentFor(filterSeven)).toBe('# keep items where text == "7"');
+
+    const order: ProgramStep = { id: "o", op: "temporal_order", args: { events: "goals", by: "timestamp" } };
+    expect(commentFor(order)).toBe("# order events by timestamp");
+  });
+
+  it("falls back to `# <op>` for an unknown op", () => {
+    expect(commentFor({ id: "x", op: "mystery_op", args: {} })).toBe("# mystery_op");
   });
 });
